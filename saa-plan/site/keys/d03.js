@@ -20,8 +20,8 @@ Object.assign(window.KEYS, {
     k: [
       "RDS runs Db2, MariaDB, SQL Server, MySQL, Oracle and PostgreSQL while AWS handles backups, patching and failure recovery. Aurora is MySQL- or PostgreSQL-compatible, so a SQL Server or Oracle database that must keep its engine goes to RDS.",
       "An Aurora cluster volume keeps copies of the data across three AZs and grows automatically. Up to 15 Aurora Replicas read the same volume and act as failover targets. Send writes to the cluster endpoint and reads to the reader endpoint.",
-      "Automated RDS backups are kept for up to 35 days and allow a restore to any point in that window, always as a new DB instance. Manual snapshots stay until you delete them. Encryption at rest is chosen at creation; later you restore an encrypted snapshot copy.",
-      "A DynamoDB item is limited to 400 KB, so large files go to S3 and the item stores only the object key. Choose on-demand capacity for unpredictable traffic and provisioned capacity for steady load you can forecast.",
+      "Automated RDS backups are kept up to 35 days and allow a restore to any point in that window, always as a new DB instance. Manual snapshots don't expire. Encryption is set at creation; later, restore an encrypted snapshot copy or use a blue/green deployment.",
+      "A DynamoDB item is limited to 400 KB, so large files go to S3 and the item stores only the object key. Choose on-demand capacity for unpredictable traffic and provisioned capacity for steady load. Unpredictable relational load fits Aurora serverless.",
       "Match the workload to a purpose-built service: Redshift is the data warehouse for SQL analytics over large history, ElastiCache is the in-memory cache and session store, Neptune handles graph relationships, DocumentDB runs MongoDB-compatible workloads."
     ],
     trap: "The deciding words are in the stem. Reporting that slows the primary means a read replica, analytics over years of data from several systems means Redshift, and microseconds on DynamoDB means DAX, which does nothing for an RDS database.",
@@ -35,13 +35,14 @@ Object.assign(window.KEYS, {
     k: [
       "Multi-AZ keeps a synchronous standby in another AZ. On a failure RDS repoints the DNS record of the instance to the standby, typically within one to two minutes, so the endpoint the application uses stays the same. The standby serves no reads.",
       "A read replica is a separate read-only DB instance that is updated asynchronously. It helps only if the application connects to it for reads, and it can be promoted to a standalone database. The source must have automated backups turned on.",
-      "A point-in-time restore never rewinds the running database. It creates a new DB instance from a backup plus transaction logs, and the application then has to be pointed at that new instance."
+      "A point-in-time restore never rewinds the running database. It creates a new DB instance from a backup plus transaction logs, and the application then has to be pointed at that new instance.",
+      "A read replica can also be created in another AWS Region. There it scales reads closer to those users and can be promoted to a standalone DB instance as a disaster recovery solution."
     ],
-    trap: "An accidental <code>DELETE</code> is replicated to the Multi-AZ standby and to every read replica, so failing over or promoting a replica brings nothing back. Lost rows are recovered with a point-in-time restore.",
+    trap: "RDS copies every change on the primary to the Multi-AZ standby and to the read replicas, an accidental <code>DELETE</code> included, so failing over or promoting a replica does not bring the rows back. Lost rows are recovered with a point-in-time restore.",
     docs: [
       ["Multi-AZ DB instance deployments for Amazon RDS", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZSingleStandby.html"],
       ["Working with DB instance read replicas", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReadRepl.html"],
-      ["Restoring a DB instance to a specified time", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIT.html"]
+      ["Restoring a DB instance to a specified time for Amazon RDS", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIT.html"]
     ]
   },
   d3p2: {
@@ -54,7 +55,7 @@ Object.assign(window.KEYS, {
     trap: "A local secondary index cannot answer a lookup by a different partition key, and a Scan with a filter still reads the whole table. A new access pattern on a non-key attribute such as email needs a global secondary index.",
     docs: [
       ["Core components of Amazon DynamoDB", "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html"],
-      ["Improving data access with secondary indexes", "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/SecondaryIndexes.html"],
+      ["Improving data access with secondary indexes in DynamoDB", "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/SecondaryIndexes.html"],
       ["Using time to live (TTL) in DynamoDB", "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html"]
     ]
   },
@@ -67,7 +68,7 @@ Object.assign(window.KEYS, {
     trap: "To cut the cost of rarely read files on EFS, the answer is lifecycle management. Moving them to S3 Glacier or to an EBS volume takes them out of the shared file system, and a One Zone file system gives up multi-AZ resilience for all data.",
     docs: [
       ["How Amazon EFS works", "https://docs.aws.amazon.com/efs/latest/ug/how-it-works.html"],
-      ["Using VPC security groups with Amazon EFS", "https://docs.aws.amazon.com/efs/latest/ug/network-access.html"],
+      ["Using VPC security groups (Amazon EFS)", "https://docs.aws.amazon.com/efs/latest/ug/network-access.html"],
       ["Managing storage lifecycle (Amazon EFS)", "https://docs.aws.amazon.com/efs/latest/ug/lifecycle-management-efs.html"]
     ]
   },
@@ -80,14 +81,15 @@ Object.assign(window.KEYS, {
     trap: "Suspending versioning leaves every existing version in place and billed, and it stops protecting future changes. Old versions are cleaned up by a lifecycle rule that expires noncurrent versions.",
     docs: [
       ["Retaining multiple versions of objects with S3 Versioning", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Versioning.html"],
-      ["Blocking public access to your Amazon S3 storage", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html"]
+      ["Blocking public access to your Amazon S3 storage", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html"],
+      ["Requirements and considerations for replication", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-requirements.html"]
     ]
   },
   d3b2: {
     k: [
-      "A lifecycle rule has two kinds of action: transitions to another storage class and expirations that delete. Transitions only move down the waterfall (Standard, then the IA classes, then the Glacier classes), never back up.",
+      "A lifecycle rule has two kinds of action: transitions to another storage class and expirations that delete. Transitions follow a waterfall (Standard, then the IA classes, then the Glacier classes); no supported transition goes back to an earlier class.",
       "Minimum storage durations are billed even if data leaves sooner: 30 days in Standard-IA and One Zone-IA, 90 days in Glacier Instant and Flexible Retrieval, 180 days in Deep Archive. By default objects smaller than 128 KB are not transitioned at all.",
-      "In a versioned bucket like yours, an expiration action only touches the current version and replaces it with a delete marker. Old versions stay, and are billed, until a noncurrent version action transitions or permanently deletes them.",
+      "In a versioned bucket like yours, an expiration action only touches the current version: it adds a delete marker and the object becomes noncurrent. Old versions stay, and are billed, until a noncurrent version expiration action permanently deletes them.",
       "Once an object is in Glacier Flexible Retrieval it must be restored before it can be read, which takes minutes to hours. Objects in Standard-IA and Glacier Instant Retrieval are still read in milliseconds."
     ],
     docs: [
@@ -98,29 +100,29 @@ Object.assign(window.KEYS, {
   },
   d3b3: {
     k: [
-      "On-demand mode bills per read and write request and needs no capacity planning, which suits new, spiky or unpredictable traffic. Provisioned mode fits steady load that you can forecast.",
+      "On-demand mode bills per read and write request and needs no capacity planning, which suits new or unpredictable workloads and traffic that ramps up and down. Provisioned mode fits steady load that you can forecast.",
       "A Query needs one partition key value, plus an optional condition on the sort key, and reads only the matching items. A Scan reads every item in the table, so it gets slower and more expensive as the table grows.",
       "A filter expression is applied after the items have been read. A Scan with a filter consumes the same read capacity as a Scan without one; only the result that comes back is smaller."
     ],
     docs: [
       ["Querying tables in DynamoDB", "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.html"],
       ["Scanning tables in DynamoDB", "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Scan.html"],
-      ["Best practices for querying and scanning data", "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-query-scan.html"]
+      ["Best practices for querying and scanning data in DynamoDB", "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-query-scan.html"]
     ]
   },
   d3c1: {
-    trap: "EBS Multi-Attach is not shared storage across AZs: it needs io1 or io2, a single AZ and a cluster-aware file system. Linux instances in several AZs sharing files means EFS; SMB shares with Active Directory mean FSx for Windows File Server.",
+    trap: "EBS Multi-Attach is not shared storage across AZs: it needs io1 or io2, a single AZ and a clustered file system. Linux instances in several AZs sharing files means EFS; SMB shares with Active Directory mean FSx for Windows File Server.",
     docs: [
       ["Amazon EBS volume types", "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volume-types.html"],
       ["Attach an EBS volume to multiple EC2 instances using Multi-Attach", "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes-multi.html"],
-      ["Choosing an Amazon FSx file system", "https://aws.amazon.com/fsx/when-to-choose-fsx/"]
+      ["Help me choose an Amazon FSx file system", "https://aws.amazon.com/fsx/when-to-choose-fsx/"]
     ]
   },
   d3c2: {
     trap: "The standby of a Multi-AZ DB instance never serves reads, so it cannot take reporting load off the primary. Multi-AZ also stays inside one Region: a disaster recovery copy in another Region is a cross-Region read replica that you promote.",
     docs: [
       ["Multi-AZ DB instance deployments for Amazon RDS", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZSingleStandby.html"],
-      ["Failing over a Multi-AZ DB instance", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.Failover.html"],
+      ["Failing over a Multi-AZ DB instance for Amazon RDS", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.Failover.html"],
       ["Working with DB instance read replicas", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReadRepl.html"]
     ]
   },
@@ -132,11 +134,14 @@ Object.assign(window.KEYS, {
     ]
   },
   d3c4: {
+    k: [
+      "Choose Valkey or Redis OSS over Memcached when you need sorted sets (leaderboards), pub/sub or replication with automatic failover. Memcached is the simplest model: simple data types on multi-threaded nodes, and no replication in a node-based cluster."
+    ],
     trap: "DAX works only in front of DynamoDB, serves eventually consistent reads and is not meant for write-heavy workloads. It does nothing for an RDS database: repeated SQL results are cached in ElastiCache, which needs caching code in the application.",
     docs: [
       ["In-memory acceleration with DynamoDB Accelerator (DAX)", "https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.html"],
-      ["Caching strategies for Amazon ElastiCache", "https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Strategies.html"],
-      ["Comparing Valkey, Memcached and Redis OSS clusters", "https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/SelectEngine.html"]
+      ["Caching strategies for Memcached (Amazon ElastiCache)", "https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Strategies.html"],
+      ["Comparing node-based Valkey, Memcached, and Redis OSS clusters", "https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/SelectEngine.html"]
     ]
   }
 });
