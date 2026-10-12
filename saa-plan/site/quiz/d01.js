@@ -60,7 +60,7 @@ window.QUIZ.push(
  q:"A company hosts its marketing site using S3 static website hosting. Security policy now requires that all visitors connect over HTTPS using the company's custom domain. Which solution meets this requirement with the least operational overhead?",
  o:["Enable the HTTPS option in the bucket's static website hosting settings","Put a CloudFront distribution in front of the site with an ACM certificate","Upload the TLS certificate and private key as objects in the bucket","Move the site to an EC2 web server and install a TLS certificate on it"],
  a:[1],
- x:["S3 website endpoints support only HTTP; there is no HTTPS setting for them.","Correct. CloudFront serves the custom domain over HTTPS using a free public certificate from AWS Certificate Manager, and adds edge caching as a bonus.","S3 does not read certificates stored as objects; this would expose the private key and still not enable HTTPS.","This works, but it replaces a serverless site with a server you must patch, scale and maintain."],
+ x:["S3 website endpoints support only HTTP; there is no HTTPS setting for them.","Correct. CloudFront serves the custom domain over HTTPS using a free public certificate from AWS Certificate Manager, and adds edge caching as a bonus. (AWS Amplify Hosting, which is built on CloudFront, is another managed way to do this.)","S3 does not read certificates stored as objects; this would expose the private key and still not enable HTTPS.","This works, but it replaces a serverless site with a server you must patch, scale and maintain."],
  ref:["d1w4","d1p1"], doc:"cloudfront"},
 
 {id:"q01-010", day:1, dom:2, tags:["High availability design","Regions & AZs"],
@@ -228,7 +228,7 @@ window.QUIZ.push(
  q:"A small development team has a Python web application. They want to upload their code and have AWS provision and manage the load balancer, scaling and health monitoring, while still being able to access the underlying EC2 instances if needed. Which service best meets these requirements?",
  o:["AWS Elastic Beanstalk","Amazon ECS on AWS Fargate","AWS Lambda","Amazon EC2 with a launch template"],
  a:[0],
- x:["Correct. Elastic Beanstalk takes application code and handles capacity provisioning, load balancing, auto scaling and health monitoring, while you keep full access to the resources it creates.","Fargate would require containerizing the app and defining tasks and services, and there are no EC2 instances to access.","Lambda would require restructuring the web app into functions, and there are no underlying instances to access.","Plain EC2 leaves the team to build and run the load balancer, scaling and monitoring themselves."],
+ x:["Correct. Elastic Beanstalk takes application code and handles capacity provisioning, load balancing, auto scaling and health monitoring, while you keep full access to the resources it creates, such as the EC2 instances of a Standard environment.","Fargate would require containerizing the app and defining tasks and services, and there are no EC2 instances to access.","Lambda would require restructuring the web app into functions, and there are no underlying instances to access.","Plain EC2 leaves the team to build and run the load balancer, scaling and monitoring themselves."],
  ref:["d1w3","d1c8"], doc:"beanstalk"},
 
 {id:"q01-034", day:1, dom:3, tags:["EC2 instance types","Containers"],
@@ -249,14 +249,14 @@ window.QUIZ.push(
  q:"Which statement correctly describes what AWS Fargate provides for container workloads?",
  o:["A managed registry for storing and versioning container images","A platform that deploys application code onto EC2 instances it creates","A managed Kubernetes control plane that you pair with your own nodes","A serverless compute engine that runs containers for ECS and EKS"],
  a:[3],
- x:["That is Amazon ECR (Elastic Container Registry), which Fargate tasks often pull their images from.","That describes Elastic Beanstalk, which creates and manages EC2 instances for your code.","That describes Amazon EKS; Fargate is one way to run EKS pods without managing nodes.","Correct. Fargate runs containers without you provisioning, patching or scaling servers, and it works with both ECS and EKS."],
+ x:["That is Amazon ECR (Elastic Container Registry), which Fargate tasks often pull their images from.","That describes Elastic Beanstalk in its Standard mode, which creates and manages EC2 instances for your code.","That describes Amazon EKS; Fargate is one way to run EKS pods without managing nodes.","Correct. Fargate runs containers without you provisioning, patching or scaling servers, and it works with both ECS and EKS."],
  ref:["d1w3","d1c8"], doc:"fargate"},
 
 {id:"q01-037", day:1, dom:4, tags:["S3 features"],
  q:"A nonprofit needs to publish a small website made of HTML, CSS, JavaScript and images, with no server-side code. The organization wants the lowest cost and no servers to manage. Which solution meets these requirements?",
  o:["Host the site on an EC2 instance running Apache","Deploy the site to an Elastic Beanstalk environment","Enable static website hosting on an S3 bucket","Run the site in a container on Amazon ECS with Fargate"],
  a:[2],
- x:["An EC2 web server works, but it must be patched and paid for around the clock.","Beanstalk still runs EC2 instances (and often a load balancer) behind the scenes, which costs more than needed.","Correct. S3 serves static files directly, scales automatically, and charges only for storage, requests and data transfer.","A container service adds running tasks to pay for and configure when the content is just static files."],
+ x:["An EC2 web server works, but it must be patched and paid for around the clock.","Beanstalk still runs compute behind the scenes (EC2 instances, or an EKS cluster in its Cluster mode) and often a load balancer, which costs more than needed.","Correct. S3 serves static files directly, scales automatically, and charges only for storage, requests and data transfer.","A container service adds running tasks to pay for and configure when the content is just static files."],
  ref:["d1p1"], doc:"s3"},
 
 {id:"q01-038", day:1, dom:1, tags:["S3 features","S3 security"],
@@ -305,7 +305,7 @@ window.QUIZ.push(
  q:"A developer has just created a new AWS account and secured the root user with MFA. She needs everyday administrator access to the console and the AWS CLI using short-lived credentials. Which approach follows AWS best practices?",
  o:["Create root user access keys and store them in the CLI configuration","Create an IAM user with long-term access keys and full administrator rights","Keep using the root user with MFA for both console and CLI work","Enable IAM Identity Center and give her an administrator permission set"],
  a:[3],
- x:["Root access keys grant unrestricted, long-term access; AWS recommends never creating them.","An IAM user works, but its access keys are long-term credentials, which fails the short-lived requirement.","The root user should be reserved for the few tasks that require it, not everyday work.","Correct. Identity Center users sign in through the access portal and get temporary credentials for the console, and for the CLI via <code>aws configure sso</code>."],
+ x:["Root access keys grant unrestricted, long-term access; AWS recommends never creating them.","An IAM user works, but its access keys are long-term credentials, which fails the short-lived requirement.","The root user should be reserved for the few tasks that require it, not everyday work.","Correct. Identity Center users sign in through the access portal and get temporary credentials for the console, and for the CLI via <code>aws configure sso</code>. Permission sets need an organization instance of Identity Center, so enabling it in a standalone account also creates an organization in AWS Organizations."],
  ref:["d1c1","d1c5","d1c3"], doc:"identity-center"},
 
 {id:"q01-045", day:1, dom:4, tags:["Cost management tools"],
