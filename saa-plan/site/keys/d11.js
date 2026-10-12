@@ -44,10 +44,10 @@ Object.assign(window.KEYS, {
 
   d11e4: {
     k: [
-      "A steady 24/7 database gets a Reserved DB instance (1 or 3 years, also valid for Multi-AZ). Compute Savings Plans never cover RDS. Idle-heavy or unpredictable load fits Aurora Serverless v2, which can pause at 0 ACUs, or Redshift Serverless.",
+      "A steady database gets a Reserved DB instance (1 or 3 years, Multi-AZ too) or a Database Savings Plan, valid across engines and Regions; Compute Savings Plans never cover RDS. Idle-heavy load fits Aurora serverless (pauses at 0 ACUs) or Redshift Serverless.",
       "A stopped RDS instance still bills its storage and starts again automatically after 7 days. For a database used a few days per quarter, take a snapshot, delete the instance and restore from the snapshot when it is needed.",
       "DynamoDB: on-demand for unknown or spiky traffic; provisioned capacity with auto scaling, plus reserved capacity, for steady traffic; the Standard-IA table class when storage dominates the bill; TTL to delete expired items without using write throughput.",
-      "When most reads repeat and some staleness is acceptable, a cache with a matching TTL costs less than more read replicas, because every replica is another full DB instance answering the same queries.",
+      "When most reads repeat and some staleness is acceptable, add a cache with a matching TTL before more read replicas: AWS notes that one cache node can replace a number of database instances and so lower the total cost.",
       "RDS automated backups keep at most 35 days; longer retention needs manual snapshots or an AWS Backup plan with its own retention. Aurora I/O-Optimized has no per-request I/O charge and pays off when I/O is 25% or more of the Aurora bill."
     ],
     trap: "Read which line of the bill the stem blames. Storage, throughput, I/O and instance hours each have a different fix, and a reservation or reserved capacity never helps a database that sits idle or has unpredictable load.",
@@ -103,7 +103,7 @@ Object.assign(window.KEYS, {
 
   d11b1: {
     k: [
-      "An appointment can be rescheduled only twice. Cancelling less than 24 hours before the appointment, or not showing up, forfeits the exam fee.",
+      "Cancelling less than 24 hours before the appointment, or not showing up, forfeits the exam fee. A third change of date means cancelling and booking again, so check a voucher's expiry date first.",
       "Non-native English speakers can request a 30-minute extension (ESL +30) for an exam taken in English. Request it once in your AWS Certification Account before you register; it then applies to all later registrations.",
       "There is no limit on the number of attempts, but every attempt costs the full registration fee."
     ],

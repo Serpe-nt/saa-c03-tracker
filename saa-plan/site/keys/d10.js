@@ -18,7 +18,7 @@ Object.assign(window.KEYS, {
       "io2 Block Express is for sustained high IOPS at sub-millisecond latency, st1 for large sequential work such as log processing, sc1 for rarely read data. Instance store NVMe is fastest, but its data is lost on stop, hibernate or terminate.",
       "EFS is the elastic shared file system for many Linux clients across AZs, including Fargate tasks. Elastic throughput fits spiky load, Provisioned bills a fixed level, and Bursting scales with the amount of data stored."
     ],
-    trap: "A volume never delivers more than the instance type's own EBS limit, so adding provisioned IOPS can change nothing. Transfer Acceleration does not help instances in the bucket's Region. io2 Multi-Attach works only inside one AZ.",
+    trap: "A volume never delivers more than the instance type's own EBS limit, so adding provisioned IOPS can change nothing. Transfer Acceleration is for long distances; S3 may bypass it when it would not be faster. io2 Multi-Attach works only inside one AZ.",
     docs: [
       ["Amazon EBS volume types", "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volume-types.html"],
       ["Optimizing Amazon S3 performance", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html"],
@@ -30,7 +30,7 @@ Object.assign(window.KEYS, {
     k: [
       "Cluster placement groups pack instances into one AZ for the lowest latency (add Elastic Fabric Adapter for MPI). Partition groups keep sets of instances on separate racks for HDFS, HBase or Cassandra. A spread group allows only seven running instances per AZ.",
       "Choose the instance family by the bottleneck: memory optimized (R) when the working set must stay in RAM, compute optimized (C) for CPU-bound work, storage optimized (I) for local disk I/O. Graviton gives better price performance when the software runs on Arm.",
-      "Lambda allocates CPU in proportion to memory, so more memory speeds up a CPU-bound function; a longer timeout does not. One invocation runs for at most 15 minutes, so longer jobs go to Fargate or AWS Batch.",
+      "Lambda allocates CPU in proportion to memory, so more memory speeds up a CPU-bound function; a longer timeout does not. A standard function runs for at most 15 minutes per invocation, so longer jobs go to Fargate or AWS Batch.",
       "Reserved concurrency guarantees and caps a function's concurrency at no charge. Provisioned concurrency keeps environments initialized for a fee and removes cold starts. SnapStart restores a snapshot of a published version; those two cannot be combined.",
       "AWS Batch queues and schedules container jobs, including job dependencies, on EC2, Spot or Fargate. A Step Functions Distributed Map runs up to 10,000 parallel child workflows over a set of S3 objects."
     ],
@@ -45,7 +45,7 @@ Object.assign(window.KEYS, {
   d10e4: {
     k: [
       "Aurora has three kinds of endpoint to route load: the cluster endpoint goes to the writer, the reader endpoint balances connections across Aurora Replicas, and a custom endpoint targets a chosen subset, such as large replicas kept for reporting.",
-      "Aurora Serverless v2 scales in steps as small as 0.5 ACU without disrupting connections, for unpredictable relational load. DynamoDB on-demand needs no capacity planning and instantly absorbs up to double the previous peak.",
+      "Aurora serverless (the docs' current name for Aurora Serverless v2) scales in steps as small as 0.5 ACU without disruption, for unpredictable relational load. DynamoDB on-demand needs no capacity planning and instantly absorbs up to double the previous peak.",
       "A global secondary index has its own partition and sort key and can be added to an existing table. A local secondary index keeps the table's partition key and is created with the table. A Scan reads every item, so query on keys.",
       "Lazy loading fills the cache on a miss and can serve stale data; write-through updates the cache on every write; use both with a TTL. Valkey and Redis OSS offer sorted sets, replication and automatic failover; Memcached offers none of them.",
       "Purpose-built choices: Neptune for multi-hop relationship queries (graph), OpenSearch Service for search over a catalog, fed from DynamoDB by a zero-ETL integration, and ElastiCache Serverless when nobody should size cache nodes."
@@ -80,7 +80,7 @@ Object.assign(window.KEYS, {
       "Amazon Data Firehose needs no consumer code. It buffers records, can call Lambda to transform them, converts JSON to Parquet or ORC using a Glue table schema, and with dynamic partitioning builds S3 prefixes from keys in the data.",
       "Existing Kafka clients point to Amazon MSK, which runs open-source Apache Kafka, so applications need no code changes. Existing Spark, Hive or HBase jobs that need cluster control point to EMR; task nodes hold no HDFS data, so Spot fits there.",
       "Data lake pattern: Glue crawlers create and update Data Catalog tables, Athena and Redshift Spectrum query files in S3 without loading them, and Lake Formation grants column, row and cell-level access in one place.",
-      "AWS Transfer Family is a managed SFTP, FTPS or FTP endpoint in front of S3 or EFS, so partners keep their clients. DataSync moves data into AWS storage with integrity validation. Quick Sight serves dashboards from its in-memory engine, SPICE."
+      "Transfer Family is a managed SFTP, FTPS or FTP endpoint for S3 or EFS, so partners keep their clients. DataSync moves data into AWS storage and validates it. Quick Sight (in Amazon Quick, formerly QuickSight) runs dashboards on SPICE, its in-memory engine."
     ],
     trap: "Firehose only delivers to destinations. Replay, or several independent consumers reading the same records, needs Kinesis Data Streams or MSK. Kinesis keeps records 24 hours by default, so replaying days of data means raising retention.",
     docs: [

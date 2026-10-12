@@ -18,7 +18,7 @@ Object.assign(window.KEYS, {
       "A deny when <code>aws:MultiFactorAuthPresent</code> is false (with <code>BoolIfExists</code>, as access keys lack the key) forces MFA on API calls. Matching principal and resource tags gives ABAC. <code>aws:SourceVpce</code> pins a bucket to one VPC endpoint.",
       "Control Tower builds a multi-account landing zone with preventive and detective controls and Account Factory for new accounts. IAM Access Analyzer, with the organization as its zone of trust, reports resources shared with outside principals."
     ],
-    trap: "Prevent or block in every account means a preventive control such as an SCP; AWS Config rules, GuardDuty and Access Analyzer find a problem only after it exists. Leaked role credentials are stopped with Revoke active sessions, not by shortening the session duration.",
+    trap: "Prevent or block in every account means a preventive control such as an SCP; AWS Config rules, GuardDuty and Access Analyzer are detective and report what already exists. Leaked role credentials work until they expire unless you revoke the role's active sessions.",
     docs: [
       ["Service control policies (SCPs)", "https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html"],
       ["Cross account resource access in IAM", "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies-cross-account-resource-access.html"],
@@ -33,7 +33,7 @@ Object.assign(window.KEYS, {
       "Firewall Manager applies WAF rules across an organization, new accounts and resources included. GuardDuty detects threats and can scan new S3 uploads for malware, Macie finds sensitive data in S3, Inspector finds software vulnerabilities.",
       "Keep S3 content private behind CloudFront with origin access control, which also works with SSE-KMS once the key policy allows the distribution, or hand out expiring presigned URLs. Session Manager gives shell access with no inbound ports, bastion or SSH keys."
     ],
-    trap: "AWS WAF cannot protect a Network Load Balancer and security groups cannot deny. GuardDuty, Macie and Inspector report; none of them blocks traffic. Flow Logs describe traffic but hold no packet contents, so an IDS appliance needs VPC Traffic Mirroring.",
+    trap: "AWS WAF cannot protect a Network Load Balancer and security groups cannot deny. GuardDuty, Macie and Inspector report; none of them blocks traffic. Flow Logs record addresses, ports and accept or reject, not the payload, so an IDS appliance needs VPC Traffic Mirroring.",
     docs: [
       ["Infrastructure security in Amazon VPC (security groups compared with network ACLs)", "https://docs.aws.amazon.com/vpc/latest/userguide/infrastructure-security.html"],
       ["Gateway endpoints", "https://docs.aws.amazon.com/vpc/latest/privatelink/gateway-endpoints.html"],
@@ -44,9 +44,9 @@ Object.assign(window.KEYS, {
     k: [
       "With a customer managed KMS key you write the key policy, audit key use and control rotation. Take one whenever the key policy must change: key access separate from bucket access, cross-account use, or letting S3 send events to an encrypted SQS queue.",
       "KMS encrypts at most 4 KB, so bigger data uses envelope encryption (GenerateDataKey). Cross-account use needs the key policy and the caller's IAM policy. <code>kms:ViaService</code> ties a key to one service; a multi-Region key decrypts in its replica Regions.",
-      "Encryption settings act on new data only: default bucket encryption and EBS encryption by default (set per Region) leave existing objects and volumes untouched. Convert existing S3 objects with an S3 Batch Operations job.",
+      "Encryption settings act on new data only: default bucket encryption and EBS encryption by default (set per Region) leave existing objects and volumes untouched. S3 Batch Operations converts existing objects; SSE-S3 to SSE-KMS now works in place, with no copy.",
       "Object Lock compliance mode cannot be bypassed by anyone, root included; governance mode can, with <code>s3:BypassGovernanceRetention</code>; a legal hold has no end date. AWS Backup Vault Lock offers the same two modes for recovery points.",
-      "Encryption in transit has to be enforced: an HTTPS listener plus an HTTPS target group for every hop, a bucket policy deny when <code>aws:SecureTransport</code> is false, <code>rds.force_ssl</code> on RDS for PostgreSQL. ACM renews only certificates it issued."
+      "Enforce TLS on every hop: an HTTPS listener plus an HTTPS target group, a bucket policy deny when <code>aws:SecureTransport</code> is false, <code>rds.force_ssl</code> on RDS for PostgreSQL (the default from version 15). ACM renews only certificates it issued."
     ],
     trap: "S3 Bucket Keys only cut KMS request cost, key rotation re-encrypts nothing and default encryption covers new objects only; none fixes an access error. S3 replication skips SSE-KMS objects until the rule opts in. Single-tenant HSMs or PKCS#11 mean CloudHSM.",
     docs: [
@@ -70,12 +70,12 @@ Object.assign(window.KEYS, {
       "The S3 gateway endpoint is only a route: AWS adds the S3 prefix list as a destination in each route table you select, at no additional charge. It does not use PrivateLink, and instance security groups must still allow outbound traffic to that prefix list.",
       "Each interface endpoint is a network interface in your subnets. Its security group must allow inbound 443 from the instances, and private DNS works only when DNS hostnames and DNS resolution are enabled on the VPC.",
       "Session Manager needs the <code>ssm</code> and <code>ssmmessages</code> endpoints (plus <code>ec2messages</code> for SSM Agent before 3.3.40.0), an instance profile with Systems Manager permissions and no inbound rule, which is why it replaces a bastion host.",
-      "Terraform state can hold sensitive values and this repository is public: keep <code>*.tfstate</code> and <code>.terraform/</code> out of Git, and never commit access keys. Run Terraform with the named profile, not with keys written into the code."
+      "Terraform state can expose sensitive information and this repository is public: keep <code>*.tfstate</code> and <code>.terraform/</code> out of Git. AWS's Terraform guidance says to avoid static access keys when you run it locally, so use the named profile."
     ],
     docs: [
       ["Gateway endpoints for Amazon S3", "https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html"],
       ["VPC endpoints for Systems Manager", "https://docs.aws.amazon.com/systems-manager/latest/userguide/setup-create-vpc.html"],
-      ["AWS Systems Manager Session Manager", "https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager.html"]
+      ["Security best practices for the Terraform AWS Provider", "https://docs.aws.amazon.com/prescriptive-guidance/latest/terraform-aws-provider-best-practices/security.html"]
     ]
   },
   d8c1: {
