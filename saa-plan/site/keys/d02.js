@@ -1,52 +1,8 @@
 // Key points per plan step for Day 2. Data only. Keys are plan item ids from plan.js.
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
-  d2w1: {
-    k: [
-      "An internet gateway is horizontally scaled, redundant and highly available, and a VPC has only one. It gives two-way access to resources with a public address; a NAT gateway (IPv4) and an egress-only internet gateway (IPv6) are outbound-only.",
-      "Site-to-Site VPN is an IPsec connection with two tunnels; configure both so one can take over during maintenance. Direct Connect is a dedicated physical link that bypasses the internet for a more consistent network experience.",
-      "Direct Connect does not encrypt traffic by default: run an IPsec VPN over it or use MACsec. A Direct Connect gateway lets one connection reach VPCs in multiple Regions, but as a rule it does not let those VPCs send traffic to each other.",
-      "In Route 53, failover routing is active-passive and switches when the primary is unhealthy, weighted routing splits traffic by proportion, latency routing picks the Region with the lowest latency, and geolocation follows the user's location.",
-      "An alias record can sit at the zone apex and tracks the changing IP addresses of a load balancer or CloudFront distribution; a CNAME cannot exist at the apex. A private hosted zone answers only for its associated VPCs."
-    ],
-    trap: "Hybrid questions turn on one phrase. 'Low cost' or 'over the internet is acceptable' means Site-to-Site VPN; 'consistent' or 'not over the internet' means Direct Connect; 'survive a location failure' means Direct Connect at two locations.",
-    docs: [
-      ["Choosing a routing policy", "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html"],
-      ["Choosing between alias and non-alias records", "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resource-record-sets-choosing-alias-non-alias.html"],
-      ["Direct Connect resiliency recommendations", "https://aws.amazon.com/directconnect/resiliency-recommendation/"]
-    ]
-  },
 
-  d2p1: {
-    k: [
-      "A subnet is public for one reason only: its route table has a route to an internet gateway. Auto-assigned public IP addresses, NACL rules or the subnet's name do not make it public.",
-      "Reaching an instance from the internet over IPv4 takes both a route to the internet gateway and a public IPv4 address (auto-assigned or Elastic IP) on the instance. Without either one it fails.",
-      "A subnet with no explicit association uses the main route table. Keep the main table local-only and give public subnets their own custom table, so that every new subnet starts out private.",
-      "Routing picks the most specific matching route (longest prefix), not the first one listed. A /16 route to a peering connection beats <code>0.0.0.0/0</code>, and every table has a local route for the VPC's own CIDR.",
-      "A VPC's IPv4 CIDR block is between /16 and /28 and cannot be resized later; you add secondary blocks instead. AWS reserves the first four addresses and the last one in every subnet, so a /27 has 27 usable."
-    ],
-    trap: "Plan address ranges before building: pick a CIDR that overlaps no VPC you will peer with and no on-premises network. Peering is refused when CIDR blocks overlap, and 'change the VPC's existing CIDR block' is never a valid option.",
-    docs: [
-      ["Internet gateways", "https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html"],
-      ["How route priority works", "https://docs.aws.amazon.com/vpc/latest/userguide/route-tables-priority.html"],
-      ["VPC CIDR blocks", "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-cidr-blocks.html"]
-    ]
-  },
 
-  d2p2: {
-    k: [
-      "A peering connection carries nothing until the owner of the accepter VPC accepts it and each side adds a route to the other VPC's CIDR in its own route tables. No route is created for you.",
-      "Security groups still decide what gets through. When both VPCs are in the same Region, a rule can reference a security group in the peer VPC as its source or destination.",
-      "Peering works across accounts and across Regions. Inter-Region traffic is encrypted and stays on the AWS backbone; it never crosses the public internet.",
-      "Creating a peering connection costs nothing and traffic that stays within one AZ is free. You pay data transfer only when it crosses AZs or Regions, which makes peering the cheapest way to join a few VPCs."
-    ],
-    trap: "Pointing a route for VPC C's CIDR at the A-to-B peering connection achieves nothing, because B will not forward it. Nor can VPC A borrow B's NAT gateway, internet gateway, VPN or Direct Connect through the peering.",
-    docs: [
-      ["What is VPC peering?", "https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html"],
-      ["How VPC peering connections work", "https://docs.aws.amazon.com/vpc/latest/peering/vpc-peering-basics.html"],
-      ["VPC peering (multi-VPC network whitepaper)", "https://docs.aws.amazon.com/whitepapers/latest/building-scalable-secure-multi-vpc-network-infrastructure/vpc-peering.html"]
-    ]
-  },
 
   d2b1: {
     k: [

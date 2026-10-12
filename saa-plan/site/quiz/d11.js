@@ -63,7 +63,7 @@ window.QUIZ.push(
     "Correct. For short-lived, actively read data, S3 Standard has no minimum storage duration and no retrieval fees. An expiration rule deletes the files automatically after 10 days so nobody pays for forgotten intermediates.",
     "One Zone-IA has the same 30-day minimum storage charge and per-GB retrieval fees as Standard-IA, so 10-day files that are read several times would still cost more, with less resilience.",
     "Glacier Instant Retrieval has a 90-day minimum storage charge and higher retrieval fees, which makes it the most expensive choice for files that live 10 days and are read repeatedly."],
- ref:["d11e2","d3b2","d3c3"], doc:"s3-classes"},
+ ref:["d11e2","d3c3"], doc:"s3-classes"},
 
 {id:"q11-006", day:11, dom:4, tags:["S3 storage classes & lifecycle","S3 features"],
  q:"An e-commerce company stores product images in a versioned S3 bucket that has grown far faster than its product catalog, and the storefront reads the current images constantly. An S3 Storage Lens dashboard shows that most of the bucket's bytes are noncurrent object versions and that a large amount of storage is held by incomplete multipart uploads. The company must be able to recover an overwritten or deleted image for 30 days. Which actions will reduce storage costs while meeting this requirement? (Choose two.)",
@@ -78,7 +78,7 @@ window.QUIZ.push(
     "Expiring current versions puts delete markers on live product images the storefront still needs, and the hidden versions keep being billed, so it breaks the site without cutting the waste.",
     "Current images are the ones the storefront reads, so One Zone-IA would add retrieval fees and reduce resilience, and it does nothing about the noncurrent versions and upload parts that make up most of the bytes.",
     "Correct. Parts of multipart uploads that were never completed don't appear in normal object listings but are billed as storage. An abort-incomplete-multipart-upload rule cleans them up automatically."],
- ref:["d11e2","d3b2","d3b1"], doc:"s3"},
+ ref:["d11e2"], doc:"s3"},
 
 {id:"q11-007", day:11, dom:4, tags:["S3 features","Cost management tools"],
  q:"A company has 300 AWS accounts in AWS Organizations and stores data in thousands of S3 buckets across several Regions. The FinOps team wants a single view to find buckets without lifecycle rules, buckets holding large amounts of rarely read data, and accounts where incomplete multipart uploads are growing. The team also wants built-in cost-optimization recommendations. Which solution meets these requirements with the LEAST operational overhead?",
@@ -91,7 +91,7 @@ window.QUIZ.push(
     "Cost Explorer shows what S3 costs by account and usage type, but not which buckets lack lifecycle rules, how often data is read, or where incomplete multipart uploads accumulate.",
     "Correct. Storage Lens aggregates metrics for all accounts and Regions in the organization into one dashboard, including incomplete multipart upload bytes; advanced metrics add activity metrics to spot cold buckets, lifecycle rule counts, and contextual recommendations.",
     "CloudTrail data events are billed per event and would be costly at this scale; they also say nothing about lifecycle configuration or multipart upload storage, so the team would have to build its own analysis."],
- ref:["d11e2","d3w1"], doc:"s3"},
+ ref:["d11e2"], doc:"s3"},
 
 {id:"q11-008", day:11, dom:4, tags:["EBS & instance store"],
  q:"A SaaS company runs 400 EC2 instances, each with a 1 TiB gp2 data volume that was sized partly to get enough baseline IOPS. CloudWatch shows each volume peaks at about 2,500 IOPS and 100 MiB/s of throughput. The company wants to reduce EBS costs without downtime and without lowering performance. Which solution is MOST cost-effective?",
@@ -132,7 +132,7 @@ window.QUIZ.push(
     "A One Zone file system keeps data in a single AZ, which fails the requirement to survive the loss of an AZ.",
     "Correct. Lifecycle management moves files not accessed for 14 days to the lower-cost Infrequent Access storage class while they stay in the same file system and path, and can move a file back to Standard when it is read again.",
     "Scratch file systems are for temporary high-performance processing; they do not replicate data and are not meant for durable long-term storage, and the migration adds work."],
- ref:["d11e2","d3c1","d3p3"], doc:"efs"},
+ ref:["d11e2","d3c1"], doc:"efs"},
 
 {id:"q11-011", day:11, dom:4, tags:["Storage Gateway"],
  q:"A design firm's on-premises NAS holds 400 TB of project files and is nearly full. Designers work only with files from active projects, about 10 TB at a time, and need LAN-speed SMB access to them from Windows workstations. The firm wants to stop buying storage hardware and use lifecycle rules to move completed projects to lower-cost storage. Which solution is MOST cost-effective?",
@@ -145,7 +145,7 @@ window.QUIZ.push(
     "Correct. S3 File Gateway presents an SMB share backed by S3 and caches recently used files locally for LAN-speed access. The full dataset lives in S3, where lifecycle rules can move completed projects to colder storage classes.",
     "Every file open would cross the WAN, so designers lose LAN-speed access, and keeping all 400 TB on FSx file storage costs more than S3 with lifecycle tiering.",
     "This keeps buying storage hardware, which the firm wants to stop, and pays for a second copy of all the data in AWS."],
- ref:["d11e2","d3w1"], doc:"storagegateway"},
+ ref:["d11e2"], doc:"storagegateway"},
 
 {id:"q11-012", day:11, dom:4, tags:["Migration & transfer"],
  q:"A biotech company must move 80 TB of instrument data from an on-premises NFS share to Amazon S3 over its existing 10 Gbps AWS Direct Connect connection, which has plenty of spare capacity. After the initial copy, new and changed files must be copied every night, with integrity verification, until the lab closes in 6 months. Which solution meets these requirements with the LEAST operational overhead?",
@@ -158,7 +158,7 @@ window.QUIZ.push(
     "File Gateway is built for ongoing hybrid file access, not migration; the team would have to script the copies and change detection, size a local cache for the upload backlog, and build its own verification.",
     "This can work, but the team must build and maintain the scheduling, retries, monitoring, and integrity checks that DataSync provides as a managed service.",
     "Transfer Family is for partners exchanging files over SFTP or FTPS; it bills for each enabled protocol endpoint and for the data transferred, and the lab would still need to script uploads, change detection, and verification."],
- ref:["d11e2","d6w4"], doc:"datasync"},
+ ref:["d11e2"], doc:"datasync"},
 
 {id:"q11-013", day:11, dom:4, tags:["EC2 purchase options"],
  q:"A logistics company has a steady hourly compute spend. Today it runs m6i and c6i instances in two Regions, but over the next 3 years it plans to move most services to AWS Fargate and AWS Lambda and to adopt Graviton instance types for the rest. The company wants a discount in exchange for committing to its baseline spend, without limiting these changes. Which purchase option is MOST cost-effective?",
@@ -212,7 +212,7 @@ window.QUIZ.push(
     "Correct. The On-Demand base guarantees the 4 instances that must always run, while the bursty capacity above it uses Spot, which suits a stateless tier where instances can be replaced at any time.",
     "One instance type in one AZ is a single Spot pool, which raises interruption risk and removes the AZ redundancy a web tier needs.",
     "Correct. Diversifying instance types lets the group draw from many Spot pools, and price-capacity-optimized chooses pools that are both low-priced and least likely to be interrupted."],
- ref:["d11e3","d5c2","d5b4"], doc:"autoscaling"},
+ ref:["d11e3","d5c2"], doc:"autoscaling"},
 
 {id:"q11-017", day:11, dom:4, tags:["EC2 instance types","Cost management tools"],
  q:"A company runs about 1,200 EC2 instances in Auto Scaling groups, plus thousands of EBS volumes and Lambda functions, across 20 accounts in AWS Organizations. Finance suspects much of it is overprovisioned. The company wants ready-made right-sizing recommendations for instances, Auto Scaling groups, EBS volumes, and Lambda memory settings that are based on measured utilization, including memory utilization. Which solution meets these requirements with the LEAST operational overhead?",
@@ -225,7 +225,7 @@ window.QUIZ.push(
     "Cost Explorer rightsizing recommendations cover EC2 instances only, so the EBS volumes and Lambda functions would be left out.",
     "Manual dashboard reviews across 20 accounts are labor-intensive and produce no ready-made size recommendations.",
     "Budgets alert when spend or usage crosses a threshold; they don't analyze utilization or recommend smaller resources."],
- ref:["d11e3","d1p3"], doc:"compute-optimizer"},
+ ref:["d11e3"], doc:"compute-optimizer"},
 
 {id:"q11-018", day:11, dom:4, tags:["EC2 instance types","Containers"],
  q:"A fintech startup runs Go and Java microservices in containers on Amazon ECS with an EC2 capacity provider of m6i instances. The services have no x86-specific dependencies, and the CI pipeline can already build multi-architecture images. The company wants to cut compute cost for the same performance with minimal application changes. Which solution is MOST cost-effective?",
@@ -238,7 +238,7 @@ window.QUIZ.push(
     "Correct. Graviton instances offer better price performance than comparable x86 instances, and Go and Java run natively on arm64, so only the image architecture changes.",
     "Dedicated Instances run on hardware reserved for one customer and cost more; they do not improve price performance.",
     "Within an instance family, price scales linearly with size, so fewer larger m6i instances cost about the same for the same total capacity and do not improve price performance."],
- ref:["d11e3","d1p3","d1w2"], doc:"ec2"},
+ ref:["d11e3"], doc:"ec2"},
 
 {id:"q11-019", day:11, dom:4, tags:["Lambda"],
  q:"A real-estate website lets agents upload listing photos to an S3 bucket. Each photo must be resized into three sizes, which takes about 5 seconds per photo. Uploads arrive in bursts during business hours, ranging from zero to several hundred per minute, and almost none arrive at night. Which compute option is MOST cost-effective?",
@@ -251,7 +251,7 @@ window.QUIZ.push(
     "Two tasks that always run are billed around the clock, including the idle nights, and would still need to scale out for bursts.",
     "The minimum instance is billed even when idle, and new instances take minutes to launch, so bursts queue up; there is also more to manage.",
     "Correct. Lambda scales with each upload burst and bills per request and per millisecond of run time, so short, spiky, event-driven work costs nothing while idle."],
- ref:["d11e3","d1c8","d1w3"], doc:"lambda"},
+ ref:["d11e3","d1c8"], doc:"lambda"},
 
 {id:"q11-020", day:11, dom:4, tags:["Containers"],
  q:"A pharmaceutical company runs a containerized molecular simulation that takes 1–3 hours and needs 4 vCPUs and 16 GB of memory. Scientists start it 4–6 times a day at unpredictable times, and there is no other work for the compute between runs. The team does not want to manage servers or clusters. Which solution is MOST cost-effective?",
@@ -264,7 +264,7 @@ window.QUIZ.push(
     "A Lambda invocation can run for at most 15 minutes (90 minutes for asynchronous invocations on Lambda Managed Instances), so a simulation that takes up to 3 hours cannot run there.",
     "The instance would be paid for during the many idle hours between runs, overlapping runs would have to wait, and the team would have to patch and manage it.",
     "EKS adds a per-cluster charge and a node that is billed while idle, plus the cluster management the team wants to avoid."],
- ref:["d11e3","d1c8","d1w3"], doc:"fargate"},
+ ref:["d11e3","d1c8"], doc:"fargate"},
 
 {id:"q11-021", day:11, dom:4, tags:["Auto Scaling"],
  q:"A software company runs 150 development EC2 instances and 30 Auto Scaling groups for test environments. Engineers use them only from 8 AM to 7 PM on weekdays, but everything runs 24/7. The development instances are stateful servers whose EBS data must be kept between sessions, while the test groups can be rebuilt from launch templates at any time. Which actions are MOST cost-effective? (Choose two.)",
@@ -279,7 +279,7 @@ window.QUIZ.push(
     "Spot doesn't stop billing at night just because a server is idle, and interruptions during the working day would disrupt engineers' stateful servers.",
     "Correct. Scheduled scaling actions bring the test environments to zero instances overnight and at weekends and restore them each morning, with no custom code.",
     "Terminating instances deletes root volumes by default and loses work on the stateful servers, which breaks the requirement to keep EBS data."],
- ref:["d11e3","d5c2","d1w2"], doc:"autoscaling"},
+ ref:["d11e3","d5c2"], doc:"autoscaling"},
 
 {id:"q11-022", day:11, dom:4, tags:["Containers","EC2 purchase options"],
  q:"A company runs a stateless image-thumbnail service as an Amazon ECS service on AWS Fargate with 40 tasks around the clock. The tasks pull work from an SQS queue, so if a task is stopped, its message returns to the queue and another task processes it. The company wants to lower compute cost significantly while always keeping at least 10 tasks on capacity that cannot be interrupted. Which solution meets these requirements?",
@@ -292,7 +292,7 @@ window.QUIZ.push(
     "EC2 Instance Savings Plans apply only to EC2 instances, not to Fargate; Fargate usage can be covered only by Compute Savings Plans.",
     "Fargate Spot runs interruption-tolerant tasks at a steep discount, and the FARGATE base keeps 10 tasks on regular capacity, so the minimum is never interrupted.",
     "Shrinking tasks without measuring their needs risks failures, and regular Fargate pricing saves far less than Fargate Spot."],
- ref:["d11e3","d11c2","d1w3"], doc:"fargate"},
+ ref:["d11e3","d11c2"], doc:"fargate"},
 
 {id:"q11-023", day:11, dom:4, tags:["EC2 instance types"],
  q:"A company runs an internal wiki and ticketing application on m6i.large instances (2 vCPUs, 8 GiB). CloudWatch shows average CPU below 10%, with brief spikes to about 60% for a few minutes when reports run a few times a day. Memory use is steady at about 3 GiB. Which instance type is MOST cost-effective while still handling the spikes?",
@@ -305,7 +305,7 @@ window.QUIZ.push(
     "Compute optimized instances price in sustained high CPU performance that this mostly idle workload doesn't use, so they cost more than a burstable instance.",
     "Doubling the size roughly doubles the price for capacity the application never uses.",
     "Memory optimized instances add memory the application doesn't need, at a higher price than its current instances."],
- ref:["d11e3","d1p3","d1w2"], doc:"ec2"},
+ ref:["d11e3"], doc:"ec2"},
 
 {id:"q11-024", day:11, dom:4, tags:["EC2 purchase options","Analytics"],
  q:"A retail analytics team runs a 4-hour Apache Spark job on an Amazon EMR cluster every night. The cluster has a primary node, core nodes that store HDFS data, and task nodes that only provide compute; Spark retries failed tasks automatically. The job must complete reliably every night. Which choices are MOST cost-effective? (Choose two.)",
@@ -320,7 +320,7 @@ window.QUIZ.push(
     "Interrupted core nodes take their HDFS blocks with them, which can fail or stall the job and break the reliability requirement.",
     "Correct. Task nodes hold no HDFS data, so an interruption only makes Spark retry tasks; diversified instance fleets make Spot capacity easier to obtain at low cost.",
     "The job runs 4 hours a night, so a cluster kept running on reservations pays for about 20 idle hours every day."],
- ref:["d11e3","d11c2","d6w1"], doc:"emr"},
+ ref:["d11e3","d11c2"], doc:"emr"},
 
 {id:"q11-025", day:11, dom:4, tags:["Cost management tools","EC2 purchase options"],
  q:"A media company's EC2, Fargate, and Lambda usage has been stable for 6 months. Before buying a Savings Plan, the finance team wants a recommended hourly commitment based on the company's actual usage history, with estimated savings and the expected utilization of that commitment for 1-year and 3-year terms. Which AWS tool provides this with the LEAST effort?",
@@ -333,7 +333,7 @@ window.QUIZ.push(
     "The Pricing Calculator estimates costs from inputs you type in, not from the account's actual hourly usage history, so modeling a commitment this way is manual.",
     "Correct. Cost Explorer analyzes historical usage and recommends a Savings Plans hourly commitment for the chosen plan type, term, and payment option, with estimated monthly savings and the estimated utilization of the commitment.",
     "Coverage budgets track how much usage existing Savings Plans cover and alert when it drops below a target; they don't recommend what to buy."],
- ref:["d11e3","d11c2","d6w3"], doc:"costexplorer"},
+ ref:["d11e3","d11c2"], doc:"costexplorer"},
 
 {id:"q11-026", day:11, dom:4, tags:["RDS"],
  q:"A healthcare company runs a production Amazon RDS for PostgreSQL Multi-AZ DB instance (db.r6g.2xlarge) 24/7. Its load has been stable for two years and is expected to stay on the same instance class for the next three years. The company wants the lowest cost for this database without reducing availability. Which solution meets these requirements?",
@@ -346,7 +346,7 @@ window.QUIZ.push(
     "Dropping Multi-AZ removes the standby, which reduces availability and breaks the stated requirement.",
     "Aurora serverless (formerly Aurora Serverless v2) pays off for variable or intermittent load; a steady 24/7 load costs more in ACU-hours than a reserved provisioned instance, and the migration adds work.",
     "Correct. A Reserved DB instance bought for the Multi-AZ deployment keeps the standby, and a 3-year term gives the deepest discount for a steady database, more than a Database Savings Plan, which is 1-year only and discounts provisioned instances less."],
- ref:["d11e4","d3p1","d3w2"], doc:"rds"},
+ ref:["d11e4"], doc:"rds"},
 
 {id:"q11-027", day:11, dom:4, tags:["Aurora"],
  q:"A startup has six Aurora MySQL development and test clusters, each running a provisioned db.r6g.large writer 24/7. Developers use a cluster for a few hours on some days, automated test runs cause short bursts of heavy load, and there are long idle periods that are hard to predict. The startup wants to minimize cost without anyone having to start, stop, or resize clusters manually. Which solution is MOST cost-effective?",
@@ -359,7 +359,7 @@ window.QUIZ.push(
     "Correct. Aurora serverless (formerly Aurora Serverless v2) scales capacity up for test bursts and down when quiet, and with a minimum of 0 ACUs an idle cluster pauses automatically, so compute is billed only while it is used (storage is billed as usual).",
     "Aurora Auto Scaling adds read replicas, which adds instance cost; the writer still runs 24/7, and replicas don't help write-heavy test loads.",
     "Burstable writers still bill around the clock, and heavy test bursts would drain CPU credits and slow the tests down."],
- ref:["d11e4","d3w2"], doc:"aurora"},
+ ref:["d11e4"], doc:"aurora"},
 
 {id:"q11-028", day:11, dom:4, tags:["RDS"],
  q:"A finance department uses an Amazon RDS for MySQL DB instance only during the last three days of each quarter to run reconciliation reports. The rest of the time the instance is idle, but its data must be kept for the next quarter. Which approach is MOST cost-effective?",
@@ -372,7 +372,7 @@ window.QUIZ.push(
     "RDS automatically starts a stopped DB instance after 7 days, so it would be running and billed for most of the quarter, and provisioned storage is billed even while stopped.",
     "A reservation bills for every hour of the year although the database is needed for only about 12 days of it.",
     "The instance would still bill every hour plus its provisioned storage, and each resize means a brief outage and manual work."],
- ref:["d11e4","d3p1"], doc:"rds"},
+ ref:["d11e4"], doc:"rds"},
 
 {id:"q11-029", day:11, dom:4, tags:["DynamoDB"],
  q:"A startup is launching a mobile game backend on Amazon DynamoDB. It has no traffic history; usage is expected to be close to zero for long stretches, with sudden, unpredictable spikes whenever influencers post about the game. The team wants to avoid throttling and pay only for the requests it serves, without any capacity planning. Which configuration is MOST cost-effective?",
@@ -385,7 +385,7 @@ window.QUIZ.push(
     "Auto scaling adjusts over minutes, so sudden spikes can throttle before capacity catches up, and reserved capacity is a long-term commitment the team cannot size without traffic history.",
     "Correct. On-demand mode bills per request, needs no capacity planning, and instantly accommodates up to double the table's previous peak (new tables start at thousands of requests per second), while idle periods cost nothing for throughput.",
     "DAX is a cache that offloads repeated reads, so write spikes would still throttle a table with low provisioned capacity, and the DAX nodes are billed every hour even while the game is idle."],
- ref:["d11e4","d3b3","d3p2"], doc:"dynamodb"},
+ ref:["d11e4"], doc:"dynamodb"},
 
 {id:"q11-030", day:11, dom:4, tags:["DynamoDB"],
  q:"An IoT company's write-heavy DynamoDB table has served a mature, highly predictable workload for 2 years: traffic follows a smooth daily curve on top of a steady baseline that runs around the clock. The table uses on-demand capacity mode, and throughput charges dominate its cost. Which actions will reduce cost the MOST while avoiding throttling? (Choose two.)",
@@ -400,7 +400,7 @@ window.QUIZ.push(
     "Correct. Reserved capacity gives an additional discount on provisioned throughput committed for 1 year (3 years in some Regions), which fits a baseline that has been stable for 2 years.",
     "DAX caches reads, but this workload is write-heavy, so DAX would add node costs without reducing most of the throughput spend.",
     "Global tables replicate every write to another Region, adding replicated write and data transfer charges instead of reducing cost."],
- ref:["d11e4","d3p2"], doc:"dynamodb"},
+ ref:["d11e4"], doc:"dynamodb"},
 
 {id:"q11-031", day:11, dom:4, tags:["DynamoDB"],
  q:"A ride-hailing app stores GPS location pings in a DynamoDB table. Each ping is needed for 30 days to resolve trip disputes and then has no value. The table has grown to many terabytes, and a nightly Lambda function that scans for old items and deletes them consumes large amounts of read and write capacity. The company wants the MOST cost-effective way to remove old data with minimal application changes. What should a solutions architect do?",
@@ -413,7 +413,7 @@ window.QUIZ.push(
     "Querying an index avoids the full scan, but every delete still consumes write capacity, and the index adds its own storage and write costs.",
     "Recreating the table each month throws away pings that are still inside their 30-day dispute window and adds downtime and operational risk.",
     "Correct. With TTL, the app writes an expiry time on each item and DynamoDB deletes expired items in the background without consuming write throughput, so the scan-and-delete function is no longer needed."],
- ref:["d11e4","d3p2"], doc:"dynamodb"},
+ ref:["d11e4"], doc:"dynamodb"},
 
 {id:"q11-032", day:11, dom:4, tags:["DynamoDB"],
  q:"A social media company keeps 5 years of user posts in a DynamoDB table so users can scroll back through old content. Posts older than a few months are rarely read, and cost analysis shows that storage makes up most of the table's bill while throughput costs are small. The application must still read any post with single-digit millisecond latency using the same API calls. Which change is MOST cost-effective?",
@@ -426,7 +426,7 @@ window.QUIZ.push(
     "Archived posts could no longer be read through DynamoDB in milliseconds; they would need a restore taking up to 12 hours or more.",
     "Reserved capacity discounts throughput, which is only a small part of this table's bill, and leaves storage cost unchanged.",
     "The capacity mode changes how throughput is billed, not the price of storage, which is where most of this table's cost is."],
- ref:["d11e4","d3p2"], doc:"dynamodb"},
+ ref:["d11e4"], doc:"dynamodb"},
 
 {id:"q11-033", day:11, dom:4, tags:["Caching","RDS"],
  q:"An online retailer's product catalog runs on an Amazon RDS for MySQL db.r6g.4xlarge instance with two read replicas. More than 90% of queries are repeated product-detail and category lookups, and the business accepts product data being up to 5 minutes stale. CPU is high on all three instances, and the team plans to add two more read replicas before the holiday season. Which solution is MOST cost-effective?",
@@ -452,7 +452,7 @@ window.QUIZ.push(
     "Reserved nodes lower the hourly price but still bill every hour of the term, including the 80% of the time the cluster sits idle.",
     "Correct. Redshift Serverless bills for compute (RPU-hours) only while queries run and scales automatically, so idle time costs nothing for compute, while Redshift SQL and BI tools keep working.",
     "Concurrency scaling adds temporary capacity for bursts of concurrent queries; it does nothing about the main cluster billing 24/7 while idle."],
- ref:["d11e4","d6w1","d10c3"], doc:"redshift"},
+ ref:["d11e4","d10c3"], doc:"redshift"},
 
 {id:"q11-035", day:11, dom:4, tags:["AWS Backup","RDS"],
  q:"A company's Amazon RDS for PostgreSQL databases keep automated backups for 35 days, and an engineer also takes a manual snapshot of each database every day that is never deleted. Snapshot storage is now a significant cost. Operations needs point-in-time recovery for the last 7 days, and compliance requires one backup per month to be kept for 1 year. Which solution meets these requirements MOST cost-effectively?",
@@ -465,7 +465,7 @@ window.QUIZ.push(
     "Snapshot exports are Parquet files meant for analytics and cannot be restored as a DB instance, so they don't satisfy the backup requirement, and the over-retention remains.",
     "Cross-Region copies add inter-Region data transfer and a second copy of storage, increasing cost, and the never-deleted snapshots remain.",
     "RDS automated backups can be retained for at most 35 days, so a 365-day retention period is not possible."],
- ref:["d11e4","d3p1"], doc:"backup"},
+ ref:["d11e4"], doc:"backup"},
 
 {id:"q11-036", day:11, dom:4, tags:["Aurora"],
  q:"A gaming company's Amazon Aurora PostgreSQL cluster handles a write-intensive leaderboard workload. Cost reports show that I/O charges make up more than half of the cluster's monthly Aurora bill, and the workload is expected to stay at this level. The company wants to reduce cost without changing the application or the database engine. Which solution is MOST cost-effective?",
@@ -478,7 +478,7 @@ window.QUIZ.push(
     "With Aurora Standard storage, Aurora serverless (formerly Aurora Serverless v2) still bills every I/O request, and a steady heavy workload gains nothing from capacity scaling.",
     "More memory can reduce some read I/O, but writes must still go to storage and be billed, and the larger instance costs more.",
     "Correct. I/O-Optimized has no per-request I/O charges in exchange for higher instance and storage prices, which lowers total cost when I/O is a large share of the Aurora bill (AWS says 25% or more of Aurora spend)."],
- ref:["d11e4","d3w2"], doc:"aurora"},
+ ref:["d11e4"], doc:"aurora"},
 
 {id:"q11-037", day:11, dom:4, tags:["VPC endpoints & PrivateLink","VPC peering & Transit Gateway"],
  q:"A company has 60 VPCs in one Region connected through a transit gateway. Each VPC has its own interface VPC endpoints in two Availability Zones for the same eight AWS services, such as Secrets Manager, SQS, and CloudWatch Logs, and the hourly endpoint charges have become a large cost. Workloads must keep reaching these services privately by using the services' default DNS names. Which combination of actions will reduce cost the MOST? (Choose two.)",
@@ -519,7 +519,7 @@ window.QUIZ.push(
     "Correct. Traffic between instances in the same AZ over private IP addresses is free, while traffic sent to a public or Elastic IP address is billed at data transfer rates even within the same AZ.",
     "Transit Gateway adds attachment-hour and per-GB processing charges, so it would increase the cost of this traffic.",
     "Traffic between AZs is billed per GB in each direction, so moving the broker would replace one data transfer charge with another."],
- ref:["d11e5","d11c3","d2w1"], doc:"vpc"},
+ ref:["d11e5","d11c3"], doc:"vpc"},
 
 {id:"q11-040", day:11, dom:4, tags:["Data transfer costs","Regions & AZs"],
  q:"A genomics company runs a nightly distributed analysis job on 60 EC2 instances spread across three AZs. During each run the nodes exchange tens of terabytes of intermediate data with each other, and inter-AZ data transfer has become a large part of the bill. The job reads input from and writes results to Amazon S3, and a failed run can simply be rerun later; the job has no high availability requirement. Which change is MOST cost-effective?",
@@ -545,7 +545,7 @@ window.QUIZ.push(
     "Deep Archive restores take up to 12 hours or more, so masters would not be readable immediately, and inter-Region transfer for regenerable files would still be paid.",
     "Transfer Acceleration speeds up client transfers over long distances for an added fee; it does not reduce replication or inter-Region transfer charges.",
     "Correct. Replication rules can filter by prefix or tag, so only the critical masters incur inter-Region transfer and second-Region storage, while the regenerable files stay in one Region."],
- ref:["d11e5","d3w1"], doc:"s3"},
+ ref:["d11e5"], doc:"s3"},
 
 {id:"q11-042", day:11, dom:4, tags:["CloudFront","Data transfer costs"],
  q:"A software company distributes large installer files from an S3 bucket in one Region to customers around the world. Data transfer out to the internet from S3 is now the company's largest AWS cost, and most downloads are of the same few current releases. Which solution reduces cost the MOST?",
@@ -558,7 +558,7 @@ window.QUIZ.push(
     "Transfer Acceleration adds a per-GB fee on top of normal data transfer and is designed to speed up long-distance transfers, especially uploads; it doesn't cache content.",
     "Global Accelerator endpoints can only be load balancers, EC2 instances, or Elastic IP addresses, not S3 buckets, and it proxies packets instead of caching content; it adds hourly and data transfer premium charges rather than reducing egress cost.",
     "Replication adds storage in three more Regions plus inter-Region transfer, and customers would still download directly from S3 at internet egress rates."],
- ref:["d11e5","d1w4","d10b1"], doc:"cloudfront"},
+ ref:["d11e5"], doc:"cloudfront"},
 
 {id:"q11-043", day:11, dom:4, tags:["VPC peering & Transit Gateway","Data transfer costs"],
  q:"A company has two VPCs in the same Region: one runs a data ingestion service and the other runs analytics clusters. The VPCs exchange about 200 TB per month, and no other networks need to reach either VPC. The VPCs are currently connected through a Transit Gateway, and the company wants to lower networking costs without reducing throughput. Which solution is MOST cost-effective?",
@@ -571,7 +571,7 @@ window.QUIZ.push(
     "Correct. VPC peering has no hourly or per-GB processing charge, only normal data transfer (free within the same AZ), whereas Transit Gateway bills per attachment hour and per GB processed. With just two VPCs, peering's lack of transitive routing doesn't matter.",
     "PrivateLink bills per endpoint hour and per GB processed, and it exposes a specific service rather than providing general two-way connectivity between the VPCs.",
     "Public IP traffic adds public IPv4 address charges and data transfer charges, and it exposes the systems to the internet."],
- ref:["d11e5","d2c2","d2p2"], doc:"tgw"},
+ ref:["d11e5","d2c2"], doc:"tgw"},
 
 {id:"q11-044", day:11, dom:4, tags:["Hybrid connectivity","Data transfer costs"],
  q:"A media company's on-premises render farm downloads about 400 TB of assets from Amazon S3 every month, spread evenly through the month, over Site-to-Site VPN connections across the internet. Data transfer out charges are high and throughput is inconsistent. The company expects this pattern to continue for several years. Which solution is MOST cost-effective?",
@@ -584,7 +584,7 @@ window.QUIZ.push(
     "Transfer Acceleration adds a per-GB fee on top of normal data transfer out, so it raises the cost of every download.",
     "Correct. Data transfer out over Direct Connect is billed at lower rates than internet egress, and a dedicated connection gives consistent throughput, so steady high-volume transfers soon cover the port-hour charges.",
     "Traffic over the VPN still leaves AWS at normal internet data transfer out rates, and the interface endpoint adds its own hourly and per-GB charges."],
- ref:["d11e5","d2w1"], doc:"dx"},
+ ref:["d11e5"], doc:"dx"},
 
 {id:"q11-045", day:11, dom:4, tags:["S3 features","Data transfer costs"],
  q:"A climate research institute publishes a 500 TB dataset in an Amazon S3 bucket that universities and companies download for their own analysis. The download traffic now costs more than the institute's grant budget can cover. All of the organizations that download the data have their own AWS accounts. The institute wants those organizations, not itself, to pay for the requests and data transfer. Which solution meets this requirement?",
@@ -597,7 +597,7 @@ window.QUIZ.push(
     "Correct. With Requester Pays, the requester's AWS account is billed for the requests and data downloaded, while the owner pays only for storage; requests must be authenticated and acknowledge the charge.",
     "Standard-IA adds a per-GB retrieval fee to every download, and the institute would still pay all of the transfer charges.",
     "Presigned URLs grant temporary access, but the requests and data transfer are still billed to the bucket owner."],
- ref:["d11e5","d3w1"], doc:"s3"},
+ ref:["d11e5"], doc:"s3"},
 
 {id:"q11-046", day:11, dom:4, tags:["CloudFront"],
  q:"A European e-learning company streams video lessons through Amazon CloudFront. Nearly all students are in Europe and North America, and the few students elsewhere can accept higher latency. The company wants to lower its CloudFront costs without moving its origin or changing the application. Which solution is MOST cost-effective?",
@@ -610,7 +610,7 @@ window.QUIZ.push(
     "Global Accelerator proxies packets to the origin instead of caching content, so every video byte would come from the origin, and it adds hourly and data transfer premium charges.",
     "Origin Shield adds a caching layer that reduces load on the origin and is billed per request; it does not lower CloudFront's data transfer out charges.",
     "Correct. Price Class 100 serves the distribution only from the lowest-cost edge locations (North America, Europe, Israel, and Türkiye), which covers these students; viewers elsewhere are served from those locations with higher latency."],
- ref:["d11e5","d1w4","d10b1"], doc:"cloudfront"},
+ ref:["d11e5"], doc:"cloudfront"},
 
 {id:"q11-047", day:11, dom:4, tags:["Hybrid connectivity"],
  q:"A retail chain must connect a small regional office to a VPC so staff can reach an internal inventory application. Traffic is only a few gigabytes per day, the office already has reliable broadband internet, and encrypted connectivity must be working within a week. Which solution is MOST cost-effective?",
@@ -623,7 +623,7 @@ window.QUIZ.push(
     "A dedicated connection usually takes weeks to provision, bills port hours whether used or not, and is not encrypted by default, which is overkill for a few gigabytes a day.",
     "Hosted connections still take time to provision through a partner, add port and circuit charges, and are not encrypted by default.",
     "Client VPN bills per endpoint association hour and per connection hour, and a client on every PC is meant for remote users, not for linking a whole office."],
- ref:["d11e5","d2w1"], doc:"vpn"},
+ ref:["d11e5"], doc:"vpn"},
 
 {id:"q11-048", day:11, dom:4, tags:["Cost management tools"],
  q:"A company runs workloads for 12 product teams in one shared AWS account and cannot move to separate accounts this year. Finance wants a monthly cost breakdown per team and wants to view each team's spending trend in AWS Cost Explorer. Which actions should a solutions architect take? (Choose two.)",
@@ -638,7 +638,7 @@ window.QUIZ.push(
     "CloudTrail records API activity for auditing; it does not attribute costs to teams in billing data or Cost Explorer.",
     "Correct. User-defined tags appear in Cost Explorer and the Cost and Usage Report only after they are activated as cost allocation tags; then costs can be grouped and filtered by team.",
     "Cost Anomaly Detection alerts on unusual spending; it does not attribute or group costs by team."],
- ref:["d11e2","d6w3"], doc:"costexplorer"},
+ ref:["d11e2"], doc:"costexplorer"},
 
 {id:"q11-049", day:11, dom:4, tags:["EFS"],
  q:"A software company's development and test environments run entirely in a single Availability Zone. Their build servers share artifacts and test datasets on a Regional Amazon EFS file system that stores data in the EFS Standard storage class. The files are read and written constantly during builds, and all of them can be regenerated from source if lost. The company wants to lower the storage cost of this file system. Which solution is MOST cost-effective?",
@@ -664,5 +664,5 @@ window.QUIZ.push(
     "Correct. The Cost and Usage Report (now delivered through AWS Data Exports) is the most detailed billing data, with hourly line items and resource IDs, and Athena can query it in S3 with SQL alongside other tables.",
     "Flow logs show traffic between IP addresses, not what that traffic costs, so they cannot produce the billing line items the team needs.",
     "Usage budgets alert when usage crosses a threshold; they don't provide line-item data to query."],
- ref:["d11e5","d6w3","d11c3"], doc:"data-exports"}
+ ref:["d11e5","d11c3"], doc:"data-exports"}
 );

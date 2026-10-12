@@ -11,7 +11,7 @@ window.QUIZ.push(
     "Security groups are network configuration the customer controls for any VPC resource, including RDS.",
     "With a managed service like RDS, AWS takes over host OS and database software patching (applied in your maintenance window), which the company did itself on EC2.",
     "Choosing encryption at rest and the key is a customer data-protection decision on RDS, just as it is on EC2."],
- ref:["d4w1","d3w2"], doc:"shared"},
+ ref:[], doc:"shared"},
 
 {id:"q04-002", day:4, dom:1, tags:["Shared responsibility","Lambda"],
  q:"A startup is moving a batch-processing script from Amazon EC2 to AWS Lambda. The security lead wants to know which security tasks will still belong to the startup after the move. Which tasks remain the startup's responsibility? (Choose two.)",
@@ -26,7 +26,7 @@ window.QUIZ.push(
     "IAM configuration, including what the execution role is allowed to do, is always the customer's responsibility.",
     "Physical security of facilities is security 'of' the cloud, which AWS owns for every service.",
     "Isolation between tenants' execution environments is part of the infrastructure AWS operates for Lambda."],
- ref:["d4w1","d1w3"], doc:"shared"},
+ ref:[], doc:"shared"},
 
 {id:"q04-003", day:4, dom:1, tags:["Shared responsibility","Threat detection"],
  q:"Amazon Inspector reports a critical vulnerability in an operating system package installed on the Amazon EC2 instances that run a company's order-processing application. Which statement correctly describes who must act and how?",
@@ -39,7 +39,7 @@ window.QUIZ.push(
     "Shield Advanced is a DDoS protection service; the vulnerable package sits in the guest OS, which only the company can patch.",
     "The hypervisor is AWS's responsibility, but it is not what Inspector flagged; the vulnerable package lives in the guest OS.",
     "Guest OS patching on EC2 is the customer's side of the model, and Patch Manager can apply the fix across the whole fleet automatically."],
- ref:["d4w1","d4c3"], doc:"shared"},
+ ref:["d4c3"], doc:"shared"},
 
 {id:"q04-004", day:4, dom:1, tags:["Root user & MFA"],
  q:"A small game studio created its AWS account a year ago. An audit finds that the root user has no MFA device and has an active access key that a deployment script uses every night. Which actions should the studio take to secure the root user? (Choose two.)",
@@ -54,7 +54,7 @@ window.QUIZ.push(
     "MFA on root is a baseline control, and root should be reserved for the few tasks only it can perform.",
     "The root user is the single sign-in identity an account is created with; further identities are IAM users and roles, not more root users.",
     "Root should have no access keys; an IAM role gives the script temporary, least-privilege credentials instead."],
- ref:["d1b1","d4w1"], doc:"iam"},
+ ref:["d1b1"], doc:"iam"},
 
 {id:"q04-005", day:4, dom:1, tags:["IAM policies"],
  q:"A research company still manages its analysts as IAM users in a single AWS account. Analysts join and leave the team every few weeks, and all of them need identical read-only access to Amazon Athena and one S3 bucket. Which approach keeps permission management simplest?",
@@ -67,7 +67,7 @@ window.QUIZ.push(
     "Groups exist for exactly this: permissions are defined once, and joining or leaving is a single membership change.",
     "One role per person duplicates the same policy many times and adds work without any benefit.",
     "Editing a bucket policy for every staffing change is error-prone, and it does nothing for the Athena permissions."],
- ref:["d4p1","d4w1"], doc:"iam"},
+ ref:[], doc:"iam"},
 
 {id:"q04-006", day:4, dom:1, tags:["IAM policies","S3 security"],
  q:"A developer's IAM policy allows <code>s3:*</code> on the bucket <code>media-archive</code> and all of its objects. The bucket policy on <code>media-archive</code> has a statement with <code>\"Effect\": \"Deny\"</code> for <code>s3:DeleteObject</code> that names the developer's IAM user as the principal. Both are in the same account. What happens when the developer tries to delete an object?",
@@ -80,7 +80,7 @@ window.QUIZ.push(
     "No policy type wins by being evaluated first: if any applicable policy contains an explicit Deny, the final decision is Deny.",
     "Breadth does not matter: a Deny on one action beats an Allow on all actions.",
     "In the same account, identity-based and resource-based policies are combined, not replaced; the delete fails only because of the explicit Deny."],
- ref:["d4c1","d4w1"], doc:"iam"},
+ ref:["d4c1"], doc:"iam"},
 
 {id:"q04-007", day:4, dom:1, tags:["IAM policies","S3 security"],
  q:"An application role has this identity-based policy statement: <code>{\"Effect\":\"Allow\",\"Action\":[\"s3:ListBucket\",\"s3:GetObject\"],\"Resource\":\"arn:aws:s3:::invoice-files/*\"}</code>. The application can download objects by key but gets AccessDenied when it lists the bucket. What is the cause?",
@@ -108,7 +108,7 @@ window.QUIZ.push(
     "SCPs only limit permissions; they never grant access to anyone.",
     "Replication makes a second copy at extra cost and is not needed just to let another account read objects.",
     "The calling account must also allow its own principals; cross-account access needs both the resource-based and the identity-based Allow."],
- ref:["d4c1","d4w1"], doc:"s3"},
+ ref:["d4c1"], doc:"s3"},
 
 {id:"q04-009", day:4, dom:1, tags:["IAM policies"],
  q:"A company runs all workloads in a single standalone AWS account. Team leads must be able to create IAM roles for their own Lambda functions without waiting for the security team, but no role they create may ever have more permissions than a defined set of DynamoDB and CloudWatch Logs actions. Which solution meets these requirements?",
@@ -121,7 +121,7 @@ window.QUIZ.push(
     "Weekly review is detective, not preventive; with IAMFullAccess a team lead could create an admin role and use it before anyone notices.",
     "Denying access to tables does not cap what the new roles can do elsewhere, and it would break the functions that need DynamoDB.",
     "A condition on iam:PermissionsBoundary forces every new role to carry the boundary, so its effective permissions can never exceed the approved set."],
- ref:["d4w1","d4c1"], doc:"iam"},
+ ref:["d4c1"], doc:"iam"},
 
 {id:"q04-010", day:4, dom:1, tags:["IAM policies"],
  q:"An IAM user has the AdministratorAccess managed policy attached. The user also has a permissions boundary that allows only <code>s3:*</code> and <code>cloudwatch:*</code>. The user tries to launch an Amazon EC2 instance. What is the result?",
@@ -134,7 +134,7 @@ window.QUIZ.push(
     "A permissions boundary sets the maximum permissions; EC2 actions are not in the boundary, so they are not allowed even though AdministratorAccess lists them.",
     "Boundaries can be set on both IAM users and IAM roles.",
     "A boundary limits the entity it is attached to; it is often used when delegating role creation, but here it restricts this user's own actions."],
- ref:["d4c1","d4w1"], doc:"iam"},
+ ref:["d4c1"], doc:"iam"},
 
 {id:"q04-011", day:4, dom:1, tags:["IAM policies","CloudTrail"],
  q:"A fintech company's CI role has the PowerUserAccess policy attached. The security team wants to replace it with a least-privilege policy based on the API calls the role actually made over the past 90 days, with as little manual analysis as possible. What should the team do?",
@@ -147,7 +147,7 @@ window.QUIZ.push(
     "This could work, but reading months of events by hand is exactly the manual analysis the team wants to avoid.",
     "Access Analyzer policy generation reviews the role's CloudTrail activity and produces a policy with the services and actions actually used, which the team then refines.",
     "GuardDuty findings describe suspicious activity, not a complete list of the actions a role legitimately needs."],
- ref:["d4w1","d4b1"], doc:"iam"},
+ ref:["d4b1"], doc:"iam"},
 
 {id:"q04-012", day:4, dom:1, tags:["IAM policies","S3 security"],
  q:"A company with dozens of accounts in AWS Organizations wants to continuously find S3 buckets, KMS keys, and IAM roles whose policies grant access to principals outside the organization. Which solution meets this requirement with the least effort?",
@@ -160,7 +160,7 @@ window.QUIZ.push(
     "Macie focuses on sensitive data in S3 and some bucket security posture; it does not analyze KMS key policies or role trust policies.",
     "A custom rule could work but means writing and maintaining policy-parsing code, which is far more effort than a built-in analyzer.",
     "GuardDuty detects threats from activity and logs; it does not evaluate who resource policies grant access to."],
- ref:["d4w1","d4c1"], doc:"iam"},
+ ref:["d4c1"], doc:"iam"},
 
 {id:"q04-013", day:4, dom:1, tags:["S3 security","Organizations & SCPs"],
  q:"A company keeps shared software packages in an S3 bucket. Every account in its AWS organization, including accounts created in the future, must be able to download the packages, and no principal outside the organization may access them. Which bucket policy approach requires the least ongoing maintenance?",
@@ -199,7 +199,7 @@ window.QUIZ.push(
     "Rotation shortens exposure but keeps long-term keys on disk and adds a script to maintain.",
     "User data can be read from the instance metadata and by anyone allowed to view the instance's attributes; the key is still long-term.",
     "With an instance profile, the SDK automatically gets temporary credentials that AWS rotates, so there are no keys to store or rotate."],
- ref:["d4b2","d4p1"], doc:"iam"},
+ ref:["d4b2"], doc:"iam"},
 
 {id:"q04-016", day:4, dom:1, tags:["IAM roles & cross-account"],
  q:"A company's web application on Amazon EC2 uses an instance profile to access DynamoDB. A penetration test finds a server-side request forgery (SSRF) flaw that lets an attacker make the application request arbitrary URLs. Which change best reduces the risk that the role's temporary credentials are stolen through the instance metadata service?",
@@ -212,7 +212,7 @@ window.QUIZ.push(
     "A long-term access key is worse: if leaked it never expires, and the SSRF flaw remains.",
     "The metadata service is reached from inside the instance, so a private subnet does not stop SSRF requests to it.",
     "Volume encryption protects data at rest and does nothing to protect the metadata endpoint."],
- ref:["d4b2","d4w1"], doc:"ec2"},
+ ref:["d4b2"], doc:"ec2"},
 
 {id:"q04-017", day:4, dom:1, tags:["IAM roles & cross-account"],
  q:"A company runs its CI/CD pipeline in a tooling account, Account A. The pipeline's IAM role must deploy CloudFormation stacks into a production account, Account B, without any long-term credentials. Which steps should a solutions architect take? (Choose two.)",
@@ -227,7 +227,7 @@ window.QUIZ.push(
     "SCPs only restrict permissions and cannot grant access to anything, let alone another account.",
     "The caller's own account must also allow it to call sts:AssumeRole on that role; both sides are needed.",
     "Only IAM users can be group members; roles cannot join groups, and certainly not across accounts."],
- ref:["d4b3","d4w1"], doc:"iam"},
+ ref:["d4b3"], doc:"iam"},
 
 {id:"q04-018", day:4, dom:1, tags:["IAM roles & cross-account"],
  q:"A company wants a third-party cost-monitoring SaaS vendor to read billing and resource metadata in its AWS account. The vendor serves many customers from its own AWS account. The company wants to follow AWS best practice and protect against the confused deputy problem. What should the company do?",
@@ -240,7 +240,7 @@ window.QUIZ.push(
     "Root credentials give unrestricted control of the account and must never be shared.",
     "Trusting the vendor's account gives it temporary credentials, and the external ID condition stops the vendor from being tricked into using your role on another customer's behalf.",
     "Trusting every principal means anyone with an AWS account could assume the role and read your data."],
- ref:["d4b3","d4w1"], doc:"iam"},
+ ref:["d4b3"], doc:"iam"},
 
 {id:"q04-019", day:4, dom:1, tags:["IAM roles & cross-account"],
  q:"A platform team creates an IAM role named <code>ReportsReader</code> whose permissions policy allows read access to an S3 bucket. A developer whose IAM policy allows <code>sts:AssumeRole</code> on that role runs <code>aws sts assume-role</code> and gets AccessDenied. The role's trust policy lists only <code>ec2.amazonaws.com</code> as a principal. What should the team change?",
@@ -266,7 +266,7 @@ window.QUIZ.push(
     "A Lambda function policy is a resource-based policy that says who can invoke the function; granting s3.amazonaws.com, scoped to the bucket's ARN and account, lets S3 call it.",
     "PutBucketNotification configures the event notification; it is not permission for S3 to invoke Lambda.",
     "SCPs never grant permissions to anyone, including service principals."],
- ref:["d4c1","d1w3"], doc:"lambda"},
+ ref:["d4c1"], doc:"lambda"},
 
 {id:"q04-021", day:4, dom:1, tags:["Organizations & SCPs"],
  q:"A media company uses AWS Organizations. For data residency, no one in any member account, including account administrators, may create resources outside eu-west-1 and eu-central-1. Global services such as IAM must keep working. Which solution meets these requirements?",
@@ -279,7 +279,7 @@ window.QUIZ.push(
     "Administrators can detach or edit their own IAM policies, and new users would not be covered automatically.",
     "Only opt-in Regions can be disabled; Regions that are enabled by default cannot be turned off, so this cannot enforce the restriction.",
     "This is reactive: resources are created first and cleaned up later, which breaks the residency requirement and adds work."],
- ref:["d4c2","d4w1"], doc:"organizations"},
+ ref:["d4c2"], doc:"organizations"},
 
 {id:"q04-022", day:4, dom:1, tags:["Organizations & SCPs","IAM policies"],
  q:"The SCPs that apply to a member account allow only <code>s3:*</code> and <code>ec2:*</code>. A developer in that account has an IAM policy that allows only <code>s3:GetObject</code> and <code>dynamodb:Query</code>. Which actions can the developer perform?",
@@ -305,7 +305,7 @@ window.QUIZ.push(
     "In member accounts an SCP Deny overrides any IAM Allow, including AdministratorAccess.",
     "Policies attached to the root apply to every OU and account under it, existing and new.",
     "The management account is never affected by SCPs, which is one reason AWS recommends keeping workloads and everyday users out of it."],
- ref:["d4c2","d4w1"], doc:"organizations"},
+ ref:["d4c2"], doc:"organizations"},
 
 {id:"q04-024", day:4, dom:1, tags:["Organizations & SCPs","Root user & MFA"],
  q:"A company uses AWS Organizations and records configuration changes with AWS Config in every member account. The security team must ensure that no one in a member account, including that account's root user, can stop the configuration recorder. Which solution meets this requirement?",
@@ -331,7 +331,7 @@ window.QUIZ.push(
     "Event history shows API activity for the last 90 days, but it does not report MFA status, password age, or access key age.",
     "The credential report is a downloadable CSV file that lists every IAM user with the status of their password, MFA device, and access keys, including last-used and last-rotated dates.",
     "GuardDuty reports suspicious activity; it does not provide an inventory of user credentials and their ages."],
- ref:["d4w1","d4p1"], doc:"iam"},
+ ref:[], doc:"iam"},
 
 {id:"q04-026", day:4, dom:1, tags:["IAM Identity Center & federation"],
  q:"Developers at a startup run AWS CLI commands with long-term IAM user access keys saved in <code>~/.aws/credentials</code>. The company already uses IAM Identity Center for console access. The security team wants to eliminate long-term credentials on laptops with minimal disruption. Which actions should the team take? (Choose two.)",
@@ -372,7 +372,7 @@ window.QUIZ.push(
     "AWS owned keys are not visible in your account at all, so you cannot manage their policies or state.",
     "Only customer managed keys let you write the key policy, enable or disable the key, and grant other accounts access to it.",
     "SSE-S3 keys are fully managed by S3, offer no key policy, and do not apply to EBS."],
- ref:["d4b4","d4w1"], doc:"kms"},
+ ref:[], doc:"kms"},
 
 {id:"q04-029", day:4, dom:1, tags:["KMS & encryption"],
  q:"A healthcare company encrypts patient records with a symmetric customer managed KMS key. A new policy requires the key material to be rotated every year, and data encrypted before a rotation must stay decryptable without re-encrypting it. Which solution meets these requirements with the least operational overhead?",
@@ -385,7 +385,7 @@ window.QUIZ.push(
     "Automatic rotation works only for symmetric encryption keys whose material KMS generated; asymmetric KMS keys cannot be rotated automatically.",
     "Disabling the old key makes data encrypted under it undecryptable until the key is enabled again.",
     "Automatic rotation creates new key material on a schedule (every 365 days by default, configurable from 90 to 2,560 days) under the same key ID and keeps older material, so old ciphertext still decrypts with no application changes."],
- ref:["d4b4","d4w1"], doc:"kms"},
+ ref:[], doc:"kms"},
 
 {id:"q04-030", day:4, dom:1, tags:["KMS & encryption"],
  q:"An IoT company must encrypt sensor archives of up to 2 GB each with a key protected by AWS KMS before writing them to on-premises storage. A developer notes that the KMS <code>Encrypt</code> API accepts at most 4 KB of plaintext. Which approach should the developer use?",
@@ -398,7 +398,7 @@ window.QUIZ.push(
     "The 4,096-byte maximum is part of how the Encrypt API is defined; it is not one of the KMS quotas that can be raised.",
     "KMS key material never leaves KMS unencrypted, so it cannot be exported.",
     "This is envelope encryption: the archive is encrypted locally with the data key, the encrypted copy of the data key is stored with it, and KMS is only needed to decrypt that small key later."],
- ref:["d4w1","d4b4"], doc:"kms"},
+ ref:[], doc:"kms"},
 
 {id:"q04-031", day:4, dom:1, tags:["KMS & encryption","IAM policies"],
  q:"An administrator creates a customer managed KMS key with a custom key policy that gives permissions only to a key administrator role. The policy omits the statement that lets IAM policies in the account grant access. An application role whose IAM policy allows <code>kms:Decrypt</code> on all resources gets AccessDenied when it calls Decrypt with this key. What is the cause?",
@@ -411,7 +411,7 @@ window.QUIZ.push(
     "The key policy is the primary control for a KMS key; without a statement trusting the account or naming the role, IAM permissions have no effect on that key.",
     "Wildcard resources work in IAM policies for KMS; the missing piece is in the key policy.",
     "Any principal the key policy allows, directly or through IAM, can use the key, not just its creator."],
- ref:["d4b4","d4c1"], doc:"kms"},
+ ref:["d4c1"], doc:"kms"},
 
 {id:"q04-032", day:4, dom:1, tags:["KMS & encryption","IAM roles & cross-account"],
  q:"A company wants to share a manual snapshot of an encrypted Amazon RDS for PostgreSQL DB instance with its separate analytics account. The DB instance is encrypted with the AWS managed key <code>aws/rds</code>. What must the company do?",
@@ -424,7 +424,7 @@ window.QUIZ.push(
     "A copy under a customer managed key can be shared once the key policy lets the analytics account use the key.",
     "RDS does not let you turn encryption off: an encrypted DB instance cannot be unencrypted, only exported and imported elsewhere.",
     "Encrypted snapshots cannot be made public, and public sharing would expose the data to everyone."],
- ref:["d4b4","d3p1"], doc:"rds"},
+ ref:[], doc:"rds"},
 
 {id:"q04-033", day:4, dom:1, tags:["KMS & encryption","EBS & instance store"],
  q:"A company's security policy states that every new Amazon EBS volume must be encrypted, including volumes launched by Auto Scaling groups and by developers who forget to select encryption. Which solution enforces this with the least operational overhead?",
@@ -437,7 +437,7 @@ window.QUIZ.push(
     "Existing EBS volumes cannot be encrypted in place, and a nightly job leaves gaps.",
     "An audit only detects problems after the fact; it does not enforce encryption.",
     "AWS managed key policies cannot be edited, and a key policy cannot force a volume to be encrypted."],
- ref:["d4w1","d3w1"], doc:"ebs"},
+ ref:[], doc:"ebs"},
 
 {id:"q04-034", day:4, dom:1, tags:["KMS & encryption"],
  q:"A security team found a customer managed KMS key that it believes is no longer used and wants to delete it to reduce risk and cost. If anything still depends on the key, the data encrypted under it would become permanently unreadable once the key is deleted. Which approach deletes the key with the LEAST risk of data loss?",
@@ -450,7 +450,7 @@ window.QUIZ.push(
     "KMS never deletes a key immediately; it always enforces a waiting period of 7 to 30 days, and removing the alias does not prove that the key is unused.",
     "A KMS key cannot be deleted without a waiting period, and rotating the key material does not reveal whether data still depends on the key.",
     "Disabling is reversible and makes any remaining use fail visibly in CloudTrail, and the 30-day waiting period still allows the deletion to be cancelled before the key is gone."],
- ref:["d4w1","d4b4"], doc:"kms"},
+ ref:[], doc:"kms"},
 
 {id:"q04-035", day:4, dom:1, tags:["KMS & encryption","S3 security"],
  q:"A company stores signed contracts in an S3 bucket. Auditors require that use of the encryption key be logged in AWS CloudTrail, and the security team must be able to control who can decrypt objects separately from who has S3 permissions. Which encryption option meets these requirements?",
@@ -463,7 +463,7 @@ window.QUIZ.push(
     "KMS logs key use in CloudTrail, and a reader needs kms:Decrypt on the key in addition to s3:GetObject, so decryption is controlled separately.",
     "With SSE-C the company supplies and manages the keys itself and KMS is not involved, so there is no KMS key policy or KMS record of key use.",
     "A key stored in a config file has no audit trail and no fine-grained access control."],
- ref:["d4b4","d4w1"], doc:"kms"},
+ ref:[], doc:"kms"},
 
 {id:"q04-036", day:4, dom:1, tags:["KMS & encryption","S3 security"],
  q:"A defense contractor must store files in Amazon S3 under a policy that requires two layers of encryption at rest, both applied by the storage service, with keys managed in AWS KMS. Which option meets this requirement with the least operational overhead?",
@@ -476,7 +476,7 @@ window.QUIZ.push(
     "This gives two layers but means building encryption into every client, and the policy requires both layers to be applied by the storage service.",
     "DSSE-KMS applies two layers of encryption on the server side using KMS keys, meeting the dual-layer requirement with a single setting.",
     "Versioning and Object Lock protect against deletion and overwrites; they add no second layer of encryption."],
- ref:["d4b4","d4w1"], doc:"s3"},
+ ref:[], doc:"s3"},
 
 {id:"q04-037", day:4, dom:1, tags:["KMS & encryption","S3 security"],
  q:"A media company must keep full control of its encryption keys in its own on-premises key management system, and AWS must never store the keys. The company wants Amazon S3 to perform the encryption and decryption so that upload clients do not need encryption libraries. Which option meets these requirements?",
@@ -489,7 +489,7 @@ window.QUIZ.push(
     "With imported key material, AWS KMS holds and uses a copy of the key, which the requirement forbids.",
     "This keeps keys under company control but makes the clients do the encryption, which the company wants to avoid.",
     "SSE-S3 keys are created and stored by AWS, and IP restrictions do not change who holds the keys."],
- ref:["d4w1","d3w1"], doc:"s3"},
+ ref:[], doc:"s3"},
 
 {id:"q04-038", day:4, dom:1, tags:["KMS & encryption","S3 security"],
  q:"A law firm uploads case files to Amazon S3. Firm policy states that plaintext data must never leave the firm's network and AWS must never be able to see unencrypted content. Which approach meets this requirement?",
@@ -502,7 +502,7 @@ window.QUIZ.push(
     "S3 still receives the plaintext (protected only by TLS in transit) and encrypts it on the server, so AWS handles unencrypted content.",
     "Data is encrypted before it leaves the firm, so S3 only ever stores ciphertext it cannot read.",
     "SSE-C sends both the plaintext and the key to S3, which performs the encryption."],
- ref:["d4w1","d4b4"], doc:"s3"},
+ ref:[], doc:"s3"},
 
 {id:"q04-039", day:4, dom:4, tags:["KMS & encryption","S3 security"],
  q:"A log analytics company writes millions of small objects per day to an S3 bucket that uses SSE-KMS with a customer managed key. KMS request charges have grown sharply, and the company sometimes sees KMS throttling. The company must keep using its customer managed key. What is the most cost-effective solution?",
@@ -515,7 +515,7 @@ window.QUIZ.push(
     "SSE-S3 removes KMS costs but drops the customer managed key, which the company must keep.",
     "A higher quota may reduce throttling but does nothing about the growing request charges.",
     "Spreading requests across more keys adds key charges and management without reducing the number of KMS calls."],
- ref:["d4b4","d4w1"], doc:"s3"},
+ ref:[], doc:"s3"},
 
 {id:"q04-040", day:4, dom:1, tags:["Secrets Manager & Parameter Store"],
  q:"A gaming company's application on Amazon ECS connects to an Amazon Aurora MySQL database using a password stored in a plaintext environment variable. Security now requires the password to be rotated automatically every 30 days without building or running custom rotation tooling. Which solution meets these requirements?",
@@ -528,7 +528,7 @@ window.QUIZ.push(
     "Parameter Store stores the value encrypted, but its own guide points secrets that need automatic rotation to Secrets Manager; rotating a parameter would be tooling you build.",
     "Rotating the KMS key changes the key material, not the database password.",
     "A cron job that changes passwords is exactly the custom tooling the company wants to avoid."],
- ref:["d4b5","d4w1"], doc:"secrets"},
+ ref:[], doc:"secrets"},
 
 {id:"q04-041", day:4, dom:4, tags:["Secrets Manager & Parameter Store"],
  q:"A startup keeps about 40 configuration values, including several API keys for third-party services, that rarely change and do not need automatic rotation. Several Lambda functions read them, and they must be encrypted at rest with KMS. Which solution is the most cost-effective?",
@@ -541,7 +541,7 @@ window.QUIZ.push(
     "Standard-tier parameters have no storage charge, and SecureString encrypts each value with a KMS key, which fits rarely changing values that do not need rotation. AWS recommends Secrets Manager for credentials, but it is billed per secret.",
     "Advanced-tier parameters are billed per parameter, and their policies (such as expiration) are not needed.",
     "Running a database just to hold a few dozen values costs far more and adds connection handling to every function."],
- ref:["d4b5","d4w1"], doc:"parameter-store"},
+ ref:[], doc:"parameter-store"},
 
 {id:"q04-042", day:4, dom:2, tags:["Secrets Manager & Parameter Store","Disaster recovery"],
  q:"A finance company runs its primary application in eu-west-1 with a warm standby in eu-central-1. The application reads database credentials from AWS Secrets Manager, and the secret is rotated automatically. During a Regional failover, the standby must read the current credentials locally even if eu-west-1 is unavailable. What should a solutions architect do?",
@@ -554,7 +554,7 @@ window.QUIZ.push(
     "Replica secrets stay in sync with the primary, including rotated values, and can be read in eu-central-1 even when the primary Region is down.",
     "Writing secret values into S3 objects weakens their protection and adds a pipeline to maintain.",
     "A nightly copy can be stale after a rotation and adds custom work."],
- ref:["d4b5","d4w1"], doc:"secrets"},
+ ref:[], doc:"secrets"},
 
 {id:"q04-043", day:4, dom:1, tags:["WAF, Shield & Firewall Manager"],
  q:"An online retailer's application behind an Application Load Balancer is receiving SQL injection and cross-site scripting attempts. The company wants to block these requests before they reach the EC2 instances, with minimal custom rule writing. What should a solutions architect do?",
@@ -567,7 +567,7 @@ window.QUIZ.push(
     "Shield Advanced is DDoS protection; filtering SQL injection and XSS is done by AWS WAF rules, which this option does not add.",
     "GuardDuty is a threat detection service that analyzes logs and reports findings; it is not placed in front of the load balancer to filter requests.",
     "AWS WAF inspects HTTP requests at the ALB, and AWS managed rule groups (such as the core rule set and the SQL database rule group) block these attacks without writing rules. The WAF docs now call a web ACL a protection pack (web ACL)."],
- ref:["d4c3","d4w1"], doc:"waf"},
+ ref:["d4c3"], doc:"waf"},
 
 {id:"q04-044", day:4, dom:1, tags:["WAF, Shield & Firewall Manager"],
  q:"A ticketing company's API is delivered through Amazon CloudFront. Bots send bursts of thousands of requests per minute from constantly changing IP addresses, and a legal requirement says the company must block requests from one country where it does not operate. Which AWS WAF rules should a solutions architect add to the web ACL? (Choose two.)",
@@ -582,7 +582,7 @@ window.QUIZ.push(
     "The problem is request volume, not request size.",
     "Geographic match rules use the request's source location to block traffic from the specified countries.",
     "Nothing suggests injection attacks; this rule would not address the bots or the country requirement."],
- ref:["d4c3","d4w1"], doc:"waf"},
+ ref:["d4c3"], doc:"waf"},
 
 {id:"q04-045", day:4, dom:1, tags:["WAF, Shield & Firewall Manager"],
  q:"A sports streaming platform expects large DDoS attacks during major events. It needs around-the-clock access to the AWS Shield Response Team during attacks, near real-time attack visibility, and protection against scaling charges on its CloudFront and Elastic Load Balancing resources caused by an attack. The company already has an Enterprise Support plan. Which service meets these requirements?",
@@ -595,7 +595,7 @@ window.QUIZ.push(
     "Rate-based rules help against application-layer floods but provide no response team or cost protection.",
     "GuardDuty detects threats in logs and account activity; it is not a DDoS protection service.",
     "Shield Advanced adds Shield Response Team support, detailed attack diagnostics, and credits for scaling charges caused by DDoS attacks on protected resources. The Shield docs say SRT access also requires the Business Support or Enterprise Support plan; the company has Enterprise Support."],
- ref:["d4c3","d4w1"], doc:"shield"},
+ ref:["d4c3"], doc:"shield"},
 
 {id:"q04-046", day:4, dom:1, tags:["Threat detection"],
  q:"A company wants to detect threats such as EC2 instances communicating with known command-and-control servers, cryptocurrency mining, and unusual API calls made with stolen credentials. The solution must analyze CloudTrail events, VPC Flow Logs, and DNS logs without deploying agents or building log pipelines. Which service should the company enable?",
@@ -608,7 +608,7 @@ window.QUIZ.push(
     "Macie discovers sensitive data in S3; it does not monitor network or API activity.",
     "GuardDuty reads CloudTrail, VPC Flow Logs and DNS logs directly from AWS with no agents or log setup, and uses threat intelligence and machine learning to flag these behaviors.",
     "Security Hub collects and prioritizes findings from other services; it does not itself analyze flow logs or DNS logs."],
- ref:["d4c3","d4w1"], doc:"guardduty"},
+ ref:["d4c3"], doc:"guardduty"},
 
 {id:"q04-047", day:4, dom:1, tags:["Threat detection"],
  q:"A company runs workloads on EC2 instances, container images in Amazon ECR, and Lambda functions. The security team wants continuous, automated scanning for known software vulnerabilities (CVEs), with resources rescanned automatically when new CVEs are published. Which service meets these requirements?",
@@ -621,7 +621,7 @@ window.QUIZ.push(
     "AWS Config records resource configuration and evaluates compliance rules; it does not scan software for CVEs.",
     "Macie looks for sensitive data in S3 objects, not software vulnerabilities.",
     "Inspector continuously scans EC2 instances, ECR images and Lambda functions for CVEs and rescans affected resources when new vulnerabilities are published."],
- ref:["d4c3","d4w1"], doc:"inspector"},
+ ref:["d4c3"], doc:"inspector"},
 
 {id:"q04-048", day:4, dom:1, tags:["Threat detection","S3 security"],
  q:"A healthcare startup has hundreds of S3 buckets created by different teams. Compliance must find which buckets contain personal data such as names, addresses, and passport numbers, and be alerted when new sensitive data appears. Which service meets this requirement with the least effort?",
@@ -634,7 +634,7 @@ window.QUIZ.push(
     "Inspector scans compute workloads for vulnerabilities; it does not read object contents.",
     "Access Analyzer reports who can access a bucket, not what data is inside it.",
     "GuardDuty S3 Protection analyzes CloudTrail data events for S3 to flag suspicious access; finding personal data inside objects is what Macie does."],
- ref:["d4c3","d4w1"], doc:"macie"},
+ ref:["d4c3"], doc:"macie"},
 
 {id:"q04-049", day:4, dom:1, tags:["Threat detection"],
  q:"A company with 25 AWS accounts uses GuardDuty, Inspector, and Macie. The security team wants one place to view and prioritize findings from all of these services across all accounts, plus automated checks of the accounts against AWS security best practice standards. Which service should the team use?",
@@ -647,7 +647,7 @@ window.QUIZ.push(
     "AWS Security Hub CSPM (formerly AWS Security Hub) aggregates GuardDuty, Inspector and Macie findings across accounts and runs automated checks against standards such as AWS Foundational Security Best Practices. The newer service now named AWS Security Hub adds correlation and risk analytics on top of these signals.",
     "Trusted Advisor runs its own best-practice checks and can display Security Hub CSPM control results; aggregating findings across services and accounts is what Security Hub CSPM does.",
     "A Config aggregator collects AWS Config configuration and compliance data across accounts and Regions, which is not where GuardDuty, Inspector and Macie findings go."],
- ref:["d4c3","d4w1"], doc:"securityhub"},
+ ref:["d4c3"], doc:"securityhub"},
 
 {id:"q04-050", day:4, dom:1, tags:["Threat detection","EventBridge"],
  q:"A company uses Amazon GuardDuty. When GuardDuty reports that an EC2 instance is communicating with a cryptocurrency mining pool, the instance must be isolated automatically within minutes by replacing its security groups with a restrictive one. Which components should a solutions architect use? (Choose two.)",
@@ -662,5 +662,5 @@ window.QUIZ.push(
     "A web ACL is associated with resources such as CloudFront distributions and Application Load Balancers, not EC2 instances, and it filters inbound HTTP requests rather than outbound mining traffic.",
     "A Lambda target can call the EC2 API to replace the instance's security groups, cutting it off while keeping it available for forensics.",
     "Shield Advanced is a DDoS protection service; swapping an instance's security groups is an EC2 API call that the Lambda function makes."],
- ref:["d4c3","d4w1"], doc:"guardduty"}
+ ref:["d4c3"], doc:"guardduty"}
 );

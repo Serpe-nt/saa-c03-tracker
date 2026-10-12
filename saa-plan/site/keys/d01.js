@@ -148,113 +148,12 @@ Object.assign(window.KEYS, {
     ]
   },
 
-  d1w1: {
-    k: [
-      "AWS secures the cloud itself: facilities, hardware, the host operating system and the virtualization layer. You secure what you put in it: your data, your configuration and who has access.",
-      "Your share shrinks as the service gets more managed. On EC2 you patch the guest operating system and configure security groups; on S3 or DynamoDB AWS runs the operating system and the platform.",
-      "Some duties never move to AWS: managing your data and its encryption options, and applying the right IAM permissions. On Lambda AWS patches and scales the servers, but the code and its permissions are yours.",
-      "Patching is a shared control. AWS patches and fixes flaws in the infrastructure; you patch your guest operating systems and applications.",
-      "The cloud trades fixed expense for variable expense and ends capacity guessing: you pay only for what you consume and can scale up or down within minutes."
-    ],
-    trap: "'It is a managed service, so AWS secures the data in it' is false. A bucket made public, an over-broad IAM policy or an unpatched EC2 guest operating system is always on the customer's side of the line.",
-    docs: [
-      ["Shared responsibility model", "https://aws.amazon.com/compliance/shared-responsibility-model/"],
-      ["Six advantages of cloud computing", "https://docs.aws.amazon.com/whitepapers/latest/aws-overview/six-advantages-of-cloud-computing.html"]
-    ]
-  },
 
-  d1w2: {
-    k: [
-      "Match the instance family to the bottleneck: C (compute optimized) for CPU-bound work, R and X (memory optimized) for large in-memory data, I and D (storage optimized) for local disk I/O, P and G (accelerated) for GPUs, M when balanced.",
-      "T instances are burstable general purpose: a CPU baseline with the ability to burst above it. They are the low-cost fit for workloads that sit idle most of the time and spike briefly.",
-      "Read the workload pattern: steady for one or three years means Savings Plans or Reserved Instances; short, unpredictable and uninterruptible means On-Demand; interruptible and fault-tolerant means Spot.",
-      "Compute Savings Plans follow you across instance family, size, Region, operating system and tenancy and also cover Fargate and Lambda. EC2 Instance Savings Plans discount more but bind you to one family in one Region.",
-      "Capacity in a specific AZ is reserved by zonal Reserved Instances and On-Demand Capacity Reservations. Regional Reserved Instances and Savings Plans are billing discounts and reserve no capacity."
-    ],
-    trap: "Two pairs get swapped. Dedicated Hosts show sockets and cores for per-socket or per-core licences, while Dedicated Instances only keep other accounts off the hardware. Savings Plans commit to an hourly spend, Reserved Instances to an instance configuration.",
-    docs: [
-      ["Amazon EC2 instance types", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html"],
-      ["Amazon EC2 billing and purchasing options", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html"],
-      ["Savings Plans types", "https://docs.aws.amazon.com/savingsplans/latest/userguide/plan-types.html"]
-    ]
-  },
 
-  d1w3: {
-    k: [
-      "Lambda runs code in response to events from S3, API Gateway, SQS, EventBridge and other services, with no servers to manage and pay-per-use billing. One invocation runs for up to 15 minutes (90 on Lambda Managed Instances when invoked asynchronously).",
-      "Fargate is serverless compute for containers and works with both ECS and EKS. You state CPU and memory per task or pod and never provision, configure or scale the virtual machines underneath.",
-      "ECS is AWS's own container orchestrator. EKS is managed Kubernetes and is certified conformant, so existing Kubernetes applications and community tooling move over without refactoring.",
-      "Elastic Beanstalk takes your application and provisions EC2 instances (or, in its newer Cluster mode, an EKS cluster), load balancing, health monitoring and scaling in your account. It has no additional charge; you pay for those resources.",
-      "Fargate gives you no host: EKS on Fargate supports no privileged containers, no DaemonSets and no GPUs. On EC2 the guest operating system is yours, so a kernel module or an OS-level agent points to EC2, directly or as cluster nodes."
-    ],
-    trap: "Check duration and control before picking 'serverless'. A job that computes for hours does not fit in one Lambda invocation; 'existing Kubernetes manifests' means EKS, not ECS; 'upload code but keep access to the instances' means Elastic Beanstalk.",
-    docs: [
-      ["What is AWS Lambda?", "https://docs.aws.amazon.com/lambda/latest/dg/welcome.html"],
-      ["Architect for AWS Fargate for Amazon ECS", "https://docs.aws.amazon.com/AmazonECS/latest/developerguide/AWS_Fargate.html"],
-      ["What is AWS Elastic Beanstalk?", "https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/Welcome.html"]
-    ]
-  },
 
-  d1w4: {
-    k: [
-      "Regions are isolated from each other, and AWS does not copy your resources to another Region unless you configure it. That is why choosing the Region can satisfy a data residency rule.",
-      "An Availability Zone is one or more discrete data centers with redundant power, networking and connectivity. Every Region has at least three, physically separate but within 100 km of each other.",
-      "Resources have different scopes: a subnet and an EBS volume live in one AZ, a VPC spans the AZs of one Region, and an AMI is Regional and must be copied before you can launch from it in another Region.",
-      "CloudFront keeps cached copies of your content at edge locations and sends each user to the one with the lowest latency. The origin, such as an S3 bucket, stays in its Region.",
-      "To keep full capacity through the loss of one AZ, the remaining AZs must carry the whole load. Needing 4 instances means 2 per AZ across three AZs (6 in total) but 4 per AZ across two (8 in total)."
-    ],
-    trap: "Edge locations are not small Regions: EC2 runs in Regions, AZs, Local Zones, Wavelength Zones and Outposts, not there. An AZ outage calls for a second AZ, not a second Region; go multi-Region only when the stem names a Regional outage or geography.",
-    docs: [
-      ["Regions and Zones", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html"],
-      ["AWS Regions and Availability Zones", "https://aws.amazon.com/about-aws/global-infrastructure/regions_az/"],
-      ["What is Amazon CloudFront?", "https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html"]
-    ]
-  },
 
-  d1p1: {
-    k: [
-      "S3 static hosting serves static content and client-side scripts as they are. The website endpoint supports only GET and HEAD requests on objects, so a form that saves to a database needs a backend such as API Gateway with a Lambda function.",
-      "A public website endpoint needs three settings: static website hosting enabled with an index document, Block Public Access turned off for the bucket (and the account), and a bucket policy granting public read.",
-      "The website endpoint speaks HTTP only and serves only publicly readable content. For HTTPS put CloudFront in front (the docs now name Amplify Hosting first); with a custom domain CloudFront uses an ACM certificate requested in us-east-1.",
-      "Serving the site through a CloudFront distribution is also the documented way to publish it without turning Block Public Access off."
-    ],
-    trap: "S3 website endpoints do not support HTTPS at all, so an option that turns on HTTPS in the bucket's website settings is wrong. Remember also who opened the bucket: public access is a customer setting, so an exposure is the customer's responsibility.",
-    docs: [
-      ["Website endpoints", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteEndpoints.html"],
-      ["Setting permissions for website access", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteAccessPermissionsReqd.html"],
-      ["Requirements for using SSL/TLS certificates with CloudFront", "https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html"]
-    ]
-  },
 
-  d1p2: {
-    k: [
-      "You pick an AZ by picking a subnet, because each subnet sits entirely inside one AZ. Running in two AZs therefore takes at least two subnets.",
-      "Two instances in two AZs become one highly available application only when something spreads the traffic. Elastic Load Balancing distributes requests across AZs and sends them only to healthy targets.",
-      "An EBS volume attaches only to an instance in its own AZ, so each instance keeps its volumes in the AZ where it runs."
-    ],
-    trap: "A larger instance type, a cluster placement group or daily snapshots do not survive an AZ outage. The first two stay inside one AZ and snapshots only help you rebuild afterwards; only instances in a second AZ keep serving.",
-    docs: [
-      ["Subnets for your VPC", "https://docs.aws.amazon.com/vpc/latest/userguide/configure-subnets.html"],
-      ["What is Elastic Load Balancing?", "https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/what-is-load-balancing.html"],
-      ["Amazon EBS volumes", "https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes.html"]
-    ]
-  },
 
-  d1p3: {
-    k: [
-      "To change the instance type you must stop the instance first, so plan for downtime. On an EBS-backed instance the volumes and their data are kept.",
-      "A stop and start loses RAM contents, instance store data and the auto-assigned public IPv4 address. EBS volumes, private IPv4 addresses and associated Elastic IP addresses persist.",
-      "User data runs as the root user and, by default, only during the first boot. It is the way to install software at launch, but everything it does adds to the time before the instance is ready.",
-      "User data is not protected by authentication or encryption, and software running on the instance can read it. Never place passwords or keys there.",
-      "An AMI created from a configured instance launches new instances with the same configuration, so nothing has to be installed at boot. An AMI is tied to its Region, so copy it to each Region you launch in."
-    ],
-    trap: "Instance metadata is information the instance reads about itself; user data is the script you pass in at launch. And more memory comes from a different instance type, never from a larger EBS volume.",
-    docs: [
-      ["How EC2 instance stop and start works", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-stop-start-works.html"],
-      ["Run commands at launch with user data", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html"],
-      ["Use instance metadata to manage your EC2 instance", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html"]
-    ]
-  },
 
   d1c6: {
     k: [

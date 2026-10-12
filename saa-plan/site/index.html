@@ -70,7 +70,7 @@
   <div class="tb-title">
     <span class="tb-k">Project</span>
     <h1>AWS Solutions Architect – Associate</h1>
-    <span class="tb-sub">SAA-C03 in 14 days</span>
+    <span class="tb-sub" id="tb-sub">SAA-C03</span>
   </div>
   <div class="tb-cell"><span class="tb-k">Sheet</span><b id="tb-sheet"></b></div>
   <div class="tb-cell"><span class="tb-k" id="tb-exam-k">Exam</span><b id="tb-exam"></b></div>
@@ -82,7 +82,7 @@
   </div>
 </header>
 
-<!-- Overview: where you stand, one button to start or continue, the 14 days as tiles -->
+<!-- Overview: where you stand, one button to start or continue, the days as tiles -->
 <div id="home">
 <div id="status" class="status"></div>
 <div id="slip" class="slip" role="status" hidden></div>
@@ -107,18 +107,18 @@
       <span class="url">skillbuilder.aws</span>
       <ul>
         <li>The learning site you already use (login: AWS Builder ID).</li>
-        <li>Essentials videos, Cloud Quest, Exam Prep Plan.</li>
-        <li>Free. One month of subscription in week 2.</li>
+        <li>Lecture courses, labs and the Exam Prep Plan.</li>
+        <li>Some of it is free. One month of subscription from Day 1 opens the rest.</li>
         <li>It is <b>not</b> an AWS account — you can't build anything here.</li>
       </ul>
     </div>
     <div class="place">
-      <h3>② Cloud Quest lab sandbox</h3>
-      <span class="url">opened from inside Cloud Quest</span>
+      <h3>② Lab sandbox</h3>
+      <span class="url">opened from inside a lab on Skill Builder</span>
       <ul>
-        <li>Each assignment's lab opens a <b>temporary AWS account</b> that AWS gives you.</li>
+        <li>Each AWS SimuLearn or AWS Builder Lab opens a <b>temporary AWS account</b> that AWS gives you.</li>
         <li>Real AWS console, wiped after the lab.</li>
-        <li>Free. No card, no setup.</li>
+        <li>No card, no setup, nothing to clean up.</li>
       </ul>
     </div>
     <div class="place">
@@ -140,19 +140,19 @@
       </ul>
     </div>
   </div>
-  <p class="rules"><b>Rules:</b> watch Essentials at 1.5–2×, then play the matching Cloud Quest assignments. Do each DIY challenge without opening the solution. Labs beat videos — if short on time, cut video, never labs. In ③ your own account, delete what you built every day. For every wrong practice answer, write why each wrong option is wrong. Dotted-underlined terms on a step show a definition on hover.</p>
+  <p class="rules"><b>Rules:</b> lectures first, then their labs, in the order of the plan. Watch lectures at 1.25–1.5×. Labs beat videos — if short on time, cut video, never labs. In ③ your own account, delete what you built every day. For every wrong practice answer, write why each wrong option is wrong. Dotted-underlined terms on a step show a definition on hover.</p>
 </details>
 
 <details class="panel" id="scores">
   <summary>📊 Scores <span id="score-sum" class="muted"></span></summary>
   <div class="scores-grid">
-    <label><span>Official Practice Question Set — Day 7</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs7"> / 20</span></label>
+    <label><span>Official Practice Question Set, first try</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs7"> / 20</span></label>
     <label><span>Domain 1 Practice questions — Secure</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b1"> %</span></label>
     <label><span>Domain 2 Practice questions — Resilient</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b2"> %</span></label>
     <label><span>Domain 3 Practice questions — High-performing</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b3"> %</span></label>
     <label><span>Domain 4 Practice questions — Cost</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b4"> %</span></label>
-    <label><span>Official Practice Exam — Day 11</span><span class="in"><input type="number" min="100" max="1000" inputmode="numeric" data-score="pe"> / 1000</span></label>
-    <label><span>Question Set retake — Day 13</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs13"> / 20</span></label>
+    <label><span>Official Practice Exam</span><span class="in"><input type="number" min="100" max="1000" inputmode="numeric" data-score="pe"> / 1000</span></label>
+    <label><span>Official Practice Question Set, retake</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs13"> / 20</span></label>
   </div>
   <div id="dom-bars" class="dom-bars"></div>
   <div class="verdict" data-verdict></div>
@@ -161,11 +161,11 @@
 
 <details class="panel" id="practice">
   <summary>🎯 Practice <span id="pr-sum" class="muted"></span></summary>
-  <p class="p-intro">Each day ends with a 30-question quiz you pass at 90%. Around it: reviews of what you missed, a quick service drill, your wrong-answer notebook, a weak-spot map, and a full mock exam once Days 1–13 are done.</p>
+  <p class="p-intro">A day of new material ends with a 30-question quiz you pass at 90%. Around it: reviews of what you missed, a quick service drill, your wrong-answer notebook, a weak-spot map, and a full mock exam once the lectures and labs are done.</p>
   <div class="grid" id="pr-grid"></div>
 </details>
 
-<p class="foot">Course, module, lesson and training names follow the outlines of AWS Cloud Practitioner Essentials, AWS Cloud Quest: Cloud Practitioner and the Exam Prep Plan (SAA-C03) as Skill Builder listed them on 12 October 2026. Cloud Quest unlocks assignments in its own order — if one is locked, skip it with Next, play the following one and come back. Quiz and mock questions are original practice questions written in the exam's style, not official AWS questions. Progress is saved on the server when it runs from Docker, and in this browser either way; export a backup in ⚙ Settings now and then.</p>
+<p class="foot">Course, module, lesson and lab names follow the outlines of the AWS Solutions Architect Learning Plan (Includes Labs) and the Exam Prep Plan (SAA-C03) as Skill Builder listed them on 12 October 2026. If a name is worded differently in your view, go by the order: lectures first, then their labs. Quiz and mock questions are original practice questions written in the exam's style, not official AWS questions. Progress is saved on the server when it runs from Docker, and in this browser either way; export a backup in ⚙ Settings now and then.</p>
 </div>
 
 <!-- One day, one step at a time: a single card with Back, Mark complete and Next under it -->
@@ -237,7 +237,7 @@
     <label class="field">Day 1 date <input type="date" id="s-start" required></label>
     <label class="field">Booked exam date
       <input type="date" id="s-exam">
-      <small>After you book on Day 11. The plan warns you if it slips past this date.</small>
+      <small>After you book the exam. The plan warns you if it slips past this date.</small>
     </label>
     <div class="field" id="s-slips" hidden><span id="s-slips-t" class="muted"></span> <button type="button" id="s-unslip">Undo schedule moves</button></div>
     <label class="field">AWS sign-in URL
@@ -272,6 +272,9 @@
 <script src="quiz/d09.js"></script>
 <script src="quiz/d10.js"></script>
 <script src="quiz/d11.js"></script>
+<script src="quiz/d12.js"></script>
+<script src="quiz/d13.js"></script>
+<script src="quiz/d14.js"></script>
 <script src="quiz/mock1.js"></script>
 <script src="quiz/mock2.js"></script>
 <script src="extras.js"></script>
@@ -289,6 +292,14 @@
 <script src="keys/d12.js"></script>
 <script src="keys/d13.js"></script>
 <script src="keys/d14.js"></script>
+<script src="keys/c1.js"></script>
+<script src="keys/c2.js"></script>
+<script src="keys/c3.js"></script>
+<script src="keys/c4.js"></script>
+<script src="keys/c5.js"></script>
+<script src="keys/c6.js"></script>
+<script src="keys/c7.js"></script>
+<script src="keys/c8.js"></script>
 <script src="qcore.js"></script>
 <script src="fx.js"></script>
 <script src="app.js"></script>
