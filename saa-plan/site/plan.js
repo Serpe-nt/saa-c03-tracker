@@ -381,7 +381,7 @@ window.GLOSSARY = {
   "Glue": "Serverless ETL plus the Data Catalog (table metadata used by Athena and others).",
   "EMR": "Managed Hadoop/Spark clusters for big-data processing.",
   "Redshift": "Data warehouse — columnar SQL analytics over large datasets.",
-  "Savings Plans": "1- or 3-year $/hour spend commitment for cheaper compute. Compute Savings Plans are the most flexible.",
+  "Savings Plans": "$/hour spend commitment for lower rates: 1 or 3 years for compute, 1 year for databases. Compute Savings Plans are the most flexible for compute.",
   "Spot": "Spare EC2 capacity at up to ~90% off; can be reclaimed with a 2-minute warning.",
   "Transit Gateway": "Hub router connecting many VPCs and on-prem networks; transitive, unlike peering.",
   "VPC peering": "Private link between two VPCs. Non-transitive; IP ranges must not overlap.",
