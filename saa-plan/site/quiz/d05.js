@@ -47,7 +47,7 @@ window.QUIZ.push(
     "Allow inbound traffic to the instances only from the ALB's security group so that users cannot bypass the ALB."],
  a:[0],
  x:["ALB listener rules can authenticate users with any OIDC-compliant identity provider, or with Amazon Cognito, before forwarding, so unauthenticated requests never reach the instances and the code is unchanged.",
-    "WAF can check that a header is present, but it cannot verify the user's identity with the IdP, so a forged header would pass.",
+    "A WAF rule can match on whether a header is present, but such a rule does not verify the user's identity with the IdP, so a forged header would pass.",
     "Stickiness keeps a user's requests on the same target; it does not authenticate anyone.",
     "This prevents bypassing the ALB but authenticates no one, so any internet user could still reach the application through the ALB."],
  ref:["d5c1","d5b3"], doc:"elb"},
@@ -180,7 +180,7 @@ window.QUIZ.push(
     "Deregistration delay controls how long in-flight requests drain when targets leave; it does not affect routing to newly registered targets.",
     "An ALB routes only to targets in Availability Zones that are enabled for it; adding a subnet from the third AZ enables that AZ, so its targets start receiving traffic.",
     "A second load balancer adds cost and complexity, and an ALB needs subnets in at least two AZs anyway; enabling the AZ on the existing ALB is the simple fix."],
- ref:["d5b3","d5c1","d5p2"], doc:"elb"},
+ ref:["d5p2","d5b3","d5c1"], doc:"elb"},
 
 {id:"q05-015", day:5, dom:2, tags:["Auto Scaling"],
  q:"An Auto Scaling group with a desired capacity of 6 spans two Availability Zones. During an outage in AZ A, the group launched replacements in AZ B, so all 6 instances now run in AZ B. AZ A has now recovered. What will Amazon EC2 Auto Scaling do by default?",
@@ -323,7 +323,7 @@ window.QUIZ.push(
     "A lifecycle hook delays the termination of the instance the group chose, but the group can still choose a busy instance while idle ones keep running, so scale-in is held up instead of removing idle capacity.",
     "Protected instances are never selected for scale-in, so the group terminates only unprotected, idle instances, and each worker removes the protection as soon as its job finishes.",
     "Suspending Terminate stops all scale-in, so the group never shrinks and the company pays for idle instances."],
- ref:["d5c2","d5p1"], doc:"autoscaling"},
+ ref:["d5p1","d5c2"], doc:"autoscaling"},
 
 {id:"q05-026", day:5, dom:2, tags:["DynamoDB","High availability design"],
  q:"A startup is making its web tier stateless and needs a place to keep user sessions. The store must be durable, serverless with no capacity planning, and highly available across Availability Zones, and it must expire sessions automatically 24 hours after their last update at no extra cost. Which solution meets these requirements with the least operational overhead?",

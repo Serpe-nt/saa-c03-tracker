@@ -321,7 +321,7 @@ window.QUIZ.push(
 
 {id:"q10-039", day:10, dom:3, tags:["Streaming","Analytics"],
  q:"A multi-tenant SaaS company streams JSON events from all of its customers through Amazon Data Firehose into one S3 bucket, where objects are written under prefixes based only on arrival time. Analysts query one customer at a time with Athena, and every query scans all customers' data. The company wants new data stored under customer_id and event-date prefixes as it arrives, without writing or running any transformation code. Which solution meets these requirements?",
- o:["Enable dynamic partitioning on the Firehose stream with inline parsing of the customer_id and date fields",
+ o:["Use Firehose dynamic partitioning with inline parsing to build prefixes from customer_id and date fields",
     "Add a Lambda transformation to the Firehose stream that rewrites each record and calls PutObject itself",
     "Run a nightly AWS Glue job that reads the new objects and rewrites them under customer and date prefixes",
     "Create a separate Firehose stream for each customer and route producers to the right stream in their code"],
@@ -387,7 +387,7 @@ window.QUIZ.push(
  x:["Transfer Family provides a fully managed SFTP endpoint backed by S3, so partners keep their clients and scripts and the files land directly in the bucket.",
     "A self-managed SFTP server on EC2 is a server to patch, scale, and keep available, which the company wants to avoid.",
     "DataSync would need an agent with access to every partner's storage and runs on a schedule; it is not an SFTP endpoint that partners can upload to.",
-    "S3 Event Notifications invoke Lambda as soon as each object is created, so validation starts within seconds without any servers.",
+    "S3 Event Notifications invoke Lambda when each object is created, typically within seconds, so validation starts promptly without any servers.",
     "Polling every 15 minutes delays validation by up to 15 minutes and repeatedly lists the bucket, which misses the within-seconds requirement."],
  ref:["d10e6","d10e2"]},
 

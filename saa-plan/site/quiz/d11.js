@@ -641,10 +641,10 @@ window.QUIZ.push(
  ref:["d11e2","d6w3"], doc:"costexplorer"},
 
 {id:"q11-049", day:11, dom:4, tags:["EFS"],
- q:"A software company's development and test environments run entirely in a single Availability Zone. Their build servers share artifacts and test datasets on an Amazon EFS file system that uses the Regional EFS Standard storage class. The files are read and written constantly during builds, and all of them can be regenerated from source if lost. The company wants to lower the storage cost of this file system. Which solution is MOST cost-effective?",
+ q:"A software company's development and test environments run entirely in a single Availability Zone. Their build servers share artifacts and test datasets on a Regional Amazon EFS file system that stores data in the EFS Standard storage class. The files are read and written constantly during builds, and all of them can be regenerated from source if lost. The company wants to lower the storage cost of this file system. Which solution is MOST cost-effective?",
  o:["Add a lifecycle policy that moves all files to EFS Infrequent Access after 1 day.",
     "Switch the file system to Provisioned throughput mode sized for the build peaks.",
-    "Move the data to a new file system that uses the EFS One Zone storage class.",
+    "Move the data to a new EFS One Zone file system in that same Availability Zone.",
     "Replace the file system with gp3 EBS volumes attached to each build server."],
  a:[2],
  x:["The files are accessed constantly, so Infrequent Access would add per-access charges that outweigh its lower storage price.",

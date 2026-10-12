@@ -450,7 +450,7 @@ window.QUIZ.push(
     "KMS never deletes a key immediately; it always enforces a waiting period of 7 to 30 days, and removing the alias does not prove that the key is unused.",
     "A KMS key cannot be deleted without a waiting period, and rotating the key material does not reveal whether data still depends on the key.",
     "Disabling is reversible and makes any remaining use fail visibly in CloudTrail, and the 30-day waiting period still allows the deletion to be cancelled before the key is gone."],
- ref:["d4b4","d4w1"], doc:"kms"},
+ ref:["d4w1","d4b4"], doc:"kms"},
 
 {id:"q04-035", day:4, dom:1, tags:["KMS & encryption","S3 security"],
  q:"A company stores signed contracts in an S3 bucket. Auditors require that use of the encryption key be logged in AWS CloudTrail, and the security team must be able to control who can decrypt objects separately from who has S3 permissions. Which encryption option meets these requirements?",
