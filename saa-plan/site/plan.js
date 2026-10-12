@@ -213,9 +213,8 @@ window.PLAN = [
   ["c5c","<b>Designing a Compliant, Secure, and Governed Architecture</b> → Managing Secrets with AWS Secrets Manager, Securing Data with Encryption, Demo: AWS KMS"],
   ["c5d","<b>Designing a Compliant, Secure, and Governed Architecture</b> → Monitoring, auditing and compliance: Cloud Governance Essentials, Security Monitoring Strategies, Logging Strategies"],
   ["c5e","<b>Designing a Compliant, Secure, and Governed Architecture</b> → Putting it all together: Delivering the Proof of Concept, Activity: Designing Secure Multi-Tier Applications with Compliance and Auditability"]]},
- {t:"play", label:"Labs", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:120, items:[
-  ["l5a","AWS SimuLearn: <a href=\"https://skillbuilder.aws/learn/3JF3MJXNDY/aws-simulearn-resource-governance/YGB7Y2UD9W\" target=\"_blank\" rel=\"noopener\"><b>Resource Governance</b></a>","About 1 h."],
-  ["l5b","AWS Builder Lab: <a href=\"https://skillbuilder.aws/learn/83BMEAWGUC/lab--automate-infrastructure-compliance-with-aws-config/X4MXYSFS54\" target=\"_blank\" rel=\"noopener\"><b>Lab - Automate Infrastructure Compliance with AWS Config</b></a>","About 1 h."]]},
+ {t:"play", label:"Lab", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:60, items:[
+  ["l5a","AWS SimuLearn: <a href=\"https://skillbuilder.aws/learn/3JF3MJXNDY/aws-simulearn-resource-governance/YGB7Y2UD9W\" target=\"_blank\" rel=\"noopener\"><b>Resource Governance</b></a>","About 1 h."]]},
  {t:"check", label:"Self-check", min:20, items:[
   ["d4c2","SCPs in AWS Organizations — what they can and cannot do."],
   ["d4c3","WAF vs Shield vs GuardDuty vs Inspector vs Macie."],
@@ -224,16 +223,16 @@ window.PLAN = [
 ]},
 
 {id:"d11", day:11, title:"Hybrid architectures", quiz:"tags",
- goal:"Connecting a data center to AWS: storage, endpoints, peering, Transit Gateway, Direct Connect, migration.",
+ goal:"First the last lab of yesterday's course. Then connecting a data center to AWS: storage, endpoints, peering, Transit Gateway, Direct Connect, migration.",
  groups:[
+ {t:"play", label:"Lab", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:60, items:[
+  ["l5b","AWS Builder Lab: <a href=\"https://skillbuilder.aws/learn/83BMEAWGUC/lab--automate-infrastructure-compliance-with-aws-config/X4MXYSFS54\" target=\"_blank\" rel=\"noopener\"><b>Lab - Automate Infrastructure Compliance with AWS Config</b></a>","About 1 h."]]},
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Designing a Hybrid Architecture", link:"c6", min:240, items:[
   ["c6a","<b>Designing a Hybrid Architecture</b> → Course Overview, Gathering the Customer Requirements, Hybrid storage: Data Storage Solutions, Data Transfer Solutions"],
   ["c6b","<b>Designing a Hybrid Architecture</b> → Hybrid networks: VPC Endpoints, VPC Peering"],
   ["c6c","<b>Designing a Hybrid Architecture</b> → Hybrid Networking, AWS Transit Gateway, Tech Talk: AWS Direct Connect Connection Options"],
   ["c6d","<b>Designing a Hybrid Architecture</b> → Planning for the future: Database Migrations, AWS Snowball Edge, AWS Outposts","Snowball Edge is closed to new customers and its support ends on 31 December 2026; the exam guide still lists the Snow Family."],
   ["c6e","<b>Designing a Hybrid Architecture</b> → Managing Multiple Accounts, Managing Cost, Tech Talk: Control vs. Abstraction, Putting it all together"]]},
- {t:"play", label:"Lab", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:60, items:[
-  ["l6a","AWS SimuLearn: <a href=\"https://skillbuilder.aws/learn/46NC4HQFUY/aws-simulearn-connecting-vpcs/J7QJJRTCTG\" target=\"_blank\" rel=\"noopener\"><b>Connecting VPCs</b></a>","Free, about 1 h."]]},
  {t:"check", label:"Self-check", min:15, items:[
   ["d2c2","VPC peering (non-transitive) vs Transit Gateway."],
   ["d2c3","Gateway endpoint (S3, DynamoDB) vs Interface endpoint (PrivateLink)."],
@@ -241,9 +240,10 @@ window.PLAN = [
 ]},
 
 {id:"d12", day:12, title:"Hybrid hands-on, Terraform, catch-up", quiz:"review",
- goal:"One lab, one build of your own for the portfolio, and room to close anything left open this week.",
+ goal:"The two hybrid labs, one build of your own for the portfolio, and room to close anything left open this week.",
  groups:[
- {t:"play", label:"Lab", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:60, items:[
+ {t:"play", label:"Labs", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:120, items:[
+  ["l6a","AWS SimuLearn: <a href=\"https://skillbuilder.aws/learn/46NC4HQFUY/aws-simulearn-connecting-vpcs/J7QJJRTCTG\" target=\"_blank\" rel=\"noopener\"><b>Connecting VPCs</b></a>","Free, about 1 h."],
   ["l6b","AWS SimuLearn: <a href=\"https://skillbuilder.aws/learn/3SNCS7S5WY/aws-simulearn-securing-hybrid-access/PQH2FMASJA\" target=\"_blank\" rel=\"noopener\"><b>Securing Hybrid Access</b></a>","About 1 h."]]},
  {t:"build", label:"Build with Terraform", where:"③ Your own AWS account, signed in as your admin user (Day 1). Run Terraform from your PC with <code>AWS_PROFILE=lab</code>.", link:"own", min:120, items:[
   ["d8b1","Rebuild the Day 3 VPC in Terraform + an S3 gateway endpoint + SSM interface endpoints. Push to a public GitHub repo.","<code>terraform destroy</code> at the end of the day. If Terraform can't read the <code>lab</code> profile, add a second profile whose only setting is <code>credential_process = aws configure export-credentials --profile lab --format process</code> and use that one."]]}
