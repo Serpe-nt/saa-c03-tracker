@@ -118,8 +118,13 @@ What these passes were: two independent reads by AI agents on one day. No human 
 
 ## Skill Builder and AWS links
 
-- Refs point at plan steps (Essentials modules, Cloud Quest assignments, Exam Prep Plan tasks, own builds). Skill Builder needs a login, so lesson titles inside a module were never verified. Lesson-level pointers are possible if the owner pastes a module's lesson list.
-- Shared responsibility questions on Day 1 (q01-048–050) reference Module 1 (d1w1). Third-party listings of the 13-module Essentials course show a shared-responsibility lesson in Module 1; Skill Builder itself couldn't be opened.
+- Refs point at plan steps (Essentials modules, Cloud Quest assignments, Exam Prep Plan lessons, own builds).
+- **Skill Builder outlines were read on 2026-10-12.** Course pages and their Outline tab are public (no login), so course, module, lesson and training names in plan.js now follow them:
+  - **AWS Cloud Practitioner Essentials:** free, 13 modules, 12 h 45 min. All 13 module names match the plan; the notes of `d4w1`, `d6w1`–`d6w4` now name the lessons. There is no course-level final assessment, only one per module (`d6w6`). Skill Builder announces a new format for the course on 2026-10-23 and warns that progress on a course in flight may be reset.
+  - **AWS Cloud Quest: Cloud Practitioner:** free, 12 assignments, 12 h. All 12 names match the Play steps. Cloud Quest lists them in its own order (Cloud Economics is fifth, Connecting VPCs seventh).
+  - **Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English):** a learning plan of 18 trainings, 18 h 25 min, last updated 2026-05-07. Free: Exam Prep Plan Overview, Official Practice Question Set (20 questions), Exam Prep Overview, Domain 1–4 Review (45 min each; one lesson per task statement), Exam Prep Summary. Subscription: Domain 1–4 Practice (exam-style questions and flashcards), Domain 1–4 Practice: AWS SimuLearn (1 h labs), AWS Escape Room, Official Practice Exam (65 questions, 130 minutes). Days 7–13 were renamed to these; the old "Sample Questions" step (`d7e5`) is not in the plan any more and was retired, and "bonus questions" are now part of Domain Practice.
+- Shared responsibility questions on Day 1 (q01-048–050) reference Module 1 (d1w1): confirmed, Module 1 has the lesson "The AWS Shared Responsibility Model". Module 2 has a lesson "Messaging and Queuing", and AWS Organizations is taught in Module 10, not in Module 9.
+- What is inside a lesson (the videos themselves) still needs a login and was not opened, so whether a `ref` points at the lesson that teaches exactly that fact is checked by lesson title only.
 - `DOCS` holds only stable FAQ/overview URLs on aws.amazon.com and docs.aws.amazon.com. All 111 were fetched on 2026-10-12 from the owner's PC with `node tools/links.mjs` and answer a plain 200; the Aurora FAQ had moved to docs.aws.amazon.com and was repointed, and 50 keys were added that day so that every question can link a page. Re-run the tool after adding a link.
 
 ## AWS changes the reviewers found (reported via web search, 2024–2026)

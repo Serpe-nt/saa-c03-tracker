@@ -11,7 +11,7 @@ Each plan step is shown alone on a card. Under the step text the card shows "Key
 | `tests/data.test.mjs` | shape, ids, markup, coverage, closed-service wording |
 | `tools/links.mjs` | every `docs` URL (and every `DOCS` URL) answers a plain 200 |
 
-151 of the 160 steps have an entry. The nine without one are pure admin: `d1a3`, `d1a4`, `d1d2`, `d4s1`, `d6w6`, `d7h1`, `d8s1`, `d8e7`, `d9e6`.
+150 of the 162 steps have an entry. The twelve without one are pure admin: `d1e1`–`d1e3` (enrolling on Skill Builder), `d1a3`, `d1a4`, `d1d2`, `d4s1`, `d6w6`, `d7h1`, `d8s1`, `d8e7`, `d9e6`.
 
 ## Format
 

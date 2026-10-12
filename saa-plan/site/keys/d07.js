@@ -42,16 +42,11 @@ Object.assign(window.KEYS, {
     k: [
       "Before you read the options, find the deciding requirement in the stem (least operational overhead, most cost-effective, highest availability, no code changes) and say what kind of answer it calls for.",
       "For every option, right or wrong, state in one sentence why it fits or fails this stem. An option you cannot argue against is a gap to write down, even if you answered the question correctly.",
-      "Sort each miss by cause: did not know the service, misread the requirement, or chose an option that works but is not the best. The fixes differ: study the topic, slow down, or compare the options against the qualifier."
-    ],
-    trap: "The real exam reports a scaled score, not a percentage, so do not convert today's percentage into a predicted result. Use it only to rank your weak domains."
-  },
-
-  d7e5: {
-    k: [
-      "Use these as a timing drill. The real exam allows 130 minutes for 65 questions, so give each question about 2 minutes: choose, flag it if unsure and move on.",
+      "Sort each miss by cause: did not know the service, misread the requirement, or chose an option that works but is not the best. The fixes differ: study the topic, slow down, or compare the options against the qualifier.",
+      "Use the set as a timing drill too. The real exam allows 130 minutes for 65 questions, so give each question about 2 minutes: choose, flag it if unsure and move on.",
       "Practise elimination in two passes. First strike every option that breaks a stated requirement or uses the wrong kind of service. Then choose between the survivors on the stem's qualifier."
     ],
+    trap: "The real exam reports a scaled score, not a percentage, so do not convert today's percentage into a predicted result. Use it only to rank your weak domains.",
     docs: [
       ["AWS Certified Solutions Architect - Associate", "https://aws.amazon.com/certification/certified-solutions-architect-associate/"]
     ]
