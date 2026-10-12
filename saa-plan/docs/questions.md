@@ -6,14 +6,16 @@ The quizzes exist to turn "I watched it" into "I can answer a scenario question 
 
 | File | Ids | Count | Used by |
 |---|---|---|---|
-| `site/quiz/d01.js` … `d06.js`, `d08.js` … `d11.js` | `q01-001` … `q11-050` | 50 per file | that day's quiz; Day 7 (Days 1–6), Day 12 (weak topics), Day 13 (all, exam-weighted), warm-up/review; the mock once mock questions run out |
+| `site/quiz/d01.js` … `d06.js` | `q01-001` … `q06-050` | 50 per file | foundation level: day quizzes (first on a topic), reviews, warm-up; the mock once mock questions run out |
+| `site/quiz/d08.js` … `d11.js` | `q08-001` … `q11-050` | 50 per file, one exam domain each | exam level: the same uses, after the foundation questions on a topic |
+| `site/quiz/d12.js` … `d15.js` | `q12-001` … `q15-0NN` | about 40 per file | exam level, written for the 21-day plan on topics the exam guide's in-scope list had ahead of the bank: 12 identity and access, 13 serverless, messaging and containers, 14 data, analytics, ML services and purpose-built databases, 15 operations, governance, migration and the edge |
 | `site/quiz/mock1.js`, `mock2.js` | `m1-001` … `m2-065` | 65 per file, each split 20/17/15/13 by domain | mock exam only |
 | `site/quiz/meta.js` | — | — | `QUIZ` array, `QTAGS` (allowed tags), `DOCS` (AWS FAQ links) |
 | `site/extras.js` | — | 32 cards, 171 drill items, 45 cues | self-check model answers, "Which service?" drill, exam-wording cheat sheet |
 
-Days 7, 12, 13 have no file of their own: `qcore.js` builds their quizzes from the day pools. Day 14 (exam day) has no quiz.
+The number in a file name and in `day` is a **pool**, not a plan day (it was a day in the 14-day plan; there is no pool 7). Which questions a plan day asks is decided by topics: every step in `plan.js` names the `QTAGS` it teaches (`STEP_TAGS`), and a day's quiz draws the questions that are about one of the day's topics and about nothing taught later (`QZ.dayPool`). Review, exam-domain, weak-topic and exam-weighted days draw across pools. See "Selection rules" in `docs/architecture.md`.
 
-Why 50 per day: a quiz takes 30, so a first retake can be 20 unseen questions plus the earlier misses. Selection order is "never seen → wrong last time → seen longest ago" (`QZ.rank`). Option order is shuffled per run.
+How many are needed: a quiz takes 30, and a retake should be able to show different ones, so a day of new material needs about 45 questions on its own topics (`data.test.mjs` checks each day). Selection order is "never seen → wrong last time → seen longest ago" (`QZ.rank`), with foundation-level before exam-level among the unseen. Option order is shuffled per run.
 
 ## Format
 
@@ -23,14 +25,15 @@ Why 50 per day: a quiz takes 30, so a first retake can be 20 unseen questions pl
  o:["…","…","…","…"],                                             // 4 options, or exactly 5 for Choose two
  a:[2],                                                           // 0-based keyed option(s): 1, or 2 for Choose two
  x:["why A is wrong","…","why C is right","…"],                   // one explanation per option, same order
- ref:["d2w1","d2b4"],                                             // plan item ids, that day or earlier (mock: any)
+ ref:["d2b4"],                                                    // optional: steps that are exactly the place to go back to; [] is fine
  doc:"vpc"}                                                       // optional key in DOCS
 ```
 
 - `id`: file prefix + 3-digit sequence. Ids key the learner's stats, review queue and notebook: never rename or reuse. Fix a question in place (same id). To retire one, delete it; the app drops unknown ids from saved runs.
 - `dom`: exam domain the question mainly tests: 1 Secure, 2 Resilient, 3 High-performing, 4 Cost-optimized.
-- `tags`: 1–2 strings copied exactly from `QTAGS`. The weak-spot map groups by them. Add a tag to `QTAGS` only if no existing one fits.
-- `ref`: where to go back to study. The page sorts refs for display: Watch/Exam prep first, then Play, Build, Self-check, Setup (`REF_ORDER` in `app.js`), so the Skill Builder step shows first. Each ref shows the step's "Where:" path and Open link. Day 8–11 and mock questions should lead with the Exam Prep Plan task item (`d8e2` Task 1.1 … `d11e5` Task 4.4).
+- `day`: the pool number (the file's number), or `"mock"`.
+- `tags`: 1–2 strings copied exactly from `QTAGS`; the first is the main topic. Tags decide where a question appears: a day's quiz asks it only when every tag has been taught by then, so add a second tag only when the question needs that topic. The weak-spot map groups by tags. Add a tag to `QTAGS` only if no existing one fits, and then give it to the step that teaches it in `STEP_TAGS` (a test fails otherwise).
+- `ref`: optional pointers to steps that are exactly the place to go back to (a self-check or a build). Where to study is otherwise derived: the steps whose `STEP_TAGS` include the question's main topic, shown lectures first, then labs, builds and self-checks (`studyRefs` in `app.js`), three at most. Never point at a retired step; a test rejects unknown ids.
 - `doc`: only keys that exist in `DOCS`; omit when none fits. Never invent URLs.
 - Markup: plain text, `<code>…</code>` only. Escape a literal `<` as `&lt;`.
 
@@ -43,7 +46,7 @@ Why 50 per day: a quiz takes 30, so a first retake can be 20 unseen questions pl
 - Options parallel in length and style; the keyed option must not be the longest by habit (`tools/qstats.mjs` counts this).
 - Explanations say specifically why each option is right or wrong for this scenario.
 - About 15% Choose two (7–8 of 50; 10 of 65 per mock).
-- Difficulty: Days 1–6 associate foundations (some short concept checks, mostly 2–4 sentence scenarios); Days 8–11 and mocks full exam level (3–6 sentences, several requirements, plausible partly-right distractors).
+- Difficulty: pools 1–6 associate foundations (some short concept checks, mostly 2–4 sentence scenarios); pools 8–15 and the mocks full exam level (3–6 sentences, several requirements, plausible partly-right distractors).
 - Avoid volatile numbers (prices, most quotas). Stable limits are fine; see "AWS changes" below for limits that moved recently.
 - Never key an answer on a retired or closed-to-new-customers service (list below). `tests/data.test.mjs` checks the common names in keyed options.
 - Use current service names. Where the exam guide still uses an older name, write "new name (formerly old name)" once in the explanation.
@@ -65,7 +68,7 @@ The remaining pairs at 0.38–0.40 (q01-049/q04-002, q10-013/q11-018, q04-039/q0
 2. Exactly one defensible key.
 3. Explanations accurate and specific.
 4. No closed services as keys; current names.
-5. First ref is the step that teaches the concept; refs from that day or earlier.
+5. Tags are right: the first is what the question decides on, and no tag names a topic the scenario only mentions. Any `ref` names a step that exists.
 6. `doc` key exists and fits.
 
 ## Verification status (as of 2026-10-12)

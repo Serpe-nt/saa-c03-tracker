@@ -6,7 +6,7 @@ Each plan step is shown alone on a card. Under the step text the card shows "Key
 
 | File | Holds |
 |---|---|
-| `site/keys/d01.js` … `d14.js` | `window.KEYS`, one file per day, keyed by plan item id |
+| `site/keys/*.js` | `window.KEYS`, keyed by plan item id. The file follows the id: `dNN.js` holds ids that start with `dN` (steps kept from the 14-day plan, wherever they sit now), `cN.js` holds lecture course N (`cNa`…) and its labs (`lNa`…), `r1.js` the reading block |
 | `site/app.js` → `stepCardHTML` | renders the box, then "AWS docs", "Exam topics", "Terms", "Exam wording" |
 | `tests/data.test.mjs` | shape, ids, markup, coverage, closed-service wording |
 | `tools/links.mjs` | every `docs` URL (and every `DOCS` URL) answers a plain 200 |
@@ -16,7 +16,7 @@ Each plan step is shown alone on a card. Under the step text the card shows "Key
 ## Format
 
 ```js
-// Key points per plan step for Day 2. Data only. Keys are plan item ids from plan.js.
+// Key points per plan step for … Data only. Keys are plan item ids from plan.js.
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
   d2w1: {
@@ -27,25 +27,26 @@ Object.assign(window.KEYS, {
 });
 ```
 
-- Key: an item id of that day (the file name fixes the day). An entry needs `k` or `trap`.
+- Key: a plan item id; the file is fixed by the id's prefix (see above; `data.test.mjs` checks it). An entry needs `k` or `trap`.
 - `docs`: only `https://aws.amazon.com/…` or `https://docs.aws.amazon.com/…`, and only pages that were fetched while writing the entry.
 - Markup: plain text plus `<b>` and `<code>`. Write a literal `<` as `&lt;`.
 
-What the card adds by itself, with no authoring: AWS pages and exam topics come from the quiz questions whose `ref` names the step (`DOCS` keys and `tags`), terms come from `GLOSSARY` matches in the step text and its key points, and exam wording comes from `CUE_TAGS` (extras.js) for the step's topics.
+What the card adds by itself, with no authoring: exam topics are the step's `STEP_TAGS` (plan.js), AWS pages come from the quiz questions on those topics (`DOCS` keys), terms come from `GLOSSARY` matches in the step text and its key points, and exam wording comes from `CUE_TAGS` (extras.js) for the step's topics.
 
 ## Writing rules
 
 - Each point is a fact or a decision rule ("X when Y, because Z"). Never "understand X" or "know the difference".
-- Cover what the day's questions test for that step: read the questions whose `ref` includes the step id first.
+- Cover what the bank's questions on the step's topics decide on: read the questions tagged with the step's `STEP_TAGS` first.
+- The same topic returns on several days (a Fundamentals lecture, a lab, a design course, an Exam Prep review). Build on what the earlier step's points say instead of repeating them: basics first, trade-offs and decision rules later.
 - By step type:
-  - **Watch** and Exam Prep **task statements**: 3–5 points and a trap.
+  - **Watch** (lecture chunks, reading steps) and Exam Prep **task statements**: 3–5 points and a trap. A "putting it all together" chunk gets points on how the pieces fit and which requirement decides each choice.
   - **Play** and **Build**: 2–4 points on what to notice while doing it.
   - **Self-check**: the model answer is in `CARDS`, so give only the trap and docs; add a point only for something the quiz tests that the card lacks.
   - **Setup** and admin steps: an entry only for a real exam fact, a cost fact or a safety tip.
 - Don't repeat the step's own note from plan.js.
 - No volatile numbers (prices, most quotas). Stable limits that decide exam answers are fine.
 - Current service names; a closed or retired service may be named only with its status (see "AWS changes" in `questions.md`).
-- Nothing about what a Skill Builder lesson or lab contains beyond what plan.js already says: those pages need a login and were never opened.
+- Nothing about what a lecture shows: the videos are behind a login and nobody has watched them; the lesson names in plan.js are all we know. A lab's public description page (the link in the step) may be used to choose what to point out, when it could be read.
 
 ## Checks to run after an edit
 
