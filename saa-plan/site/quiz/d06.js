@@ -326,7 +326,7 @@ window.QUIZ.push(
  o:["Amazon Quick Sight","Amazon CloudWatch dashboards","Grafana installed on Amazon EC2","AWS Glue DataBrew"],
  a:[0],
  x:["Amazon Quick Sight (formerly Amazon QuickSight) is a fully managed business intelligence service that connects to Athena and Redshift and publishes interactive dashboards to browsers.","CloudWatch dashboards visualize operational metrics and logs, not business data stored in Athena tables or Redshift.","Self-managed Grafana on EC2 means running and patching servers, which the company wants to avoid.","DataBrew is a visual data preparation tool for cleaning and normalizing data, not a dashboard service."],
- ref:["d6w1"]},
+ ref:["d6w1"], doc:"quick"},
 
 {id:"q06-047", day:6, dom:3, tags:["Migration & transfer"],
  q:"A media company must migrate 200 TB of video files from an on-premises NFS file server to Amazon S3 over an existing 10 Gbps AWS Direct Connect connection. The transfer must be encrypted in transit, verify data integrity, and copy only changed files in a final sync before cutover. Which solution meets these requirements with the LEAST operational overhead?",

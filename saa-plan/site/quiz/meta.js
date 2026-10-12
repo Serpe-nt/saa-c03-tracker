@@ -130,5 +130,8 @@ window.DOCS = {
   appflow:        ["Amazon AppFlow FAQs", "https://aws.amazon.com/appflow/faqs/"],
   scheduler:      ["What is Amazon EventBridge Scheduler?", "https://docs.aws.amazon.com/scheduler/latest/UserGuide/what-is-scheduler.html"],
   cloudformation: ["AWS CloudFormation FAQs", "https://aws.amazon.com/cloudformation/faqs/"],
-  rekognition:    ["Amazon Rekognition FAQs", "https://aws.amazon.com/rekognition/faqs/"]
+  rekognition:    ["Amazon Rekognition FAQs", "https://aws.amazon.com/rekognition/faqs/"],
+  quick:          ["Amazon Quick Sight FAQs", "https://aws.amazon.com/quick/quicksight/faqs/"],
+  "data-exports": ["What is AWS Data Exports? (Cost and Usage Report)", "https://docs.aws.amazon.com/cur/latest/userguide/what-is-data-exports.html"],
+  eip:            ["Elastic IP addresses (Amazon EC2 User Guide)", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html"]
 };

@@ -664,5 +664,5 @@ window.QUIZ.push(
     "Correct. The Cost and Usage Report (now delivered through AWS Data Exports) is the most detailed billing data, with hourly line items and resource IDs, and Athena can query it in S3 with SQL alongside other tables.",
     "Flow logs show traffic between IP addresses, not what that traffic costs, so they cannot produce the billing line items the team needs.",
     "Usage budgets alert when usage crosses a threshold; they don't provide line-item data to query."],
- ref:["d11e5","d6w3","d11c3"]}
+ ref:["d11e5","d6w3","d11c3"], doc:"data-exports"}
 );

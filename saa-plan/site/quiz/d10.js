@@ -417,5 +417,5 @@ window.QUIZ.push(
  o:["Amazon Managed Grafana workspaces","OpenSearch Dashboards on Amazon OpenSearch Service","Amazon CloudWatch dashboards","Amazon Quick Sight dashboards backed by SPICE"],
  a:[3],
  x:["Amazon Managed Grafana queries and visualizes operational metrics, logs, and traces from their sources; it is an observability tool, not a BI service that serves dashboards from an imported in-memory dataset.","OpenSearch Dashboards visualizes data indexed in OpenSearch, mainly for search and log analytics, so the data would first have to be indexed there.","CloudWatch dashboards show operational metrics and logs for AWS resources, not business data from Athena and Redshift.","Amazon Quick Sight (formerly Amazon QuickSight, now a feature of Amazon Quick) is a fully managed BI service that scales to hundreds of thousands of users, and its SPICE in-memory engine serves dashboards fast without hitting the sources on every view."],
- ref:["d10e6","d10c3"]}
+ ref:["d10e6","d10c3"], doc:"quick"}
 );

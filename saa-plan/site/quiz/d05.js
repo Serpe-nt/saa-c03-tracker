@@ -587,7 +587,7 @@ window.QUIZ.push(
     "Multi-Attach works only for io1/io2 volumes within a single AZ and needs a cluster-aware file system; it cannot be shared across AZs.",
     "Snapshots run on a schedule, so photos uploaded since the last one are lost, and other instances still cannot see them.",
     "S3 gives every instance the same durable photo storage, so terminating an instance loses nothing."],
- ref:["d5p2","d3w2","d3w1"]},
+ ref:["d5p2","d3w2","d3w1"], doc:"elasticache"},
 
 {id:"q05-046", day:5, dom:3, tags:["Load balancing"],
  q:"A solutions architect is choosing between an Application Load Balancer and a Network Load Balancer for a new workload. Which capabilities does a Network Load Balancer provide that an Application Load Balancer does not? (Choose two.)",

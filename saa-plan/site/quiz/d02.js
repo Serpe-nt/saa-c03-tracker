@@ -171,7 +171,7 @@ window.QUIZ.push(
     "Auto-assigned public IPs come from Amazon's pool and change whenever the instance is stopped and started or replaced.",
     "The partner allow-lists an IP address, not a DNS name, and an alias record cannot target an EC2 instance directly.",
     "An ALB's public addresses are assigned and released by the service, so there is no single fixed address to give the partner, and an ALB load-balances HTTP and HTTPS, not SFTP."],
- ref:["d2w1","d2b5"], doc:"ec2"},
+ ref:["d2w1","d2b5"], doc:"eip"},
 
 {id:"q02-018", day:2, dom:4, tags:["Internet & NAT gateways"],
  q:"A cost review shows growing charges for public IPv4 addresses. A company runs 30 application servers in public subnets, each with an auto-assigned public IP, behind an internet-facing Application Load Balancer that receives all user traffic. It also holds five Elastic IP addresses that are not associated with any resource. Which two actions will reduce these charges while keeping the application available? (Choose two.)",
@@ -182,7 +182,7 @@ window.QUIZ.push(
     "Users reach the application through the ALB, so the servers do not need public IPs; moving them to private subnets removes those addresses and their charges.",
     "Adding IPv6 does not remove any IPv4 addresses, so the IPv4 charges stay the same.",
     "This adds more public IPv4 addresses and a second load balancer, which increases cost instead of reducing it."],
- ref:["d2b5","d2w1"], doc:"vpc"},
+ ref:["d2b5","d2w1"], doc:"eip"},
 
 {id:"q02-019", day:2, dom:1, tags:["Security groups & NACLs"],
  q:"A web server's security group allows inbound TCP 443 from <code>0.0.0.0/0</code>. An engineer deleted all of the group's outbound rules, yet clients can still load the website over HTTPS. The subnet uses the default network ACL. Why does the site still work?",
