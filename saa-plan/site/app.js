@@ -44,6 +44,11 @@ function load() {
   return merge(clone(DEF), s || {});
 }
 let S = load();
+// Server sync bookkeeping (see "server sync" below): last revision seen, unsaved changes.
+const SYNC_KEY = KEY + "-sync";
+const sync = { on: false, rev: 0, dirty: false, busy: false, again: false };
+try { Object.assign(sync, JSON.parse(localStorage.getItem(SYNC_KEY)) || {}, { on: false, busy: false, again: false }); } catch (e) {}
+const syncMeta = () => { try { localStorage.setItem(SYNC_KEY, JSON.stringify({ rev: sync.rev, dirty: sync.dirty })); } catch (e) {} };
 function save() {
   S.savedAt = Date.now();
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
@@ -1263,10 +1268,6 @@ setInterval(() => {
 // ---------- server sync (only when served by the Go backend; otherwise browser-only) ----------
 // localStorage stays the working copy. The server keeps one revisioned document; on a
 // conflict the newer save wins, so two browsers converge instead of silently diverging.
-const SYNC_KEY = KEY + "-sync";
-const sync = { on: false, rev: 0, dirty: false, busy: false, again: false };
-try { Object.assign(sync, JSON.parse(localStorage.getItem(SYNC_KEY)) || {}, { on: false, busy: false, again: false }); } catch (e) {}
-const syncMeta = () => { try { localStorage.setItem(SYNC_KEY, JSON.stringify({ rev: sync.rev, dirty: sync.dirty })); } catch (e) {} };
 let pushT = 0;
 function syncLater() {
   sync.dirty = true;
