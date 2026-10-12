@@ -14,6 +14,8 @@ site/
   app.js         page logic: ticks, quizzes, mock exam, notebook, timer, settings, server sync
 server/          Go: serves site/ and stores progress in SQLite (GET/PUT /api/state)
 tests/           node --test unit + data tests, Playwright end-to-end script
+tools/           qstats.mjs (question pool stats), similar.mjs (near-duplicate finder)
+docs/            architecture.md (how it works, why), questions.md (writing + checking questions, status)
 Dockerfile       two stages: Go build → distroless, non-root
 compose.yaml
 ```
@@ -74,6 +76,7 @@ Or use ⚙ Settings → Export / Import (JSON).
 
 ```
 node --test                                              # unit + content checks (no dependencies)
+node tools/qstats.mjs && node tools/similar.mjs          # after editing questions
 cd server && go vet ./... && go test -race ./...         # backend
 NODE_PATH=$(npm root -g) BASE=http://localhost:8080/ node tests/e2e.mjs   # browser end-to-end (needs Playwright)
 ```
