@@ -5,7 +5,7 @@ Object.assign(window.KEYS, {
     k: [
       "An internet gateway is horizontally scaled, redundant and highly available, and a VPC has only one. It gives two-way access to resources with a public address; a NAT gateway (IPv4) and an egress-only internet gateway (IPv6) are outbound-only.",
       "Site-to-Site VPN is an IPsec connection with two tunnels; configure both so one can take over during maintenance. Direct Connect is a dedicated physical link that bypasses the internet for a more consistent network experience.",
-      "Direct Connect does not encrypt traffic by default: run an IPsec VPN over it or use MACsec. A Direct Connect gateway lets one connection reach VPCs in multiple Regions, but it does not route between those VPCs.",
+      "Direct Connect does not encrypt traffic by default: run an IPsec VPN over it or use MACsec. A Direct Connect gateway lets one connection reach VPCs in multiple Regions, but as a rule it does not let those VPCs send traffic to each other.",
       "In Route 53, failover routing is active-passive and switches when the primary is unhealthy, weighted routing splits traffic by proportion, latency routing picks the Region with the lowest latency, and geolocation follows the user's location.",
       "An alias record can sit at the zone apex and tracks the changing IP addresses of a load balancer or CloudFront distribution; a CNAME cannot exist at the apex. A private hosted zone answers only for its associated VPCs."
     ],
@@ -20,7 +20,7 @@ Object.assign(window.KEYS, {
   d2p1: {
     k: [
       "A subnet is public for one reason only: its route table has a route to an internet gateway. Auto-assigned public IP addresses, NACL rules or the subnet's name do not make it public.",
-      "Reaching an instance from the internet takes both a route to the internet gateway and a public IPv4 address (auto-assigned or Elastic IP) on the instance. Without either one it fails.",
+      "Reaching an instance from the internet over IPv4 takes both a route to the internet gateway and a public IPv4 address (auto-assigned or Elastic IP) on the instance. Without either one it fails.",
       "A subnet with no explicit association uses the main route table. Keep the main table local-only and give public subnets their own custom table, so that every new subnet starts out private.",
       "Routing picks the most specific matching route (longest prefix), not the first one listed. A /16 route to a peering connection beats <code>0.0.0.0/0</code>, and every table has a local route for the VPC's own CIDR.",
       "A VPC's IPv4 CIDR block is between /16 and /28 and cannot be resized later; you add secondary blocks instead. AWS reserves the first four addresses and the last one in every subnet, so a /27 has 27 usable."
@@ -43,7 +43,8 @@ Object.assign(window.KEYS, {
     trap: "Pointing a route for VPC C's CIDR at the A-to-B peering connection achieves nothing, because B will not forward it. Nor can VPC A borrow B's NAT gateway, internet gateway, VPN or Direct Connect through the peering.",
     docs: [
       ["What is VPC peering?", "https://docs.aws.amazon.com/vpc/latest/peering/what-is-vpc-peering.html"],
-      ["How VPC peering connections work", "https://docs.aws.amazon.com/vpc/latest/peering/vpc-peering-basics.html"]
+      ["How VPC peering connections work", "https://docs.aws.amazon.com/vpc/latest/peering/vpc-peering-basics.html"],
+      ["VPC peering (multi-VPC network whitepaper)", "https://docs.aws.amazon.com/whitepapers/latest/building-scalable-secure-multi-vpc-network-infrastructure/vpc-peering.html"]
     ]
   },
 
@@ -72,7 +73,7 @@ Object.assign(window.KEYS, {
     trap: "A public IP address, a key pair or an inbound SSH rule is never the missing piece for Session Manager. When a private instance does not show up as managed, check the instance profile and the outbound path to Systems Manager.",
     docs: [
       ["Configure instance permissions for Systems Manager", "https://docs.aws.amazon.com/systems-manager/latest/userguide/setup-instance-permissions.html"],
-      ["Session Manager prerequisites", "https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-prerequisites.html"],
+      ["Troubleshooting managed node availability", "https://docs.aws.amazon.com/systems-manager/latest/userguide/fleet-manager-troubleshooting-managed-nodes.html"],
       ["AMIs with SSM Agent preinstalled", "https://docs.aws.amazon.com/systems-manager/latest/userguide/ami-preinstalled-agent.html"]
     ]
   },
@@ -81,7 +82,7 @@ Object.assign(window.KEYS, {
     k: [
       "Session Manager replaces the bastion host: no open inbound ports, no SSH keys to manage, access granted through IAM policies, and the API calls recorded by CloudTrail.",
       "The content of a session can be logged to an S3 bucket or a CloudWatch Logs log group, optionally encrypted with a KMS key. That is the feature behind 'keep a record of every session'.",
-      "Without a NAT gateway or internet gateway, the agent reaches Systems Manager through interface endpoints for <code>ssm</code> and <code>ssmmessages</code> (older agents also use <code>ec2messages</code>). No gateway endpoint exists for it.",
+      "Without a NAT gateway or internet gateway, the agent reaches Systems Manager through interface endpoints for <code>ssm</code> and <code>ssmmessages</code> (older agents also use <code>ec2messages</code>). Gateway endpoints exist only for S3 and DynamoDB.",
       "Those interface endpoints have their own security group, and it must allow inbound port 443 from the subnets of the managed instances."
     ],
     trap: "Hardening a bastion (moving it behind a VPN, narrowing the source range, rotating keys in Secrets Manager) still leaves port 22 open and keys to manage. No inbound ports, no keys, IAM control and session logs together mean Session Manager.",
@@ -94,7 +95,7 @@ Object.assign(window.KEYS, {
   d2b4: {
     k: [
       "The session fails because the agent's outbound HTTPS now matches no numbered rule and falls to the NACL's final deny (the * rule). The security group still allows it, which shows that both layers must pass the traffic.",
-      "A NACL rule matches the port a packet is going to. A web server's replies go to the client's ephemeral port, so serving HTTPS needs inbound 443 plus outbound to the ephemeral range (1024-65535 covers every client), not outbound 443.",
+      "A NACL rule matches the port a packet is going to. A web server's replies go to the client's ephemeral port, so serving HTTPS needs inbound 443 plus outbound to the ephemeral range (1024-65535 covers the different client types), not outbound 443.",
       "NACL rules are evaluated only when traffic enters or leaves the subnet, never for traffic between instances inside the same subnet.",
       "VPC Flow Logs show blocked traffic without any agent: each record carries an <code>ACCEPT</code> or <code>REJECT</code> action. They publish to CloudWatch Logs, Amazon S3 or Data Firehose, and logs in S3 can be queried with Athena."
     ],
@@ -110,10 +111,10 @@ Object.assign(window.KEYS, {
     k: [
       "A NAT gateway is billed for every hour it is provisioned, with a partial hour counted as a full one, plus a charge for each GB it processes, on top of normal data transfer.",
       "Deleting the NAT gateway only disassociates its Elastic IP. The address stays allocated to your account, and keeps being charged, until you release it; that is why release is its own step.",
-      "AWS charges for every public IPv4 address, in use or idle. Use an Elastic IP when an address must stay fixed and move to a replacement instance; otherwise keep instances private behind a load balancer.",
+      "AWS charges for every public IPv4 address it provides, in use or idle. Use an Elastic IP when an address must stay fixed and move to a replacement instance; otherwise keep instances private behind a load balancer.",
       "After deletion, routes that pointed at the NAT gateway stay in the route table with a blackhole status until you delete or update them."
     ],
-    trap: "Cost questions hide idle resources: unattached Elastic IPs and a forgotten NAT gateway bill by the hour with no traffic. Replacing auto-assigned public IPs with Elastic IPs saves nothing, because every public IPv4 address is charged.",
+    trap: "Cost questions hide idle resources: unattached Elastic IPs and a forgotten NAT gateway bill by the hour with no traffic. Replacing auto-assigned public IPs with Elastic IPs saves nothing, because AWS charges for both.",
     docs: [
       ["Work with NAT gateways", "https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-working-with.html"],
       ["Elastic IP addresses", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html"],
@@ -131,11 +132,11 @@ Object.assign(window.KEYS, {
   },
 
   d2c2: {
-    trap: "Two look-alike hubs are not hubs: a virtual private gateway attaches to a single VPC, and a Direct Connect gateway does not route between the VPCs associated with it. Many VPCs sharing one VPN, or routing through each other, need a transit gateway.",
+    trap: "Two look-alike hubs are not hubs: a virtual private gateway attaches to a single VPC, and a Direct Connect gateway as a rule does not let the VPCs associated with it send traffic to each other. Many VPCs sharing one VPN, or routing through each other, need a transit gateway.",
     docs: [
       ["What is AWS Transit Gateway?", "https://docs.aws.amazon.com/vpc/latest/tgw/what-is-transit-gateway.html"],
       ["How VPC peering connections work", "https://docs.aws.amazon.com/vpc/latest/peering/vpc-peering-basics.html"],
-      ["AWS Transit Gateway pricing", "https://aws.amazon.com/transit-gateway/pricing/"]
+      ["Direct Connect gateways", "https://docs.aws.amazon.com/directconnect/latest/UserGuide/direct-connect-gateways-intro.html"]
     ]
   },
 
@@ -144,11 +145,11 @@ Object.assign(window.KEYS, {
       "The two policies point in opposite directions. An endpoint policy limits what the VPC may reach through the endpoint (only our buckets); a bucket policy with <code>aws:sourceVpce</code> limits who may reach the bucket (only this endpoint).",
       "Your own service behind a Network Load Balancer can be published as a PrivateLink endpoint service. Only consumers initiate connections, through an interface endpoint in their VPC, and overlapping CIDR blocks are not a problem."
     ],
-    trap: "A timeout to an interface endpoint usually means its security group does not allow inbound 443 from the client, not a missing route: the endpoint is a network interface in your own subnet. A gateway endpoint, by contrast, is only a route table entry.",
+    trap: "A timeout to an interface endpoint usually means its security group does not allow inbound 443 from the client, not a missing route: the endpoint is a network interface in your own subnet. A gateway endpoint, by contrast, is a target in the subnet's route table.",
     docs: [
-      ["Gateway endpoints", "https://docs.aws.amazon.com/vpc/latest/privatelink/gateway-endpoints.html"],
       ["Gateway endpoints for Amazon S3", "https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html"],
-      ["AWS PrivateLink for Amazon S3", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/privatelink-interface-endpoints.html"]
+      ["AWS PrivateLink for Amazon S3", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/privatelink-interface-endpoints.html"],
+      ["AWS PrivateLink (multi-VPC network whitepaper)", "https://docs.aws.amazon.com/whitepapers/latest/building-scalable-secure-multi-vpc-network-infrastructure/aws-privatelink.html"]
     ]
   }
 });

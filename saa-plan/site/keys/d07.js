@@ -30,7 +30,7 @@ Object.assign(window.KEYS, {
       "The guide lists in-scope and out-of-scope services, and both lists say they are not exhaustive. Out of scope are, for example, CodeBuild, CodeDeploy, Lightsail and all IoT services, so spend no study time there.",
       "Services appear under their short official names (Amazon SNS, not Amazon Simple Notification Service). The Help feature, available on every question, lists the short names with their full names."
     ],
-    trap: "A scaled 720 is not 72% of questions correct, because scaling evens out exam forms of different difficulty. And do not neglect Domain 4 for being the smallest: it is still a fifth of the scored content.",
+    trap: "The 720 is a point on a scale from 100 to 1,000, not 72% of the questions: the guide says scaled scoring equates exam forms of slightly different difficulty. And do not neglect Domain 4 for being the smallest: it is still a fifth of the scored content.",
     docs: [
       ["Exam guide: AWS Certified Solutions Architect - Associate (SAA-C03)", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html"],
       ["In-scope AWS services", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/saa-03-in-scope-services.html"],
@@ -51,6 +51,9 @@ Object.assign(window.KEYS, {
     k: [
       "Use these as a timing drill. The real exam allows 130 minutes for 65 questions, so give each question about 2 minutes: choose, flag it if unsure and move on.",
       "Practise elimination in two passes. First strike every option that breaks a stated requirement or uses the wrong kind of service. Then choose between the survivors on the stem's qualifier."
+    ],
+    docs: [
+      ["AWS Certified Solutions Architect - Associate", "https://aws.amazon.com/certification/certified-solutions-architect-associate/"]
     ]
   },
 
@@ -58,6 +61,9 @@ Object.assign(window.KEYS, {
     k: [
       "Write each weak topic as a decision, not a service: 'Multi-AZ or read replica', 'gateway or interface endpoint'. A decision can be drilled; 'RDS' cannot.",
       "Note the exam domain next to each one. A gap in Domain 1 or Domain 2 costs the most, because together they are 56% of the scored content."
+    ],
+    docs: [
+      ["Exam guide: AWS Certified Solutions Architect - Associate (SAA-C03)", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html"]
     ]
   },
 
@@ -68,6 +74,7 @@ Object.assign(window.KEYS, {
       "Stopping an RDS instance does not park it for long: storage is still billed, and RDS starts the instance again automatically after 7 days. Delete lab databases instead."
     ],
     docs: [
+      ["How EC2 instance stop and start works", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-stop-start-works.html"],
       ["Amazon VPC pricing", "https://aws.amazon.com/vpc/pricing/"],
       ["Stopping an Amazon RDS DB instance temporarily", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_StopInstance.html"]
     ]
@@ -76,7 +83,7 @@ Object.assign(window.KEYS, {
   d7h3: {
     k: [
       "If English is not your first language, request the ESL +30 accommodation in your AWS Certification account before you register for the exam. It adds 30 minutes, is requested once and then applies to all later registrations.",
-      "A booked exam can be rescheduled up to 24 hours before the start, and at most twice. Cancelling more than 24 hours ahead refunds the fee; within 24 hours you can neither cancel nor reschedule."
+      "A booked exam can be rescheduled up to 24 hours before its start time, and at most twice per appointment; a third change means cancelling and booking again. Cancelling more than 24 hours ahead refunds the exam fee."
     ],
     docs: [
       ["AWS Certification policies: before testing", "https://aws.amazon.com/certification/policies/before-testing/"],
