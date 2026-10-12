@@ -19,14 +19,23 @@ let step = "";
 const t0 = Date.now();
 function log(s) { step = s; console.log(`· ${s}`); }
 
-async function newPage(opts = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 }, ...opts });
-  const page = await ctx.newPage();
-  page.on("console", m => { if (m.type() === "error") errors.push(`[${step}] ${m.text()}`); });
+function track(page) {
+  // A 409 is the server's normal "someone else saved first" answer; the page merges and retries.
+  page.on("console", m => { if (m.type() === "error" && !/status of 409/.test(m.text())) errors.push(`[${step}] ${m.text()}`); });
   page.on("pageerror", e => errors.push(`[${step}] ${e.message}`));
   page.on("dialog", d => d.accept());
-  return { ctx, page };
+  return page;
 }
+async function newPage(opts = {}) {
+  const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 }, ...opts });
+  return { ctx, page: track(await ctx.newPage()) };
+}
+const serverState = page => page.evaluate(() => fetch("api/state").then(r => r.ok ? r.json() : null).catch(() => null));
+const tickUI = async (page, id) => {
+  await page.evaluate(id => { document.querySelector(`input[data-id="${id}"]`).closest("details").open = true; }, id);
+  await page.check(`input[data-id="${id}"]`);
+};
+const kind = v => v === null ? "null" : Array.isArray(v) ? "array" : typeof v;
 const openPanel = (page, id) => page.evaluate(id => { document.getElementById(id).open = true; }, id);
 const state = page => page.evaluate(k => JSON.parse(localStorage.getItem(k) || "null"), KEY);
 async function setState(page, fn) {
@@ -54,6 +63,7 @@ async function answer(page, right = true) {
   return { id, q };
 }
 
+let srv = null;
 try {
   // ---------- first visit ----------
   log("first visit renders, bank loaded");
@@ -88,7 +98,8 @@ try {
   await page.waitForSelector("#quiz[open]", { timeout: 5000 });
   assert.match(await page.textContent("#qz-body"), /end-of-day quiz/i);
   await page.screenshot({ path: path.join(SHOTS, "02-quiz-intro.png") });
-  await page.click('#qz-body [data-qz="go"]');
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("#qz-body .qz-o");
 
   log("answer 30 questions right, with feedback after each");
   for (let i = 0; i < 30; i++) {
@@ -293,7 +304,7 @@ try {
   // ---------- server sync ----------
   log("progress reaches the server and comes back in a fresh browser");
   await page.waitForTimeout(1500);
-  const srv = await page.evaluate(() => fetch("api/state").then(r => r.ok ? r.json() : null).catch(() => null));
+  srv = await serverState(page);
   if (srv) {
     assert.ok(srv.rev > 0, "server has a revision");
     assert.ok(srv.doc.quiz.d1.passed, "server copy has the passed quiz");
@@ -328,6 +339,93 @@ try {
   await page.screenshot({ path: path.join(SHOTS, "15-mobile-feedback.png"), fullPage: false });
   const qOverflow = await page.evaluate(() => { const d = document.getElementById("quiz"); return d.scrollWidth - d.clientWidth; });
   assert.ok(qOverflow <= 1, "quiz dialog fits the phone width");
+  await ctx.close();
+
+  // ---------- regressions found in code review ----------
+  if (srv) {
+    log("two tabs keep each other current");
+    const c = await browser.newContext({ viewport: { width: 1200, height: 900 } });
+    const a = track(await c.newPage()), b = track(await c.newPage());
+    await a.goto(BASE); await b.goto(BASE);
+    await a.waitForTimeout(800);
+    await tickUI(a, "d14e1");
+    await b.waitForFunction(() => document.querySelector('input[data-id="d14e1"]').checked, null, { timeout: 3000 });
+    await tickUI(b, "d14e2");
+    await a.waitForFunction(() => document.querySelector('input[data-id="d14e2"]').checked, null, { timeout: 3000 });
+    await b.waitForTimeout(1500);
+    let st = await serverState(b);
+    assert.ok(st.doc.ticks.d14e1 && st.doc.ticks.d14e2, "server has both tabs' ticks");
+    await c.close();
+
+    log("two devices editing at once: the conflict merges instead of dropping one side");
+    const d1 = await newPage(), d2 = await newPage();
+    await d1.page.goto(BASE); await d2.page.goto(BASE);
+    await d1.page.waitForTimeout(800); await d2.page.waitForTimeout(200);
+    await tickUI(d1.page, "d14e3");
+    await d1.page.waitForTimeout(1500);           // d1 saved; d2 hasn't seen it
+    await d2.page.evaluate(() => { document.getElementById("d14").open = true; });
+    await d2.page.fill('textarea[data-notes="d14"]', "note from device two");
+    await d2.page.waitForTimeout(2200);           // d2 saves with an old revision, gets 409, merges, saves again
+    st = await serverState(d2.page);
+    assert.ok(st.doc.ticks.d14e3 && st.doc.ticks.d14e1, "device one's tick survived");
+    assert.equal(st.doc.notes.d14, "note from device two", "device two's note survived");
+    assert.ok(await d2.page.isChecked('input[data-id="d14e3"]'), "the merged copy is on screen");
+    await d1.ctx.close(); await d2.ctx.close();
+
+    log("progress saved before the server existed is merged, not replaced");
+    const old = await newPage();
+    await old.page.goto(BASE);
+    await old.page.evaluate(k => { localStorage.clear(); localStorage.setItem(k, JSON.stringify({ ticks: { d13l1: true }, notes: { d13: "old note" }, settings: { start: "2026-10-12", fx: false, sound: false } })); }, KEY);
+    await old.page.reload();
+    await old.page.waitForTimeout(2000);
+    st = await serverState(old.page);
+    assert.ok(st.doc.notes.d13 === "old note" && st.doc.ticks.d14e3 && st.doc.notes.d14 === "note from device two", "old local progress and server progress both kept");
+    await old.ctx.close();
+  }
+
+  log("mock with a retired question still submits when time is up");
+  ({ ctx, page } = await newPage());
+  await page.goto(BASE);
+  await page.waitForTimeout(500);
+  await setState(page, s => { s.run = { kind: "mock", day: "", ids: ["m1-001", "m1-999", "m1-002", "m2-003"], ord: {}, ans: { "m1-999": [0] }, flag: {}, i: 2, t0: Date.now() - 7800000, end: Date.now() - 1000, done: false, view: "" }; });
+  await page.reload();
+  await page.waitForSelector("#quiz[open] .qz-res", { timeout: 5000 });
+  assert.match(await page.textContent("#qz-body .qz-score"), /of 3/);
+  await page.click('#qz-body [data-qz="finish"]');
+
+  log("drill restarts cleanly while a quiz is unfinished");
+  await openPanel(page, "d1");
+  await page.click('[data-quiz-start="d1"]');
+  await answer(page, true);
+  await page.click('#qz-body [data-qz="check"]');
+  await page.click('#quiz .qz-x');
+  await openPanel(page, "practice");
+  await page.click("#pr-grid [data-drill]");
+  await page.evaluate(() => document.getElementById("qz-body").insertAdjacentHTML("beforeend", '<button type="button" data-drill id="again">again</button>'));
+  await page.click("#again");
+  await page.waitForTimeout(1600);
+  assert.notEqual((await page.textContent("#dr-time")).trim(), "60 s", "the restarted drill's clock runs");
+  await page.click('#quiz .qz-x');
+
+  log("hostile import is sanitized; invalid import changes nothing");
+  await openPanel(page, "practice");
+  await page.click("#b-set");
+  const before = Object.keys((await state(page)).ticks).length;
+  await page.setInputFiles("#s-file", { name: "bad.json", mimeType: "application/json", buffer: Buffer.from("[1,2,3]") });
+  await page.waitForTimeout(300);
+  assert.equal(Object.keys((await state(page)).ticks).length, before, "invalid file: nothing changed");
+  if (!(await page.locator("#settings[open]").count())) await page.click("#b-set");
+  const evil = { settings: { start: "2026-10-12", portal: "javascript:alert(1)", fx: false }, ticks: { d1a1: true }, quiz: null,
+    drill: { best: "<img src=x id=pwn>" }, mocks: [{ at: "x", pct: "<b id=pwn2>" }], book: { "q01-001": { misses: "<i id=pwn3>", note: 5 } } };
+  await page.setInputFiles("#s-file", { name: "evil.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(evil)) });
+  await page.waitForTimeout(500);
+  const ev = await state(page);
+  assert.deepEqual([kind(ev.quiz), ev.drill.best, ev.settings.portal, ev.mocks[0].pct, ev.book["q01-001"].misses], ["object", 0, "", 0, 1]);
+  await openPanel(page, "practice");
+  await page.click('#pr-grid [data-sheet="notebook"]');
+  assert.equal(await page.locator("#pwn, #pwn2, #pwn3").count(), 0, "no injected markup");
+  await page.click("#sheet [data-sh-close]");
+  assert.ok(await page.locator("#next .nx-t").count() === 1, "page still renders after the import");
   await ctx.close();
 
   if (errors.length) throw new Error("console errors:\n" + errors.join("\n"));

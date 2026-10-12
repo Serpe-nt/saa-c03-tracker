@@ -31,26 +31,95 @@ const LETTERS = "ABCDE";
 
 // ---------- state ----------
 const clone = o => JSON.parse(JSON.stringify(o));
+const kind = v => v === null ? "null" : Array.isArray(v) ? "array" : typeof v;
+const isObj = v => kind(v) === "object";
+// Overlay b onto a. Where the default has a value, b's value must have the same type, so an
+// import or a server copy can't swap an object for null (or a number for markup) and break the page.
 function merge(a, b) {
+  if (!isObj(b)) return a;
   for (const k in b) {
-    if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k]) && a[k] && typeof a[k] === "object") merge(a[k], b[k]);
+    const ka = kind(a[k]), kb = kind(b[k]);
+    if (k in a && ka !== "null" && ka !== kb) continue;
+    if (ka === "object" && kb === "object") merge(a[k], b[k]);
     else a[k] = b[k];
   }
   return a;
 }
+// Entries inside the maps have no defaults to check against, so validate them one by one.
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const num0 = (v, d = 0) => (typeof v === "number" && isFinite(v) ? v : d);
+const str0 = v => (typeof v === "string" ? v : "");
+const ints = v => Array.isArray(v) && v.every(Number.isInteger);
+function clean(s) {
+  const keep = (m, ok) => { for (const k of Object.keys(m)) if (!ok(m[k])) delete m[k]; };
+  keep(s.ticks, v => v === true);
+  keep(s.notes, v => typeof v === "string");
+  keep(s.scores, v => typeof v === "string" || typeof v === "number");
+  keep(s.dayDone, v => ISO.test(v));
+  keep(s.quiz, v => isObj(v) && Array.isArray(v.tries));
+  for (const r of Object.values(s.quiz)) {
+    r.best = num0(r.best); r.passed = ISO.test(r.passed) ? r.passed : "";
+    r.tries = r.tries.filter(isObj).map(t => ({ at: str0(t.at), score: num0(t.score), n: num0(t.n) }));
+  }
+  keep(s.qs, isObj);
+  for (const k in s.qs) { const q = s.qs[k]; s.qs[k] = { seen: num0(q.seen), right: num0(q.right), last: q.last ? 1 : 0, at: str0(q.at) }; }
+  keep(s.srs, v => isObj(v) && ISO.test(v.due));
+  for (const k in s.srs) s.srs[k] = { step: num0(s.srs[k].step), due: s.srs[k].due };
+  keep(s.book, isObj);
+  for (const k in s.book) { const b = s.book[k]; s.book[k] = { at: str0(b.at), misses: num0(b.misses, 1), note: str0(b.note).slice(0, 300), fixed: !!b.fixed }; }
+  s.mocks = s.mocks.filter(isObj).map(m => ({ at: str0(m.at), score: num0(m.score), n: num0(m.n), pct: num0(m.pct), mins: num0(m.mins),
+    dom: Array.isArray(m.dom) ? m.dom.slice(0, 4).map(x => (Array.isArray(x) ? [num0(x[0]), num0(x[1])] : [0, 0])) : [] }));
+  keep(s.conf, v => v === "ok" || v === "shaky");
+  keep(s.log, v => typeof v === "number" && isFinite(v) && v >= 0);
+  keep(s.warm, v => v === "done" || v === "skip");
+  s.slips = s.slips.filter(x => isObj(x) && Number.isInteger(x.from) && Number.isInteger(x.n) && x.n > 0 && x.n < 100).map(x => ({ from: x.from, n: x.n }));
+  s.drill = { best: num0(s.drill.best), runs: num0(s.drill.runs) };
+  if (!ISO.test(s.settings.start)) s.settings.start = DEF.settings.start;
+  if (s.settings.exam && !ISO.test(s.settings.exam)) s.settings.exam = "";
+  if (!/^https?:\/\//i.test(s.settings.portal)) s.settings.portal = "";
+  const t = s.timer;
+  if (t.mode !== "focus" && t.mode !== "break") t.mode = "focus";
+  t.left = Math.min(DUR[t.mode], Math.max(0, Math.round(num0(t.left, DUR[t.mode]))));
+  t.endAt = num0(t.endAt); t.from = num0(t.from);
+  s.savedAt = num0(s.savedAt);
+  s.run = cleanRun(s.run);
+  return s;
+}
+function cleanRun(r) {
+  if (!isObj(r) || !["day", "mock", "review", "warm"].includes(r.kind) || !Array.isArray(r.ids) || !r.ids.every(x => typeof x === "string")) return null;
+  if (r.kind === "day" && !PLAN.some(d => d.id === r.day)) return null;
+  const out = {
+    kind: r.kind, day: str0(r.day), ids: r.ids, ord: {}, ans: {}, flag: {}, i: Number.isInteger(r.i) && r.i >= 0 ? r.i : 0,
+    t0: num0(r.t0), end: num0(r.end), done: !!r.done, view: r.view === "grid" ? "grid" : "", seen: !!r.seen, only: r.only !== false,
+    score: num0(r.score), mins: num0(r.mins), cel: ["all", "week", "day"].includes(r.cel) ? r.cel : "", mockNew: !!r.mockNew
+  };
+  for (const id of r.ids) {
+    if (isObj(r.ord) && ints(r.ord[id])) out.ord[id] = r.ord[id];
+    if (isObj(r.ans) && ints(r.ans[id])) out.ans[id] = r.ans[id];
+    if (isObj(r.flag) && r.flag[id]) out.flag[id] = 1;
+  }
+  if (isObj(r.res) && ints(r.res.dom ? r.res.dom.flat() : null)) out.res = { score: num0(r.res.score), n: num0(r.res.n), pct: num0(r.res.pct), dom: r.res.dom };
+  if (out.kind === "mock" && out.done && !out.res) return null;
+  return out;
+}
+const parseState = obj => clean(merge(clone(DEF), obj));
 function load() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-  return merge(clone(DEF), s || {});
+  return parseState(s);
 }
 let S = load();
-// Server sync bookkeeping (see "server sync" below): last revision seen, unsaved changes.
+// Server sync bookkeeping (see "server sync" below): last revision seen, unsaved changes, save count.
 const SYNC_KEY = KEY + "-sync";
-const sync = { on: false, rev: 0, dirty: false, busy: false, again: false };
-try { Object.assign(sync, JSON.parse(localStorage.getItem(SYNC_KEY)) || {}, { on: false, busy: false, again: false }); } catch (e) {}
+const sync = { on: false, rev: 0, dirty: false, busy: false, again: false, n: 0 };
+const firstSync = localStorage.getItem(SYNC_KEY) === null;
+try { Object.assign(sync, JSON.parse(localStorage.getItem(SYNC_KEY)) || {}, { on: false, busy: false, again: false, n: 0 }); } catch (e) {}
+// Progress saved before the server existed must be merged into the server copy, not replaced by it.
+if (firstSync && (Object.keys(S.ticks).length || Object.keys(S.notes).length || Object.keys(S.qs).length)) sync.dirty = true;
 const syncMeta = () => { try { localStorage.setItem(SYNC_KEY, JSON.stringify({ rev: sync.rev, dirty: sync.dirty })); } catch (e) {} };
 function save() {
   S.savedAt = Date.now();
+  sync.n++;
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
   syncLater();
 }
@@ -111,7 +180,7 @@ const strip = h => { const t = document.createElement("div"); t.innerHTML = h; r
 const clock = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
 function linkFor(key) {
   if (!key) return null;
-  if (key === "own") return S.settings.portal || LINKS.console.url;
+  if (key === "own") return (/^https?:\/\//i.test(S.settings.portal) && S.settings.portal) || LINKS.console.url;
   return LINKS[key] ? LINKS[key].url : null;
 }
 function download(text, name, type) {
@@ -185,7 +254,7 @@ function renderDay(d) {
     const cards = g.t === "check" && g.items.some(it => CARDS[it[0]]);
     h += `<div class="grp" data-g="${g.key}"><div class="gh"><span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span>`;
     if (g.min) h += `<span class="gm">~${fmtH(g.min)}</span>`;
-    if (url) h += `<a class="btn open" href="${url}" target="_blank" rel="noopener">Open ↗</a>`;
+    if (url) h += `<a class="btn open" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>`;
     h += `</div>`;
     if (g.where) h += `<div class="where">Where: ${g.where}</div>`;
     else if (cards) h += `<div class="where">Explain each one out loud first, then open the model answer and compare.</div>`;
@@ -387,7 +456,7 @@ function renderNext() {
     (it[2] ? `<div class="nx-n">${it[2]}</div>` : "") +
     (g.where ? `<div class="where">Where: ${g.where}</div>` : "") +
     `<div class="nx-a">` +
-    (url ? `<a class="btn primary" href="${url}" target="_blank" rel="noopener">Open ↗</a>` : "") +
+    (url ? `<a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : "") +
     `<button type="button" data-nx-done="${it[0]}">✓ Mark done</button>` +
     `<button type="button" data-nx-jump="${it[0]}">Show in plan</button></div>`;
 }
@@ -543,17 +612,32 @@ function head(title, parts, barPct) {
   document.getElementById("qz-meta").innerHTML = parts.filter(Boolean).map(p => `<span>${p}</span>`).join("");
   document.getElementById("qz-bar").style.width = Math.max(0, Math.min(100, barPct || 0)) + "%";
 }
+// Put keyboard focus on the main action, not the ✕ that showModal() picks by default.
+function focusMain() {
+  for (const sel of ['[data-qz="go"]', '[data-qz="next"]', '[data-qz="retake"]', '[data-qz="finish"]', ".qz-o", "[data-drill]"]) {
+    const el = qzBody.querySelector(sel);
+    if (el) { el.focus({ preventScroll: true }); return; }
+  }
+}
 function openQuiz() {
   renderQuiz();
   if (!qzDlg.open) qzDlg.showModal();
   qzDlg.scrollTop = 0;
+  focusMain();
+}
+// Questions can be retired from the bank: drop them from a saved run without skipping the current one.
+function pruneRun(r) {
+  if (r.ids.every(id => QBY[id])) return;
+  r.i = r.ids.slice(0, r.i).filter(id => QBY[id]).length;
+  r.ids = r.ids.filter(id => QBY[id]);
+  for (const k of Object.keys(r.ans)) if (!QBY[k]) delete r.ans[k];
 }
 function renderQuiz() {
   if (intro) return renderIntro();
   if (drill) return renderDrill();
   const r = S.run;
   if (!r) { if (qzDlg.open) qzDlg.close(); return; }
-  r.ids = r.ids.filter(id => QBY[id]);
+  pruneRun(r);
   if (!r.ids.length) { S.run = null; save(); if (qzDlg.open) qzDlg.close(); return; }
   if (r.i >= r.ids.length) r.i = r.ids.length - 1;
   if (r.done) return r.kind === "mock" ? renderMockResult() : renderResult();
@@ -623,7 +707,7 @@ function refHTML(id, extra = "") {
   const url = linkFor(g.link);
   return `<li><div class="ref-h">${extra}<span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span><span class="muted">Day ${d.day}</span></div><div class="ref-t">${it[1]}</div>` +
     (g.where ? `<div class="where">${g.where}</div>` : "") +
-    `<div class="ref-a">${url ? `<a class="btn sm" href="${url}" target="_blank" rel="noopener">Open ↗</a>` : ""}<button type="button" class="sm" data-jump="${id}">Show in plan</button></div></li>`;
+    `<div class="ref-a">${url ? `<a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}<button type="button" class="sm" data-jump="${id}">Show in plan</button></div></li>`;
 }
 function studyHTML(q) {
   const refs = studyRefs(q);
@@ -735,6 +819,7 @@ function finishRun() {
   if (r.kind === "warm") S.warm[t] = "done";
   save(); refresh(); renderQuiz();
   qzDlg.scrollTop = 0;
+  focusMain();
 }
 function missedHTML(missed) {
   if (!missed.length) return "";
@@ -747,6 +832,7 @@ function missedHTML(missed) {
 }
 function renderResult() {
   const r = S.run, n = r.ids.length;
+  r.seen = true;
   const missed = r.ids.filter(id => !QZ.isRight(QBY[id], r.ans[id])).map(id => QBY[id]);
   head(runTitle(r), ["Results"], 100);
   if (r.kind === "day") {
@@ -804,6 +890,7 @@ function renderGrid() {
 function finishMock(auto) {
   const r = S.run;
   if (!r || r.kind !== "mock" || r.done) return;
+  pruneRun(r);
   if (!auto) {
     const un = r.ids.filter(k => !(r.ans[k] || []).length).length;
     if (!confirm(un ? `${plural(un, "question")} ${un === 1 ? "is" : "are"} unanswered and will count as wrong. Finish anyway?` : "Finish the exam and see your results?")) return;
@@ -815,11 +902,12 @@ function finishMock(auto) {
   r.mins = Math.round((Math.min(Date.now(), r.end) - r.t0) / 60000);
   S.mocks.push({ at: today(), score: res.score, n: res.n, pct: res.pct, dom: res.dom, mins: r.mins });
   save(); refresh();
-  if (qzDlg.open) { renderQuiz(); qzDlg.scrollTop = 0; }
+  if (qzDlg.open) { renderQuiz(); qzDlg.scrollTop = 0; focusMain(); }
   if (auto) { FX.banner("Time is up", "Your mock exam was submitted.", "info"); if (!qzDlg.open) whenFree(openQuiz); }
 }
 function renderMockResult() {
   const r = S.run, res = r.res;
+  r.seen = true;
   head("Mock exam", ["Results"], 100);
   const doms = ["Secure", "Resilient", "High-performing", "Cost-optimized"];
   const prev = S.mocks.slice(0, -1).map(m => m.pct + "%");
@@ -839,12 +927,12 @@ function renderMockResult() {
 // ---------- "Which service?" drill ----------
 function startDrill() {
   if (!DRILL.length) return;
-  if (S.run && !S.run.done && qzDlg.open) qzDlg.close();
   intro = null;
   stopDrill();
   drill = { end: Date.now() + 60000, items: QZ.shuffle(DRILL), i: 0, score: 0, n: 0, missed: [], lock: false, done: false, opts: [] };
   drillNext();
   if (!qzDlg.open) qzDlg.showModal();
+  focusMain();
   drill.timer = setInterval(drillTick, 200);
 }
 function drillNext() {
@@ -938,6 +1026,8 @@ document.addEventListener("keydown", e => {
   }
   const r = S.run;
   if (intro || !r || r.done) return;
+  // Enter on a focused control (Previous, Flag, Open ↗, Show in plan) presses that control.
+  if (k === "enter" && e.target.closest("button,a") && !e.target.closest(".qz-o")) return;
   const n = k.length === 1 ? Math.max("12345".indexOf(k), "abcde".indexOf(k)) : -1;
   if (n >= 0) {
     const opt = qzBody.querySelectorAll(".qz-opts .qz-o")[n];
@@ -956,9 +1046,12 @@ document.addEventListener("keydown", e => {
   }
 });
 qzDlg.addEventListener("close", () => {
+  if (qzDlg.open) return;           // reopened before this event was delivered
   intro = null;
   if (drill) stopDrill();
-  if (S.run && S.run.done) finishResults();
+  const r = S.run;
+  // Results that were never on screen (time ran out behind the drill, say) get shown first.
+  if (r && r.done) { if (r.seen) finishResults(); else whenFree(openQuiz); }
   else refresh();
   runPending();
 });
@@ -1186,7 +1279,8 @@ setDlg.addEventListener("close", () => {
   const start = document.getElementById("s-start").value;
   if (start) S.settings.start = start;
   S.settings.exam = document.getElementById("s-exam").value;
-  S.settings.portal = document.getElementById("s-portal").value.trim();
+  const portal = document.getElementById("s-portal").value.trim();
+  S.settings.portal = /^https?:\/\//i.test(portal) ? portal : "";
   S.settings.fx = document.getElementById("s-fx").checked;
   S.settings.sound = document.getElementById("s-snd").checked;
   save(); rebuild();
@@ -1199,10 +1293,13 @@ fileIn.onchange = () => {
   const f = fileIn.files[0];
   if (!f) return;
   f.text().then(t => {
-    S = merge(clone(DEF), JSON.parse(t));
+    const next = JSON.parse(t);
+    if (!isObj(next) || !isObj(next.settings)) throw new Error("not an export");
+    S = parseState(next);
+    DAYS.forEach(markDayDone);
     save(); setDlg.close("x"); rebuild(); restoreScores();
     FX.banner("Progress imported", "", "info");
-  }).catch(() => alert("That file isn't a valid progress export."));
+  }).catch(() => alert("That file isn't a valid progress export. Nothing was changed."));
   fileIn.value = "";
 };
 document.getElementById("s-reset").onclick = () => {
@@ -1266,8 +1363,9 @@ setInterval(() => {
 }, 1000);
 
 // ---------- server sync (only when served by the Go backend; otherwise browser-only) ----------
-// localStorage stays the working copy. The server keeps one revisioned document; on a
-// conflict the newer save wins, so two browsers converge instead of silently diverging.
+// localStorage stays the working copy. The server keeps one revisioned document. If this copy is
+// unchanged since the last sync, a newer server copy simply replaces it; if both changed (two
+// devices, or offline edits), the two are merged so no tick, answer or note is lost.
 let pushT = 0;
 function syncLater() {
   sync.dirty = true;
@@ -1276,28 +1374,69 @@ function syncLater() {
   clearTimeout(pushT);
   pushT = setTimeout(push, 800);
 }
+// Combine two copies edited in parallel: every tick and answer, the best quiz results, the newer copy's settings.
+function mergeDocs(local, remote) {
+  const [older, newer] = local.savedAt > remote.savedAt ? [remote, local] : [local, remote];
+  const m = clone(newer);
+  const seenIn = (st, id) => (st.qs[id] ? st.qs[id].seen : 0);
+  for (const k in older.ticks) m.ticks[k] = true;
+  for (const f of ["notes", "scores", "conf", "warm"]) for (const k in older[f]) if (!(k in m[f]) || m[f][k] === "") m[f][k] = older[f][k];
+  for (const k in older.dayDone) if (!m.dayDone[k] || older.dayDone[k] < m.dayDone[k]) m.dayDone[k] = older.dayDone[k];
+  for (const k in older.quiz) {
+    const o = older.quiz[k], n = m.quiz[k];
+    if (!n) { m.quiz[k] = o; continue; }
+    n.best = Math.max(n.best, o.best);
+    if (o.passed && (!n.passed || o.passed < n.passed)) n.passed = o.passed;
+    if (o.tries.length > n.tries.length) n.tries = o.tries;
+  }
+  // per question, trust whichever copy has answered it more often
+  for (const id of new Set([...Object.keys(older.qs), ...Object.keys(newer.qs)])) {
+    if (seenIn(older, id) <= seenIn(newer, id)) continue;
+    m.qs[id] = older.qs[id];
+    if (older.srs[id]) m.srs[id] = older.srs[id]; else delete m.srs[id];
+    if (older.book[id]) m.book[id] = { ...older.book[id], note: (newer.book[id] && newer.book[id].note) || older.book[id].note };
+  }
+  for (const id in older.book) if (!m.book[id]) m.book[id] = older.book[id];
+  const mk = x => `${x.at}|${x.score}|${x.pct}|${x.mins}`, have = new Set(m.mocks.map(mk));
+  m.mocks = m.mocks.concat(older.mocks.filter(x => !have.has(mk(x)))).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  for (const k in older.log) m.log[k] = Math.max(m.log[k] || 0, older.log[k]);
+  m.drill = { best: Math.max(m.drill.best, older.drill.best), runs: Math.max(m.drill.runs, older.drill.runs) };
+  m.run = local.run || remote.run;      // the run on this screen stays
+  m.savedAt = Date.now();
+  return m;
+}
+// Re-render after the state was replaced from outside (server or another tab).
+function applyState() {
+  DAYS.forEach(markDayDone);
+  rebuild(); restoreScores(); tmRender();
+  if (qzDlg.open && !drill && !intro && S.run) renderQuiz();
+  if (shDlg.open) renderSheet();
+}
+// The server holds a revision we haven't seen. Returns true when the result still needs pushing.
+function absorb(cur) {
+  const remote = parseState(cur.doc);
+  const both = sync.dirty;
+  S = both ? mergeDocs(S, remote) : remote;
+  sync.rev = cur.rev;
+  if (!both) sync.dirty = false;
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  syncMeta();
+  applyState();
+  return both;
+}
 async function push() {
   if (sync.busy) { sync.again = true; return; }
   sync.busy = true;
+  const n = sync.n;   // only call it clean if nothing was saved while the request was in flight
   try {
     const r = await fetch("api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rev: sync.rev, doc: S }) });
-    if (r.ok) { sync.rev = (await r.json()).rev; sync.dirty = false; syncMeta(); }
-    else if (r.status === 409) resolve(await r.json());
+    if (r.ok) { sync.rev = (await r.json()).rev; if (sync.n === n) sync.dirty = false; syncMeta(); }
+    else if (r.status === 409) { if (absorb(await r.json())) sync.again = true; }
   } catch (e) { /* offline: stays dirty, retried on the next save or focus */ }
   sync.busy = false;
   if (sync.again) { sync.again = false; push(); }
 }
-function resolve(cur) {
-  if (!cur.doc) { sync.rev = cur.rev; push(); return; }
-  if (sync.dirty && (S.savedAt || 0) >= (cur.doc.savedAt || 0)) { sync.rev = cur.rev; sync.busy = false; push(); return; }
-  S = merge(clone(DEF), cur.doc);
-  sync.rev = cur.rev; sync.dirty = false;
-  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
-  syncMeta();
-  if (!document.querySelector("dialog[open]")) { rebuild(); restoreScores(); tmRender(); }
-}
 async function pull() {
-  if (document.querySelector("dialog[open]")) return;
   let cur;
   try {
     const r = await fetch("api/state", { cache: "no-store" });
@@ -1306,10 +1445,23 @@ async function pull() {
   } catch (e) { return; }
   sync.on = true;
   if (cur.rev === sync.rev) { if (sync.dirty) push(); return; }
-  if (!cur.doc) { sync.rev = cur.rev; push(); return; }
-  resolve(cur);
+  if (!isObj(cur.doc)) { sync.rev = cur.rev; push(); return; }   // empty server: upload this copy
+  if (absorb(cur)) push();
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pull(); });
+// Another tab of this site saved: take its copy, so this tab never writes back stale data.
+addEventListener("storage", e => {
+  if (e.key === SYNC_KEY && e.newValue) {
+    try { const m = JSON.parse(e.newValue); sync.rev = num0(m.rev); sync.dirty = !!m.dirty; } catch (err) {}
+    return;
+  }
+  if (e.key !== KEY || !e.newValue) return;
+  let next;
+  try { next = parseState(JSON.parse(e.newValue)); } catch (err) { return; }
+  if (qzDlg.open && S.run) next.run = S.run;   // keep the quiz on this screen
+  S = next;
+  applyState();
+});
 
 // ---------- boot ----------
 function rebuild() {
@@ -1328,6 +1480,7 @@ DAYS.forEach(markDayDone);
 document.getElementById("places").open = Object.keys(S.ticks).length === 0;
 rebuild();
 tmRender();
-if (S.run && S.run.kind === "mock" && !S.run.done && Date.now() >= S.run.end) finishMock(true);
 pull();
+if (S.run && S.run.kind === "mock" && !S.run.done && Date.now() >= S.run.end) finishMock(true);
+else if (S.run && S.run.done) whenFree(openQuiz);   // results left open before a reload
 })();
