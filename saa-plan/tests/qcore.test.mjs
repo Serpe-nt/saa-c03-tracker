@@ -153,3 +153,20 @@ test("mock result counts per domain", () => {
   assert.equal(r.pct, 67);
   assert.deepEqual(plain(r.dom), [[1, 2], [0, 0], [0, 0], [1, 1]]);
 });
+
+test("step practice: questions that point at the step, its own day first, unseen before seen", () => {
+  const b = [
+    q("q03-001", 3, 1), q("q03-002", 3, 1), q("q03-003", 3, 1), q("q03-004", 3, 1),
+    q("q09-001", 9, 2), q("m1-001", "mock", 2),
+    { ...q("q03-005", 3, 1), ref: ["other"] }
+  ];
+  const p = QZ.pickStep("r1", 3, b, {}, 3, seeded(3));
+  assert.equal(p.length, QZ.STEP);
+  assert.ok(p.every(x => x.day === 3 && x.ref.includes("r1")), "own-day questions that reference the step");
+  const stats = {};
+  p.forEach(x => QZ.record(stats, x.id, true, "2026-10-14"));
+  const again = ids(QZ.pickStep("r1", 3, b, stats, 3, seeded(4)));
+  assert.equal(again[0], ids(b.filter(x => x.day === 3 && x.ref.includes("r1") && !stats[x.id]))[0], "the unseen own-day question comes first");
+  assert.deepEqual(plain(ids(QZ.pickStep("r1", 5, b, {}, 6, seeded(5))).slice(-1)), ["m1-001"], "mock questions come last");
+  assert.equal(QZ.pickStep("nope", 3, b, {}).length, 0);
+});

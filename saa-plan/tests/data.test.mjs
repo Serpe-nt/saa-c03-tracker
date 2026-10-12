@@ -86,10 +86,10 @@ test("no two questions share a stem", () => {
   assert.deepEqual(dups, []);
 });
 
-test("doc links point at aws.amazon.com over HTTPS", () => {
+test("doc links point at aws.amazon.com or docs.aws.amazon.com over HTTPS", () => {
   for (const [k, [label, url]] of Object.entries(W.DOCS)) {
     assert.ok(label.length > 3, k);
-    assert.match(url, /^https:\/\/aws\.amazon\.com\//, k);
+    assert.match(url, /^https:\/\/(docs\.)?aws\.amazon\.com\//, k);
   }
 });
 
@@ -114,4 +114,73 @@ test("drill and cheat sheet entries are well-formed", () => {
   }
   assert.ok(W.CUES.length >= 30);
   for (const c of W.CUES) assert.equal(c.length, 3, JSON.stringify(c));
+});
+
+// ---------- step cards: key points, score fields, exam-wording links ----------
+const keyFiles = fs.readdirSync(path.join(SITE, "keys")).filter(f => f.endsWith(".js"));
+
+test("every key-points file in site/keys is loaded by the page, before the app", () => {
+  for (const f of keyFiles) assert.ok(scripts.includes("keys/" + f), `keys/${f} is not in index.html`);
+  assert.ok(scripts.indexOf("keys/" + keyFiles[0]) < scripts.indexOf("app.js"));
+});
+
+test("key points are well-formed and filed under their own day", () => {
+  const problems = [];
+  for (const f of keyFiles) {
+    const day = Number(f.slice(1, 3));
+    const K = load("keys/" + f).KEYS;
+    for (const [id, e] of Object.entries(K)) {
+      const bad = m => problems.push(`${f} ${id}: ${m}`);
+      if (!items[id]) { bad("unknown step id"); continue; }
+      if (items[id].day !== day) bad(`step belongs to Day ${items[id].day}`);
+      const k = e.k || [];
+      if (!k.length && !e.trap) bad("needs k or trap");
+      if (k.length > 5) bad("more than 5 points");
+      k.forEach((s, i) => { if (typeof s !== "string" || s.length < 40 || s.length > 260) bad(`k[${i}] length ${String(s).length}`); });
+      if ("trap" in e && (typeof e.trap !== "string" || e.trap.length < 40 || e.trap.length > 280)) bad(`trap length ${String(e.trap).length}`);
+      const text = [...k, e.trap || ""].join(" ");
+      const tags = (text.match(/<\/?([a-z]+)/gi) || []).map(t => t.replace(/[</]/g, "").toLowerCase()).filter(t => t !== "code" && t !== "b");
+      if (tags.length) bad(`HTML other than <b> and <code>: ${tags.join(",")}`);
+      const docs = e.docs || [];
+      if (docs.length > 3) bad("more than 3 docs");
+      for (const d of docs) {
+        if (d.length !== 2 || String(d[0]).length < 4) bad("doc must be [title, url]");
+        else if (!/^https:\/\/(docs\.)?aws\.amazon\.com\/\S+$/.test(d[1])) bad(`doc url ${d[1]}`);
+      }
+    }
+  }
+  assert.deepEqual(problems, []);
+});
+
+test("every Watch, Play, Build and Self-check step has key points", () => {
+  const skip = new Set(["d6w6"]);   // "skip the final assessment": nothing to learn there
+  const missing = Object.keys(items).filter(id => ["watch", "play", "build", "check"].includes(items[id].t) && !skip.has(id) && !W.KEYS[id]);
+  assert.deepEqual(missing, []);
+});
+
+test("key points don't send the learner to a retired or closed service without saying so", () => {
+  // A closed service may be named only together with its status.
+  const closed = /Snowball|Snowcone|Snowmobile|Snow Family|FSx File Gateway|Timestream for LiveAnalytics|OpsWorks|CodeCommit|Cloud9|QLDB|S3 Select|CloudSearch|Data Pipeline|EC2-Classic|Kinesis Data Firehose|Kinesis Data Analytics/i;
+  const status = /closed|no longer|end of support|ends|retired|formerly|legacy|older|not available|instead/i;
+  const hits = [];
+  for (const [id, e] of Object.entries(W.KEYS)) for (const s of [...(e.k || []), e.trap || ""]) if (closed.test(s) && !status.test(s)) hits.push(`${id}: ${s}`);
+  assert.deepEqual(hits, []);
+});
+
+test("score fields and the verdict sit on steps that exist", () => {
+  const html = fs.readFileSync(path.join(SITE, "index.html"), "utf8");
+  for (const [id, key] of Object.entries(W.SCORE_AT)) {
+    assert.ok(items[id], `SCORE_AT: unknown step ${id}`);
+    assert.ok(html.includes(`data-score="${key}"`), `SCORE_AT: no 📊 Scores field "${key}"`);
+  }
+  for (const d of W.PLAN) if (d.decision) assert.equal(items[d.decision]?.day, d.day, `Day ${d.day}: decision must name one of its own steps`);
+});
+
+test("exam-wording phrases are linked to real phrases and real topics", () => {
+  const phrases = new Set(W.CUES.map(c => c[0]));
+  for (const [phrase, tags] of Object.entries(W.CUE_TAGS)) {
+    assert.ok(phrases.has(phrase), `CUE_TAGS: no such phrase "${phrase}"`);
+    for (const t of tags) assert.ok(TAGS.has(t), `CUE_TAGS: unknown topic "${t}" for "${phrase}"`);
+  }
+  for (const p of phrases) assert.ok(W.CUE_TAGS[p], `CUE_TAGS: "${p}" has no topics`);
 });

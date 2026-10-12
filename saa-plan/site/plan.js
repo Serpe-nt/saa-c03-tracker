@@ -1,6 +1,7 @@
-// Plan data. Edit freely: ids must stay unique (they key your saved ticks).
-// Group fields: t = type, label, where, link (key in LINKS or "own"), min = estimated minutes.
-// Optional day fields: tools = extra buttons ("notebook", "weak"), decision, notesHint.
+// Plan data. Edit freely: ids must stay unique (they key your saved progress).
+// Each item is one step, shown alone on its own card: [id, text, note].
+// Group fields: t = type, label, where, link (key in LINKS or "own"), min = estimated minutes for the whole block.
+// Optional day fields: tools = extra buttons ("notebook", "weak"), decision = id of the step that shows the go/no-go verdict, notesHint.
 
 window.LINKS = {
   sb:      { label: "Skill Builder",      url: "https://skillbuilder.aws/" },
@@ -10,12 +11,13 @@ window.LINKS = {
   calc:    { label: "Pricing Calculator", url: "https://calculator.aws/" },
   cert:    { label: "aws.training",       url: "https://aws.training/" },
   signup:  { label: "aws.amazon.com",     url: "https://aws.amazon.com/", hidden: true },
-  credly:  { label: "Credly",             url: "https://www.credly.com/", hidden: true }
+  credly:  { label: "Credly",             url: "https://www.credly.com/", hidden: true },
+  idc:     { label: "Identity Center docs", url: "https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html", hidden: true }
 };
 
 const SB  = "① Skill Builder → My training → AWS Cloud Practitioner Essentials";
 const CQ  = "① Skill Builder → My training → AWS Cloud Quest: Cloud Practitioner → Launch. Labs run in ② the temporary sandbox — free.";
-const OWN = "③ Your own AWS account, signed in through your access portal (Day 1).";
+const OWN = "③ Your own AWS account, signed in as your admin user (Day 1).";
 const EPP = "① Skill Builder → My training → Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)";
 
 window.PLAN = [
@@ -25,19 +27,23 @@ window.PLAN = [
  goal:"Morning: set up ③ your own AWS account safely (~1 h). Rest of the day: videos + first Cloud Quest assignments.",
  groups:[
  {t:"setup", label:"Setup: create the account", where:"aws.amazon.com (public website, not Skill Builder)", link:"signup", min:20, items:[
-  ["d1a1","Open <b>aws.amazon.com</b> → click <b>Create an AWS Account</b>.","Use your normal email. Account name: anything, e.g. <code>stepan-lab</code>."],
-  ["d1a2","Choose the <b>Free plan</b> when asked.","Gives credits (currently $100, plus up to $100 more for onboarding tasks) for up to 6 months. You aren't charged unless you upgrade to the Paid plan."],
+  ["d1a1","Open <b>aws.amazon.com</b> → click <b>Create an AWS Account</b>.","Use your normal email. Account name: anything, e.g. <code>stepan-lab</code>. AWS is rolling out a new sign-up to some customers (a Google, GitHub, Apple or Amazon login, with \"projects\" and \"AWS Settings\"). If you get that one, follow its screens: you then have a personal login from the start, and the admin-user block below does not apply."],
+  ["d1a2","Choose the <b>Free plan</b> when asked.","Gives credits (currently $100, plus up to $100 more for onboarding tasks) for up to 6 months. You aren't charged while the account stays on the Free plan. Creating or joining an AWS Organization upgrades it to the Paid plan automatically, which is why this plan never enables AWS Organizations or IAM Identity Center in your account."],
   ["d1a3","Enter card details and verify your phone.","AWS may place a small temporary hold on the card to verify it."],
   ["d1a4","Support plan: pick <b>Basic support (free)</b>. Finish sign-up and wait for the confirmation email."]]},
  {t:"setup", label:"Setup: lock down the root user", where:"console.aws.amazon.com → sign in as Root user (the email + password you just created)", link:"console", min:10, items:[
   ["d1b1","Top-right: your account name → <b>Security credentials</b> → <b>Assign MFA device</b> → authenticator app or passkey.","The root user can do anything, including closing the account. MFA on it is mandatory."],
   ["d1b2","Top-right Region selector → <b>Europe (Ireland) eu-west-1</b>. Use this Region for everything.","Working in one Region avoids 'where did my resource go' and forgotten resources that cost money."]]},
- {t:"setup", label:"Setup: your everyday admin login", where:"console.aws.amazon.com → search bar → \"IAM Identity Center\"", link:"console", min:25, items:[
-  ["d1c1","<b>IAM Identity Center</b> → <b>Enable</b>.","How companies give people access to AWS. Also on the exam."],
-  ["d1c2","<b>Users</b> → <b>Add user</b>: your username + email.","Accept the invitation email; set a password and MFA."],
-  ["d1c3","<b>Permission sets</b> → <b>Create</b> → Predefined → <b>AdministratorAccess</b>."],
-  ["d1c4","<b>AWS accounts</b> → tick your account → <b>Assign users or groups</b> → your user → AdministratorAccess."],
-  ["d1c5","Copy the <b>AWS access portal URL</b> (Identity Center → Dashboard) into ⚙ Settings here. Sign out of root; from now on log in only through the portal.","Root is for emergencies only. The \"Open\" buttons for ③ will then take you to the portal."]]},
+ {t:"setup", label:"Setup: your everyday admin login", where:"console.aws.amazon.com → search bar → \"IAM\"", link:"console", min:20, items:[
+  ["d1u1","<b>Users</b> → <b>Create user</b> → your user name → tick <b>Provide user access to the AWS Management Console</b> → <b>I want to create an IAM user</b> → set a password.","An IAM user keeps the account on the Free plan. If the console offers no way to create a user with console access, you are on the new AWS experience and already sign in with a personal login: mark this block complete."],
+  ["d1u2","<b>Set permissions</b> → <b>Add user to group</b> → <b>Create group</b> <code>Admins</code> with the <b>AdministratorAccess</b> policy → select the group → <b>Create user</b>.","The last page shows the console sign-in URL, the user name and the password. Keep it open for the next two steps."],
+  ["d1u3","Open the new user → <b>Security credentials</b> → <b>Assign MFA device</b>.","An administrator without MFA is one leaked password away from a hijacked account."],
+  ["d1u4","Copy the <b>console sign-in URL</b> (<code>https://&lt;account-id&gt;.signin.aws.amazon.com/console</code>) into ⚙ Settings here. Sign out of root and sign in as the new user.","Root is for emergencies only. The \"Open\" buttons for ③ will then take you to your sign-in page."]]},
+ {t:"watch", label:"Read: IAM Identity Center", where:"docs.aws.amazon.com → IAM Identity Center User Guide. Reading only: do not enable it in your account.", link:"idc", min:25, items:[
+  ["d1c1","<b>What is IAM Identity Center?</b> One sign-in at the access portal for every AWS account and application a person is assigned.","How companies give people access to AWS, and on the exam. Don't enable it here: that creates an AWS Organization, which moves a Free plan account to pay-as-you-go."],
+  ["d1c3","<b>Permission sets</b>: a template of IAM policies, such as AdministratorAccess, that becomes a role in every account it is assigned to."],
+  ["d1c4","<b>Assignments</b>: a user or group, an AWS account and a permission set. Access exists only for that combination."],
+  ["d1c5","<b>AWS access portal</b>: people sign in at one URL, pick an account and a role, and get temporary credentials for the console and the CLI.","Compare with what you just built: your IAM user has a long-lived password and belongs to one account."]]},
  {t:"setup", label:"Setup: protect your wallet", where:"console.aws.amazon.com → search bar → \"Budgets\"", link:"console", min:10, items:[
   ["d1d1","<b>Create budget</b> → <b>Use a template</b> → <b>Zero spend budget</b> → your email.","Emails you once anything costs money beyond credits. Budget data refreshes a few times a day, so alerts can lag by hours."],
   ["d1d2","Search <b>Billing and Cost Management</b> → <b>Credits</b>: note your credit balance and expiry.","Check this page every few days."]]},
@@ -105,8 +111,8 @@ window.PLAN = [
  {t:"play", label:"Play", where:CQ, link:"cq", min:50, items:[
   ["d4p1","<b>Core Security Concepts</b>","IAM users, groups, roles; least privilege for EC2 and RDS."]]},
  {t:"setup", label:"Setup: AWS CLI on your PC", where:"Your terminal", min:20, items:[
-  ["d4s1","Install AWS CLI v2 (distro package or the official installer).","Check with <code>aws --version</code>."],
-  ["d4s2","<code>aws configure sso</code> → paste your access portal URL → Region <code>eu-west-1</code> → profile name <code>lab</code>.","No access keys on disk — short-lived credentials from Identity Center."],
+  ["d4s1","Install AWS CLI v2 (distro package or the official installer).","Check with <code>aws --version</code>: <code>aws login</code> needs 2.32.0 or newer."],
+  ["d4s2","<code>aws login --profile lab</code> → Region <code>eu-west-1</code> → sign in as your admin user in the browser window that opens.","No long-term access keys on disk: the CLI gets temporary credentials from your console sign-in and refreshes them for up to 12 hours. A company on IAM Identity Center uses <code>aws configure sso</code> instead."],
   ["d4s3","Test: <code>aws sts get-caller-identity --profile lab</code>"]]},
  {t:"build", label:"Build", where:OWN+" Search bar → \"IAM\" (classic IAM, not Identity Center).", link:"own", min:150, items:[
   ["d4b1","<b>Policies</b> → <b>Create policy</b> (JSON): allow <code>s3:GetObject</code> only on your Day 3 bucket.","Read the JSON line by line: Effect, Action, Resource."],
@@ -149,13 +155,13 @@ window.PLAN = [
   ["d6w3","<b>Module 11: Pricing and Support</b> — pricing lessons only","Skip support plans."],
   ["d6w4","<b>Module 12: Migrating to the AWS Cloud</b> — only DataSync, Snow Family, DMS","Skip the rest."],
   ["d6w5","<b>Module 13: Well-Architected Solutions</b>","Don't skip — SAA uses the pillars."],
-  ["d6w6","Skip the course's final assessment.","It tests Cloud Practitioner, not SAA. Tick to confirm you skipped it."]]},
+  ["d6w6","Skip the course's final assessment.","It tests Cloud Practitioner, not SAA. Mark it complete to confirm you skipped it."]]},
  {t:"play", label:"Play", where:CQ, link:"cq", min:40, items:[
   ["d6p1","<b>Cloud Economics</b>","AWS Pricing Calculator."]]},
  {t:"build", label:"Build", where:OWN, link:"own", min:60, items:[
   ["d6b1","Search \"SNS\" → create a topic → subscribe your email → confirm the email."],
   ["d6b2","Launch a t3.micro → search \"CloudWatch\" → <b>Alarms</b> → <b>Create alarm</b> on its CPUUtilization → notify your SNS topic.","Terminate the instance afterwards."],
-  ["d6b3","Search \"CloudTrail\" → <b>Event history</b>: find the IAM actions you did on Day 4.","CloudTrail = who did what. CloudWatch = how things are performing."],
+  ["d6b3","Search \"CloudTrail\" → switch the Region selector to <b>US East (N. Virginia)</b> → <b>Event history</b>: find the IAM actions you did on Day 4.","IAM is a global service, so its events are recorded in us-east-1, not eu-west-1. Switch back to Ireland afterwards. CloudTrail = who did what. CloudWatch = how things are performing."],
   ["d6b4","Open <b>calculator.aws</b> (no login): estimate the Day 5 setup (ALB + 2 × t3.micro, 730 h/month)."]]},
  {t:"check", label:"Self-check", min:20, items:[
   ["d6c1","CloudWatch vs CloudTrail vs AWS Config."],
@@ -171,9 +177,9 @@ window.PLAN = [
   ["d7e1","<b>Introduction to AWS Certified Solutions Architect – Associate (SAA-C03)</b>"],
   ["d7e2","<b>Overview: AWS Certified Solutions Architect – Associate (SAA-C03)</b>"],
   ["d7e3","<b>Exam guide: AWS Certified Solutions Architect – Associate (SAA-C03)</b>","Read it fully, including the list of in-scope services."],
-  ["d7e4","<b>AWS Certified Solutions Architect - Associate Official Practice Question Set (SAA-C03 - English)</b>","20 questions. Read every explanation, right or wrong. Enter your score in 📊 Scores."],
+  ["d7e4","<b>AWS Certified Solutions Architect - Associate Official Practice Question Set (SAA-C03 - English)</b>","20 questions. Read every explanation, right or wrong. Enter your score below."],
   ["d7e5","<b>AWS Certified Solutions Architect - Associate Sample Questions (SAA-C03 - English)</b>"],
-  ["d7e6","Write down your 3 weakest topics (notes box below)."]]},
+  ["d7e6","Write down your 3 weakest topics in 📝 Day notes."]]},
  {t:"setup", label:"Housekeeping", min:60, items:[
   ["d7h1","Finish any unfinished Cloud Quest assignment. Completing all issues the <b>Cloud Quest: Cloud Practitioner</b> badge — accept it on <b>credly.com</b> (you'll get an email).","Free extra line for your CV and LinkedIn."],
   ["d7h2","In ③ your AWS account: <b>Billing and Cost Management</b> → <b>Bills</b> and <b>Credits</b> — confirm nothing unexpected is running.","Also check EC2, VPC (NAT gateways) and RDS in eu-west-1."],
@@ -192,11 +198,11 @@ window.PLAN = [
   ["d8e2","<b>Task 1.1: Design secure access to AWS resources</b> — review + walkthrough questions"],
   ["d8e3","<b>Task 1.2: Design secure workloads and applications</b> — review + walkthrough questions"],
   ["d8e4","<b>Task 1.3: Determine appropriate data security controls</b> — review + walkthrough questions"],
-  ["d8e5","Domain 1 bonus questions","Log your % in 📊 Scores."],
+  ["d8e5","Domain 1 bonus questions","Log your % below."],
   ["d8e6","Domain 1 flashcards"],
   ["d8e7","Domain 1 lab(s)","These labs also run in a temporary sandbox, not your account."]]},
  {t:"build", label:"Build with Terraform", where:OWN+" Run Terraform from your PC with <code>AWS_PROFILE=lab</code>.", link:"own", min:120, items:[
-  ["d8b1","Rebuild the Day 2 VPC in Terraform + an S3 gateway endpoint + SSM interface endpoints. Push to a public GitHub repo.","<code>terraform destroy</code> at the end of the day."]]},
+  ["d8b1","Rebuild the Day 2 VPC in Terraform + an S3 gateway endpoint + SSM interface endpoints. Push to a public GitHub repo.","<code>terraform destroy</code> at the end of the day. If Terraform can't read the <code>lab</code> profile, add a second profile whose only setting is <code>credential_process = aws configure export-credentials --profile lab --format process</code> and use that one."]]},
  {t:"check", label:"Self-check", min:20, items:[
   ["d8c1","Cognito user pools vs identity pools; IAM Identity Center."],
   ["d8c2","Cross-account access: role trust policy, external ID."],
@@ -210,7 +216,7 @@ window.PLAN = [
   ["d9e1","<b>Domain 2 introduction</b>"],
   ["d9e2","<b>Task 2.1: Design scalable and loosely coupled architectures</b> — review + walkthrough questions"],
   ["d9e3","<b>Task 2.2: Design highly available and/or fault-tolerant architectures</b> — review + walkthrough questions"],
-  ["d9e4","Domain 2 bonus questions","Log your % in 📊 Scores."],
+  ["d9e4","Domain 2 bonus questions","Log your % below."],
   ["d9e5","Domain 2 flashcards"],
   ["d9e6","Domain 2 lab(s)"]]},
  {t:"build", label:"Build with Terraform", where:OWN, link:"own", min:150, items:[
@@ -234,7 +240,7 @@ window.PLAN = [
   ["d10e4","<b>Task 3.3: Determine high-performing database solutions</b>"],
   ["d10e5","<b>Task 3.4: Determine high-performing and/or scalable network architectures</b>"],
   ["d10e6","<b>Task 3.5: Determine high-performing data ingestion and transformation solutions</b>"],
-  ["d10e7","Domain 3 bonus questions","Log your % in 📊 Scores."],
+  ["d10e7","Domain 3 bonus questions","Log your % below."],
   ["d10e8","Domain 3 flashcards"],
   ["d10e9","Domain 3 lab(s)"]]},
  {t:"build", label:"Build with Terraform", where:OWN, link:"own", min:120, items:[
@@ -248,7 +254,7 @@ window.PLAN = [
 
 {id:"d11", day:11, title:"Domain 4: Design Cost-Optimized Architectures (20%) + checkpoint",
  goal:"Finish the domains, then take the Official Practice Exam and decide.",
- decision:true,
+ decision:"d11p2",
  notesHint:"Practice exam score, weakest domain, decision…",
  groups:[
  {t:"prep", label:"Exam Prep Plan", where:EPP, link:"sb", min:200, items:[
@@ -257,12 +263,12 @@ window.PLAN = [
   ["d11e3","<b>Task 4.2: Design cost-optimized compute solutions</b>"],
   ["d11e4","<b>Task 4.3: Design cost-optimized database solutions</b>"],
   ["d11e5","<b>Task 4.4: Design cost-optimized network architectures</b>"],
-  ["d11e6","Domain 4 bonus questions + flashcards","Log your % in 📊 Scores."]]},
+  ["d11e6","Domain 4 bonus questions + flashcards","Log your % below."]]},
  {t:"prep", label:"Checkpoint", where:EPP, link:"sb", min:150, items:[
-  ["d11p1","<b>AWS Certified Solutions Architect – Associate Official Practice Exam (SAA-C03 - English)</b>","Timed, 130 minutes, no notes, in one sitting. Enter the scaled score in 📊 Scores."],
-  ["d11p2","<b>Decision</b> — see the verdict box below.","The real exam's pass mark is 720 (scaled)."]]},
+  ["d11p1","<b>AWS Certified Solutions Architect – Associate Official Practice Exam (SAA-C03 - English)</b>","Timed, 130 minutes, no notes, in one sitting. Enter the scaled score below."],
+  ["d11p2","<b>Decision</b> — see the verdict below.","The real exam's pass mark is 720 (scaled)."]]},
  {t:"setup", label:"Book the exam (if GO)", where:"④ aws.training → Certification → AWS Certification Account → Pearson VUE", link:"cert", min:15, items:[
-  ["d11b1","<b>Schedule New Exam</b> → AWS Certified Solutions Architect – Associate → <b>Schedule at Pearson VUE</b> → online or test centre → Day 14 → pay.","Reschedule or cancel free up to 24 h before. After a fail you must wait 14 days to retake."]]},
+  ["d11b1","<b>Schedule New Exam</b> → AWS Certified Solutions Architect – Associate → <b>Schedule at Pearson VUE</b> → online or test centre → Day 14 → pay.","Reschedule (at most twice per appointment) or cancel free up to 24 h before. After a fail you must wait 14 days to retake."]]},
  {t:"check", label:"Self-check", min:15, items:[
   ["d11c1","S3 Intelligent-Tiering; Glacier Instant / Flexible / Deep Archive."],
   ["d11c2","Compute Savings Plans vs EC2 Instance Savings Plans vs Reserved Instances vs Spot."],
@@ -285,10 +291,10 @@ window.PLAN = [
  groups:[
  {t:"prep", label:"Final pass", where:EPP, link:"sb", min:240, items:[
   ["d13e1","Full flashcard deck; re-do the ones you miss."],
-  ["d13e2","Re-do the Official Practice Question Set + Sample Questions (aim 85%+).","Log the retake in 📊 Scores."],
+  ["d13e2","Re-do the Official Practice Question Set + Sample Questions (aim 85%+).","Log the retake below."],
   ["d13e3","Re-read the exam guide task statements; tick only the ones you can explain out loud."]]},
  {t:"setup", label:"Logistics", min:30, items:[
-  ["d13l1","Passport or ID card ready (name must match your certification account).","If online: run Pearson VUE's system test on the exam computer; clear desk and room; webcam works."],
+  ["d13l1","ID ready, name matching your certification account: one government-issued photo ID for an online exam, two IDs for a test centre.","Test centre: two primary IDs, or one primary and one secondary. If online: run Pearson VUE's system test on the exam computer; clear desk and room; webcam works."],
   ["d13l2","③ Your AWS account: delete everything still running; check Bills and Credits."]]}
 ]},
 
@@ -301,6 +307,9 @@ window.PLAN = [
   ["d14e3","After passing: accept the Credly badge; add it to your CV and LinkedIn."]]}
 ]}
 ];
+
+// Steps that ask for a result: the 📊 Scores field shown on that step's card (key = data-score in index.html).
+window.SCORE_AT = { d7e4: "qs7", d8e5: "b1", d9e4: "b2", d10e7: "b3", d11e6: "b4", d11p1: "pe", d13e2: "qs13" };
 
 window.CLEANUP = [
   ["EC2 → <b>Instances</b>: nothing running", ""],

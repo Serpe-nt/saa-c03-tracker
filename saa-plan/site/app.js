@@ -4,9 +4,11 @@
 const PLAN = window.PLAN, LINKS = window.LINKS, GLOSS = window.GLOSSARY, CLEANUP = window.CLEANUP;
 const QZ = window.QZ, BANK = window.QUIZ || [], DOCS = window.DOCS || {};
 const CARDS = window.CARDS || {}, DRILL = window.DRILL || [], CUES = window.CUES || [];
+const KEYS = window.KEYS || {}, CUE_TAGS = window.CUE_TAGS || {}, SCORE_AT = window.SCORE_AT || {};
 const KEY = "saa-plan-v2";
 const DEF = {
   ticks: {}, notes: {}, scores: {}, dayDone: {},
+  inotes: {},  // step id → your own note on that step
   quiz: {},    // day id → { best, passed: date or "", tries: [{ at, score, n }] }
   qs: {},      // question id → { seen, right, last, at }
   srs: {},     // question id → { step, due }: missed questions waiting for review
@@ -19,7 +21,7 @@ const DEF = {
   slips: [],   // schedule shifts: [{ from: day, n: days }]
   slipSkip: "",
   drill: { best: 0, runs: 0 },
-  settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true, hideDone: false },
+  settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true },
   timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, min: matchMedia("(max-width:640px)").matches },
   savedAt: 0
 };
@@ -27,6 +29,7 @@ const DUR = { focus: 50 * 60, break: 10 * 60 };
 const TAGS = { watch: "Watch", play: "Play", prep: "Exam prep", build: "Build", check: "Self-check", setup: "Setup" };
 const DOMAINS = ["Secure", "Resilient", "High-performing", "Cost"];
 const QUIZ_MIN = 30;
+const NOTE_MAX = 2000;
 const LETTERS = "ABCDE";
 
 // ---------- state ----------
@@ -54,6 +57,8 @@ function clean(s) {
   const keep = (m, ok) => { for (const k of Object.keys(m)) if (!ok(m[k])) delete m[k]; };
   keep(s.ticks, v => v === true);
   keep(s.notes, v => typeof v === "string");
+  keep(s.inotes, v => typeof v === "string");
+  for (const k in s.inotes) s.inotes[k] = s.inotes[k].slice(0, NOTE_MAX);
   keep(s.scores, v => typeof v === "string" || typeof v === "number");
   keep(s.dayDone, v => ISO.test(v));
   keep(s.quiz, v => isObj(v) && Array.isArray(v.tries));
@@ -86,10 +91,10 @@ function clean(s) {
   return s;
 }
 function cleanRun(r) {
-  if (!isObj(r) || !["day", "mock", "review", "warm"].includes(r.kind) || !Array.isArray(r.ids) || !r.ids.every(x => typeof x === "string")) return null;
+  if (!isObj(r) || !["day", "mock", "review", "warm", "step"].includes(r.kind) || !Array.isArray(r.ids) || !r.ids.every(x => typeof x === "string")) return null;
   if (r.kind === "day" && !PLAN.some(d => d.id === r.day)) return null;
   const out = {
-    kind: r.kind, day: str0(r.day), ids: r.ids, ord: {}, ans: {}, flag: {}, i: Number.isInteger(r.i) && r.i >= 0 ? r.i : 0,
+    kind: r.kind, day: str0(r.day), item: str0(r.item), ids: r.ids, ord: {}, ans: {}, flag: {}, i: Number.isInteger(r.i) && r.i >= 0 ? r.i : 0,
     t0: num0(r.t0), end: num0(r.end), done: !!r.done, view: r.view === "grid" ? "grid" : "", seen: !!r.seen, only: r.only !== false,
     score: num0(r.score), mins: num0(r.mins), cel: ["all", "week", "day"].includes(r.cel) ? r.cel : "", mockNew: !!r.mockNew
   };
@@ -131,8 +136,8 @@ DAYS.forEach(d => d.groups.forEach((g, gi) => {
   g.key = d.id + "g" + gi;
   g.items.forEach(it => { itemIndex[it[0]] = { d, g, it }; });
 }));
-const QBY = {};
-BANK.forEach(q => { QBY[q.id] = q; });
+const QBY = {}, QREF = {};      // questions by id, and by the plan step they send you back to
+BANK.forEach(q => { QBY[q.id] = q; q.ref.forEach(id => { (QREF[id] = QREF[id] || []).push(q); }); });
 const dayOf = id => DAYS.find(x => x.id === id);
 const done = id => !!S.ticks[id];
 const gIds = g => g.items.map(i => i[0]);
@@ -142,6 +147,8 @@ const hasQuiz = d => QZ.hasQuiz(d.day);
 const quizOk = d => !hasQuiz(d) || !!(S.quiz[d.id] && S.quiz[d.id].passed);
 const itemsDone = d => dIds(d).every(done);
 const dayDone = d => itemsDone(d) && quizOk(d);
+// The cards of a day, in order: one per step, then the quiz.
+const stepIds = d => (hasQuiz(d) ? [...dIds(d), "quiz"] : dIds(d));
 const groupLeft = g => { const ids = gIds(g); return (g.min || 0) * ids.filter(i => !done(i)).length / ids.length; };
 const dayLeft = d => d.groups.reduce((a, g) => a + groupLeft(g), 0) + (quizOk(d) ? 0 : QUIZ_MIN);
 const dayPlanned = d => d.groups.reduce((a, g) => a + (g.min || 0), 0) + (hasQuiz(d) ? QUIZ_MIN : 0);
@@ -197,8 +204,8 @@ function whenFree(fn) { if (document.querySelector("dialog[open]")) pending.push
 function runPending() { setTimeout(() => { if (pending.length && !document.querySelector("dialog[open]")) pending.shift()(); }, 250); }
 
 // ---------- glossary ----------
-const GL = {};
-Object.keys(GLOSS).forEach(k => { GL[k.toLowerCase()] = GLOSS[k]; });
+const GL = {}, GLK = {};
+Object.keys(GLOSS).forEach(k => { GL[k.toLowerCase()] = GLOSS[k]; GLK[k.toLowerCase()] = k; });
 const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const GRE = new RegExp(`(?<![\\w-])(${Object.keys(GLOSS).sort((a, b) => b.length - a.length).map(escRe).join("|")})(?:s|es)?(?![\\w-])`, "gi");
 function applyGlossary(scope) {
@@ -228,66 +235,76 @@ function applyGlossary(scope) {
     });
   });
 }
-
-// ---------- render ----------
-const root = document.getElementById("plan");
-function render() {
-  root.innerHTML = "";
-  for (const d of PLAN) {
-    if (d.week) {
-      const h = document.createElement("div");
-      h.className = "week"; h.textContent = d.week;
-      root.appendChild(h);
-      continue;
-    }
-    root.appendChild(renderDay(d));
+// Glossary terms that occur in a piece of plain text, in order of appearance: [term, definition].
+function termsIn(text) {
+  const out = [], seen = new Set();
+  let m;
+  GRE.lastIndex = 0;
+  while ((m = GRE.exec(text))) {
+    const k = m[1].toLowerCase();
+    if (seen.has(k) || !GL[k]) continue;
+    seen.add(k);
+    out.push([GLK[k], GL[k]]);
   }
-  applyGlossary(root);
+  return out;
 }
-const flipLabel = id => S.conf[id] === "shaky" ? "Shaky: show answer" : "Show answer";
-function renderDay(d) {
-  const det = document.createElement("details");
-  det.className = "day"; det.id = d.id;
-  let h = `<summary><span class="dn"><small>Day</small>${d.day}</span><span class="dd"></span><span class="tt">${d.title}</span><span class="today-badge">Today</span><span class="ct"></span></summary><div class="body"><p class="goal">${d.goal}</p><p class="tlog" data-tlog="${d.id}" hidden></p>`;
-  for (const g of d.groups) {
-    const url = linkFor(g.link);
-    const cards = g.t === "check" && g.items.some(it => CARDS[it[0]]);
-    h += `<div class="grp" data-g="${g.key}"><div class="gh"><span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span>`;
-    if (g.min) h += `<span class="gm">~${fmtH(g.min)}</span>`;
-    if (url) h += `<a class="btn open" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>`;
-    h += `</div>`;
-    if (g.where) h += `<div class="where">Where: ${g.where}</div>`;
-    else if (cards) h += `<div class="where">Explain each one out loud first, then open the model answer and compare.</div>`;
-    h += `<ul>`;
-    for (const [id, txt, note] of g.items) {
-      h += `<li data-li="${id}"><label><input type="checkbox" data-id="${id}"${done(id) ? " checked" : ""}><span class="txt">${txt}${note ? `<span class="n">${note}</span>` : ""}</span></label>`;
-      if (g.t === "check" && CARDS[id]) {
-        h += `<button type="button" class="flip${S.conf[id] === "shaky" ? " shaky" : ""}" data-flip="${id}" aria-expanded="false" aria-controls="ca-${id}">${flipLabel(id)}</button>` +
-          `<div class="card-a" id="ca-${id}" hidden><div class="card-t">${CARDS[id]}</div><div class="card-b"><span class="muted">How close were you?</span>` +
-          `<button type="button" data-conf="ok" data-cid="${id}">Got it</button><button type="button" data-conf="shaky" data-cid="${id}">Shaky</button></div></div>`;
-      }
-      h += `</li>`;
-    }
-    h += `</ul></div>`;
+
+// ---------- views: the overview, or one day shown one step at a time ----------
+const homeEl = document.getElementById("home"), flowEl = document.getElementById("flow"), cardEl = document.getElementById("card");
+let view = { day: "", at: "" };   // day "" = overview. at = a step id, "quiz", or "done" (the day's summary).
+let shown = "", movedAt = 0;      // the card on screen and when it appeared
+// A day opens on its first open step, then on its quiz, then on its summary.
+const landing = d => dIds(d).find(id => !done(id)) || (dayDone(d) ? "done" : hasQuiz(d) ? "quiz" : dIds(d)[0]);
+const validAt = (d, at) => (stepIds(d).includes(at) || (at === "done" && dayDone(d)) ? at : landing(d));
+// The address bar mirrors the view (#d3/d3w2), so a reload stays on the card and the browser's Back returns to the overview.
+function setView(day, at, push) {
+  const d = day && dayOf(day);
+  view = d ? { day: d.id, at: validAt(d, at || "") } : { day: "", at: "" };
+  const hash = d ? `#${view.day}/${view.at}` : "";
+  if (location.hash !== hash) history[push ? "pushState" : "replaceState"](null, "", hash || location.pathname + location.search);
+  const key = view.day + "/" + view.at, moved = key !== shown;
+  homeEl.hidden = !!d; flowEl.hidden = !d;
+  document.body.classList.toggle("in-flow", !!d);
+  if (d) renderFlow(moved);
+  if (moved) { shown = key; movedAt = Date.now(); scrollTo(0, 0); }
+}
+function route() {
+  const m = /^#(d\d+)(?:\/([\w-]+))?$/.exec(location.hash);
+  setView(m ? m[1] : "", m ? m[2] : "", false);
+}
+addEventListener("hashchange", route);
+// Go to another card of the day on screen, and put the keyboard on its heading.
+function move(at) {
+  setView(view.day, at, false);
+  const h = cardEl.querySelector(".c-t");
+  if (h) h.focus({ preventScroll: true });
+}
+const jumpTo = id => setView(itemIndex[id].d.id, id, true);
+
+// Section choices on the card (which helper lists are folded open) stay as you left them, in this browser only.
+const UI_KEY = KEY + "-ui";
+let ui = {};
+try { const u = JSON.parse(localStorage.getItem(UI_KEY)); if (isObj(u)) ui = u; } catch (e) {}
+
+// ---------- overview: day tiles and quick links ----------
+function renderMap(ti) {
+  let h = "", open = false;
+  for (const d of PLAN) {
+    if (d.week) { h += `${open ? "</div>" : ""}<div class="week">${d.week}</div><div class="tiles">`; open = true; continue; }
+    const ids = dIds(d), k = ids.filter(done).length, complete = dayDone(d), quizDue = k === ids.length && !complete;
+    const st = complete ? "✓ Done" : quizDue ? "Quiz to pass" : k ? `${k} of ${ids.length} steps, ~${fmtH(dayLeft(d))} left` : `${plural(ids.length, "step")}, ~${fmtH(dayPlanned(d))}`;
+    h += `<a class="dt" href="#${d.id}" data-day="${d.id}" data-done="${complete ? 1 : 0}" data-quiz="${quizDue ? 1 : 0}" data-today="${d.day === ti ? 1 : 0}">` +
+      `<span class="dt-n"><small>Day</small>${d.day}</span>${d.day === ti ? `<span class="today-badge">Today</span>` : ""}` +
+      `<span class="dt-t">${d.title}</span><span class="dt-d">${fmtD(dayDate(d.day))}</span><span class="dt-s">${st}</span>` +
+      `<span class="pbar"><span style="width:${pct(k + (hasQuiz(d) && quizOk(d) ? 1 : 0), stepIds(d).length)}%"></span></span></a>`;
   }
-  if (hasQuiz(d)) {
-    h += `<div class="grp quizrow" data-quiz="${d.id}"><div class="gh"><span class="tag t-quiz">Quiz</span><span class="gm">${QZ.DAILY} questions, ~${QUIZ_MIN} min</span><button type="button" class="open" data-quiz-start="${d.id}">Start quiz</button></div>` +
-      `<div class="where">${QZ.describe(d.day)}. Pass at ${QZ.needed(QZ.DAILY)} of ${QZ.DAILY} to complete the day.</div><div class="qz-st" data-qzst="${d.id}"></div></div>`;
-  }
-  if (d.decision) h += `<div class="verdict" data-verdict></div>`;
-  const tools = [];
-  if (d.groups.some(g => g.t === "build")) tools.push(`<button type="button" data-cleanup="${d.id}">🧹 Cleanup check</button>`);
-  for (const t of d.tools || []) tools.push(t === "notebook" ? `<button type="button" data-sheet="notebook">📓 Wrong-answer notebook</button>` : `<button type="button" data-sheet="weak">📈 Weak spots</button>`);
-  if (tools.length) h += `<div class="tools">${tools.join("")}</div>`;
-  h += `<label class="notes-l">Notes <span class="saved" data-saved="${d.id}">saved</span><textarea data-notes="${d.id}" placeholder="${esc(d.notesHint || "Weak spots, wrong answers, things to revisit…")}">${esc(S.notes[d.id] || "")}</textarea></label></div>`;
-  det.innerHTML = h;
-  return det;
+  document.getElementById("map").innerHTML = h + (open ? "</div>" : "");
 }
 function renderLinks() {
   const nav = document.getElementById("links");
   const items = [];
   for (const k of ["sb", "ess", "cq"]) items.push([LINKS[k].label, LINKS[k].url]);
-  items.push(S.settings.portal ? ["Access portal", S.settings.portal] : [LINKS.console.label, LINKS.console.url]);
+  items.push(S.settings.portal ? ["AWS sign-in", S.settings.portal] : [LINKS.console.label, LINKS.console.url]);
   for (const k of ["calc", "cert"]) items.push([LINKS[k].label, LINKS[k].url]);
   nav.innerHTML = items.map(([l, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(l)} ↗</a>`).join("");
 }
@@ -301,30 +318,28 @@ function streak() {
   while (dates.has(iso(d))) { n++; d.setDate(d.getDate() - 1); }
   return n;
 }
+function renderStats(dn, total) {
+  const mins = Object.values(S.log).reduce((a, b) => a + b, 0), sk = streak();
+  let seen = 0, right = 0;
+  for (const id in S.qs) if (QBY[id]) { seen += S.qs[id].seen; right += S.qs[id].right; }
+  const cells = [
+    ["Steps", `${dn} <small>of ${total}</small>`],
+    ["Days", `${DAYS.filter(dayDone).length} <small>of 14</small>`],
+    ["Focus time", mins >= 1 ? fmtH(mins) : "–"],
+    ["Quiz answers right", seen ? `${pct(right, seen)}% <small>of ${seen}</small>` : "–"],
+    ["Streak", sk ? `🔥 ${plural(sk, "day")}` : "–"]
+  ];
+  document.getElementById("stats").innerHTML = cells.map(([k, v]) => `<div class="st"><span class="tb-k">${k}</span><b>${v}</b></div>`).join("");
+}
 function refresh() {
   const ti = todayIdx();
   let total = 0, dn = 0;
   for (const d of DAYS) {
-    const det = document.getElementById(d.id);
-    const ids = dIds(d), k = ids.filter(done).length;
-    const q = hasQuiz(d) ? 1 : 0;
-    total += ids.length + q; dn += k + (q && quizOk(d) ? 1 : 0);
-    const complete = dayDone(d), quizDue = k === ids.length && !complete;
-    det.querySelector(".dd").textContent = fmtD(dayDate(d.day));
-    det.querySelector(".ct").textContent = complete ? "✓ done" : quizDue ? "Quiz to pass" : `${k} of ${ids.length}, ~${fmtH(dayLeft(d))} left`;
-    det.dataset.complete = complete ? "1" : "0";
-    det.dataset.quiz = quizDue ? "1" : "0";
-    det.dataset.today = d.day === ti ? "1" : "0";
-    for (const g of d.groups) det.querySelector(`[data-g="${g.key}"]`).dataset.done = groupDone(g) ? "1" : "0";
-    if (q) renderQuizRow(d);
-    const tl = det.querySelector("[data-tlog]"), m = S.log[d.id] || 0;
-    tl.hidden = m < 1;
-    tl.textContent = m < 1 ? "" : `⏱ Planned ~${fmtH(dayPlanned(d))}, logged ${fmtH(m)} with the focus timer.`;
+    const ids = dIds(d), q = hasQuiz(d) ? 1 : 0;
+    total += ids.length + q; dn += ids.filter(done).length + (q && quizOk(d) ? 1 : 0);
   }
-  const p = total ? Math.round(dn / total * 100) : 0;
+  const p = pct(dn, total);
   document.getElementById("bar").style.width = p + "%";
-  const daysDone = DAYS.filter(dayDone).length;
-  document.getElementById("pct").textContent = `${dn} of ${total} steps, ${daysDone} of 14 days`;
   document.getElementById("tb-pct").textContent = p + "%";
   document.getElementById("tb-sheet").textContent = ti < 1 ? "Not started" : ti > 14 ? "Finished" : `Day ${ti} of 14`;
   const examD = examDate();
@@ -349,32 +364,15 @@ function refresh() {
   if (S.settings.exam && dayDate(14) > parseDate(S.settings.exam)) st.push(`<span class="pill bad">Plan now ends after your booked exam</span>`);
   const daysToExam = diffDays(examD, new Date());
   if (daysToExam >= 0) st.push(`<span>${daysToExam ? `Exam in <b>${plural(daysToExam, "day")}</b>` : "<b>Exam today</b>"}</span>`);
-  const sk = streak();
-  if (sk > 0) st.push(`<span>🔥 ${sk}-day streak</span>`);
   document.getElementById("status").innerHTML = st.join("");
 
   renderSlip();
-  renderNext();
+  renderNext(ti);
+  renderStats(dn, total);
+  renderMap(ti);
   renderScores();
   renderPractice();
-}
-function renderQuizRow(d) {
-  const row = root.querySelector(`[data-quiz="${d.id}"]`);
-  if (!row) return;
-  const r = S.quiz[d.id], tries = r ? r.tries.length : 0;
-  const live = S.run && S.run.kind === "day" && S.run.day === d.id && !S.run.done;
-  const open = itemsDone(d), ok = quizOk(d);
-  const btn = row.querySelector("[data-quiz-start]");
-  row.dataset.done = ok ? "1" : "0";
-  btn.disabled = !open && !live;
-  btn.className = "open" + ((open && !ok) || live ? " primary" : "");
-  btn.textContent = live ? "Resume quiz" : ok ? "Practice again" : tries ? "Retake quiz" : "Start quiz";
-  row.querySelector("[data-qzst]").textContent =
-    live ? `In progress: question ${S.run.i + 1} of ${S.run.ids.length}.` :
-    ok ? `✓ Passed with ${r.best} of ${QZ.DAILY} on ${fmtD(parseDate(r.passed))}.` :
-    !open ? "Unlocks when every step above is ticked." :
-    tries ? `Best so far ${r.best} of ${QZ.DAILY} after ${plural(tries, "try", "tries")}. A retake draws different questions.` :
-    "Ready when you are.";
+  if (view.day) setView(view.day, view.at, false);
 }
 
 // ---------- slip guard ----------
@@ -399,7 +397,7 @@ function applySlip(v) {
   FX.banner("Schedule moved", `Day ${d.day} is today. Day 14 is now ${fmtD(dayDate(14))}.`, "info");
 }
 
-// ---------- next up ----------
+// ---------- overview: the day to work on, with one button to start or continue ----------
 function nextStep() {
   for (const d of DAYS) {
     for (const g of d.groups) for (const it of g.items) if (!done(it[0])) return { d, g, it };
@@ -424,7 +422,8 @@ function warmHTML() {
     ? `<div class="nx-warm"><span>☕ <b>Warm-up:</b> ${plural(w.n, "quick question")} from yesterday before you start. Recalling it now is what makes it stick.</span><span class="nx-wb"><button type="button" class="primary" data-warm="start">Start</button><button type="button" data-warm="skip">Skip today</button></span></div>`
     : `<div class="nx-warm"><span>🔁 <b>${plural(w.n, "missed question")}</b> ${w.n === 1 ? "is" : "are"} due for review.</span><span class="nx-wb"><button type="button" data-review>Review now</button></span></div>`;
 }
-function renderNext() {
+const liveQuiz = d => !!(S.run && S.run.kind === "day" && S.run.day === d.id && !S.run.done);
+function renderNext(ti) {
   const el = document.getElementById("next");
   const pre = warmHTML();
   const n = nextStep();
@@ -435,72 +434,238 @@ function renderNext() {
     return;
   }
   el.className = "next";
-  const { d } = n;
-  const ti = todayIdx();
+  const { d } = n, ids = dIds(d), k = ids.filter(done).length;
   const when = d.day < ti ? `<span class="pill warn">from Day ${d.day}</span>` : d.day > ti && ti >= 1 ? `<span class="pill ok">working ahead</span>` : "";
+  let step, act;
   if (n.quiz) {
-    const r = S.quiz[d.id], tries = r ? r.tries.length : 0;
-    const live = S.run && S.run.kind === "day" && S.run.day === d.id && !S.run.done;
-    el.innerHTML = pre +
-      `<div class="nx-h"><span class="nx-k">Next up</span><span>Day ${d.day}</span><span class="tag t-quiz">Quiz</span>${when}</div>` +
-      `<div class="nx-t">End-of-day quiz: ${QZ.DAILY} questions, pass at ${QZ.needed(QZ.DAILY)}.</div>` +
-      `<div class="nx-n">${QZ.describe(d.day)}. ${live ? `You're on question ${S.run.i + 1}.` : tries ? `Best so far ${r.best} of ${QZ.DAILY}. A retake draws different questions.` : "After each answer you see why each option is right or wrong, and where to study it."}</div>` +
-      `<div class="nx-a"><button type="button" class="primary" data-quiz-start="${d.id}">${live ? "Resume quiz" : tries ? "Retake quiz" : "Start quiz"}</button><button type="button" data-nx-day="${d.id}">Show in plan</button></div>`;
-    return;
+    const r = S.quiz[d.id], tries = r ? r.tries.length : 0, live = liveQuiz(d);
+    step = `<span class="tag t-quiz">Quiz</span><span>${live ? `You are on question ${S.run.i + 1} of ${S.run.ids.length}.` : tries ? `Best so far ${r.best} of ${QZ.DAILY}. A retake draws different questions.` : `Every step is done. ${QZ.DAILY} questions, pass at ${QZ.needed(QZ.DAILY)}.`}</span>`;
+    act = `<button type="button" class="primary big" data-quiz-start="${d.id}">${live ? "Resume quiz" : tries ? `Retake the Day ${d.day} quiz` : `Take the Day ${d.day} quiz`}</button>` +
+      `<a class="btn" href="#${d.id}/quiz">Open Day ${d.day}</a>`;
+  } else {
+    step = `<span class="tag t-${n.g.t}">${n.g.label || TAGS[n.g.t]}</span><span>${n.it[1]}</span>`;
+    act = `<a class="btn primary big" href="#${d.id}">${k ? "Continue" : "Start"} Day ${d.day}</a>`;
   }
-  const { g, it } = n;
-  const url = linkFor(g.link);
   el.innerHTML = pre +
-    `<div class="nx-h"><span class="nx-k">Next up</span><span>Day ${d.day}</span><span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span>${when}</div>` +
-    `<div class="nx-t">${it[1]}</div>` +
-    (it[2] ? `<div class="nx-n">${it[2]}</div>` : "") +
-    (g.where ? `<div class="where">Where: ${g.where}</div>` : "") +
-    `<div class="nx-a">` +
-    (url ? `<a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : "") +
-    `<button type="button" data-nx-done="${it[0]}">✓ Mark done</button>` +
-    `<button type="button" data-nx-jump="${it[0]}">Show in plan</button></div>`;
-}
-function jumpTo(id) {
-  const { d } = itemIndex[id];
-  const det = document.getElementById(d.id);
-  det.open = true;
-  const li = det.querySelector(`[data-li="${id}"]`);
-  li.scrollIntoView({ behavior: "smooth", block: "center" });
-  li.classList.remove("flash"); void li.offsetWidth; li.classList.add("flash");
-}
-function jumpDay(id) {
-  const det = document.getElementById(id);
-  det.open = true;
-  const row = det.querySelector(".quizrow") || det;
-  row.scrollIntoView({ behavior: "smooth", block: "center" });
-  row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash");
+    `<div class="nx-h"><span class="nx-k">${d.day === ti ? "Today" : "Next up"}</span><span>${fmtD(dayDate(d.day))}</span>${when}</div>` +
+    `<div class="hero"><span class="hero-n"><small>Day</small>${d.day}</span><div><h2 class="hero-t">${d.title}</h2><p class="goal">${d.goal}</p></div></div>` +
+    `<div class="hero-p"><span class="pbar"><span style="width:${pct(k, stepIds(d).length)}%"></span></span>` +
+    `<span class="muted">${k} of ${ids.length} steps done${hasQuiz(d) ? ", then the quiz" : ""}. About ${fmtH(dayLeft(d))} left.</span></div>` +
+    `<div class="hero-nx"><span class="muted">${n.quiz ? "Up next" : k ? "Next step" : "First step"}</span>${step}</div>` +
+    `<div class="nx-a">${act}</div>`;
 }
 
-// ---------- ticking & celebrations ----------
+// ---------- day flow: one card at a time ----------
+const plain = {};
+const stepTitle = id => (id === "quiz" ? "End-of-day quiz" : plain[id] || (plain[id] = strip(itemIndex[id].it[1])));
+const flipLabel = id => S.conf[id] === "shaky" ? "Shaky: show answer" : "Show answer";
+function renderFlow(moved) {
+  const d = dayOf(view.day), ids = stepIds(d), at = view.at, i = ids.indexOf(at);
+  document.getElementById("fl-day").innerHTML = `<span class="fl-dn">Day ${d.day}</span><span class="fl-tt">${d.title}</span>` +
+    `<span class="fl-dd">${fmtD(dayDate(d.day))}</span>${d.day === todayIdx() ? `<span class="today-badge">Today</span>` : ""}`;
+  const tools = [`<button type="button" class="ghost" data-sheet="daynotes">📝 Day notes</button>`];
+  if (d.groups.some(g => g.t === "build")) tools.push(`<button type="button" class="ghost" data-cleanup="${d.id}">🧹 Cleanup check</button>`);
+  for (const t of d.tools || []) tools.push(t === "notebook" ? `<button type="button" class="ghost" data-sheet="notebook">📓 Notebook</button>` : `<button type="button" class="ghost" data-sheet="weak">📈 Weak spots</button>`);
+  document.getElementById("fl-tools").innerHTML = tools.join("");
+
+  // one dot per card, grouped like the day's blocks
+  const dot = id => {
+    const on = id === "quiz" ? quizOk(d) : done(id), t = stepTitle(id);
+    return `<button type="button" class="dot${on ? " on" : ""}${id === "quiz" ? " qd" : ""}" data-at="${id}"${id === at ? ' aria-current="step"' : ""} title="${esc(t)}" aria-label="${esc(`Step ${ids.indexOf(id) + 1}: ${t}${on ? " (done)" : ""}`)}"></button>`;
+  };
+  document.getElementById("fl-strip").innerHTML = d.groups.map(g => `<span class="fl-g">${g.items.map(it => dot(it[0])).join("")}</span>`).join("") +
+    (hasQuiz(d) ? `<span class="fl-g">${dot("quiz")}</span>` : "");
+  document.getElementById("fl-count").textContent = at === "done" ? "Day complete" : `Step ${i + 1} of ${ids.length}`;
+
+  // Typing in a field on this card: leave the card alone, only the frame around it changes.
+  const typing = !moved && cardEl.contains(document.activeElement) && document.activeElement.matches("textarea,input");
+  if (!typing) {
+    const answer = !moved && cardEl.querySelector(".card-a:not([hidden])");
+    cardEl.innerHTML = at === "quiz" ? quizCardHTML(d) : at === "done" ? doneCardHTML(d) : stepCardHTML(at);
+    applyGlossary(cardEl);
+    if (answer) flip(at, true);
+    if (moved) { cardEl.classList.remove("in"); void cardEl.offsetWidth; cardEl.classList.add("in"); }
+  }
+
+  // Back, the card's main action, Next
+  const back = at === "done" ? ids[ids.length - 1] : ids[i - 1] || "";
+  const next = at === "done" ? "" : ids[i + 1] || (dayDone(d) ? "done" : "");
+  let mid, isDone = false;
+  if (at === "done") {
+    const nx = DAYS.find(x => x.day > d.day && !dayDone(x));
+    mid = nx ? `<a class="btn primary big" href="#${nx.id}" data-main>Start Day ${nx.day}</a>` : `<button type="button" class="primary big" data-home data-main>Back to the overview</button>`;
+  } else if (at === "quiz") {
+    const r = S.quiz[d.id], live = liveQuiz(d);
+    isDone = quizOk(d) && !live;
+    mid = isDone ? `<span class="fl-ok">✓ Passed</span>`
+      : `<button type="button" class="primary big" data-quiz-start="${d.id}" data-main${itemsDone(d) || live ? "" : " disabled"}>${live ? "Resume quiz" : r && r.tries.length ? "Retake quiz" : "Start quiz"}</button>`;
+  } else {
+    isDone = done(at);
+    mid = isDone ? `<span class="fl-ok">✓ Completed</span><button type="button" class="link" data-undo="${at}">Undo</button>`
+      : `<button type="button" class="primary big" data-complete="${at}" data-main>✓ Mark complete</button>`;
+  }
+  const nextMain = isDone && next;
+  document.getElementById("fl-nav").innerHTML =
+    `<button type="button" class="fl-b ghost" data-back data-at="${back}"${back ? "" : " disabled"}>← Back</button>` +
+    `<div class="fl-mid">${mid}</div>` +
+    (at === "done" ? `<span></span>` : `<button type="button" class="fl-n ${nextMain ? "primary" : "ghost"}" data-next data-at="${next}"${nextMain ? " data-main" : ""}${next ? "" : " disabled"}>Next →</button>`);
+}
+
+// Docs for a step: the pages its key points cite, then the AWS pages its quiz questions point to most often.
+function stepDocs(id) {
+  const out = [], seen = new Set();
+  const add = (label, url) => { if (/^https:\/\//.test(url) && !seen.has(url)) { seen.add(url); out.push([label, url]); } };
+  ((KEYS[id] || {}).docs || []).forEach(x => add(x[0], x[1]));
+  const n = {};
+  (QREF[id] || []).forEach(q => { if (DOCS[q.doc]) n[q.doc] = (n[q.doc] || 0) + 1; });
+  Object.keys(n).sort((a, b) => n[b] - n[a]).forEach(k => add(DOCS[k][0], DOCS[k][1]));
+  return out.slice(0, 5);
+}
+// Exam topics a step feeds: the tags of its quiz questions, most frequent first.
+function stepTags(id) {
+  const n = {};
+  (QREF[id] || []).forEach(q => q.tags.forEach(t => { n[t] = (n[t] || 0) + 1; }));
+  return Object.keys(n).sort((a, b) => n[b] - n[a]).slice(0, 4);
+}
+function tagStats() {
+  const m = {};
+  for (const q of BANK) {
+    const s = S.qs[q.id];
+    if (s) for (const t of q.tags) { const a = m[t] || (m[t] = [0, 0]); a[0] += s.right; a[1] += s.seen; }
+  }
+  return m;
+}
+// A helper list on the card that folds; whether it is open is remembered across cards.
+const fold = (sec, title, n, body, openByDefault) =>
+  `<details class="c-fold" data-sec="${sec}"${(sec in ui ? ui[sec] : openByDefault) ? " open" : ""}><summary>${title} <span class="muted">${n}</span></summary>${body}</details>`;
+function scoreFieldHTML(k) {
+  const src = document.querySelector(`#scores [data-score="${k}"]`);
+  if (!src) return "";
+  const lab = src.closest("label").cloneNode(true);
+  lab.querySelector("input").setAttribute("value", S.scores[k] ?? "");
+  return `<div class="scores-grid c-score">${lab.outerHTML}</div>`;
+}
+function stepCardHTML(id) {
+  const { d, g, it } = itemIndex[id], [, txt, note] = it;
+  const url = linkFor(g.link), n = g.items.length, kp = KEYS[id], qs = QREF[id] || [];
+  let h = `<div class="c-h"><span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span>` +
+    (n > 1 ? `<span class="c-meta">${g.items.indexOf(it) + 1} of ${n}</span>` : "") +
+    (g.min ? `<span class="c-meta">~${fmtH(g.min)}${n > 1 ? " for this block" : ""}</span>` : "") +
+    (done(id) ? `<span class="pill ok">✓ Completed</span>` : "") + `</div>` +
+    `<h2 class="c-t txt" tabindex="-1">${txt}</h2>` + (note ? `<p class="c-n txt">${note}</p>` : "");
+  if (g.where || url) h += `<div class="c-w">${g.where ? `<span class="where">Where: ${g.where}</span>` : ""}${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</div>`;
+  if (SCORE_AT[id]) h += scoreFieldHTML(SCORE_AT[id]);
+  if (d.decision === id) { const [cls, v] = verdictHTML(); h += `<div class="verdict ${cls}" data-verdict>${v}</div>`; }
+  if (g.t === "check" && CARDS[id]) {
+    h += `<div class="c-check"><p class="muted">Explain it out loud first, then open the model answer and compare.</p>` +
+      `<button type="button" class="flip${S.conf[id] === "shaky" ? " shaky" : ""}" data-flip="${id}" aria-expanded="false" aria-controls="ca-${id}">${flipLabel(id)}</button>` +
+      `<div class="card-a" id="ca-${id}" hidden><div class="card-t">${CARDS[id]}</div><div class="card-b"><span class="muted">How close were you?</span>` +
+      `<button type="button" data-conf="ok" data-cid="${id}">Got it</button><button type="button" data-conf="shaky" data-cid="${id}">Shaky</button></div></div></div>`;
+  }
+
+  if (kp) {
+    h += `<section class="c-sec c-key"><h3>Key points</h3>` + (kp.k && kp.k.length ? `<ul>${kp.k.map(x => `<li>${x}</li>`).join("")}</ul>` : "") +
+      (kp.trap ? `<p class="c-trap"><b>Exam trap.</b> ${kp.trap}</p>` : "") + `</section>`;
+  }
+
+  const docs = stepDocs(id), tags = stepTags(id);
+  if (docs.length || tags.length) {
+    const acc = tagStats();
+    h += `<section class="c-sec c-two">` +
+      (docs.length ? `<div><h3>AWS docs</h3><ul class="c-docs">${docs.map(([l, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(l)} ↗</a></li>`).join("")}</ul></div>` : "") +
+      (tags.length ? `<div><h3>Exam topics</h3><ul class="c-tags">${tags.map(t => {
+        const a = acc[t];
+        return `<li><span>${esc(t)}</span><span class="tr"><span class="fi${a && a[0] / a[1] < 0.7 ? " low" : ""}" style="width:${a ? pct(a[0], a[1]) : 0}%"></span></span><span class="wk-n">${a ? `${a[0]}/${a[1]}` : "new"}</span></li>`;
+      }).join("")}</ul><p class="muted c-hint">Your quiz answers on each topic so far, right of all.</p></div>` : "") + `</section>`;
+  }
+
+  const terms = termsIn(strip(`${txt} ${note || ""} ${kp ? (kp.k || []).join(" ") + " " + (kp.trap || "") : ""}`)).slice(0, 8);
+  const cues = [];
+  for (const t of tags) for (const c of CUES) if ((CUE_TAGS[c[0]] || []).includes(t) && !cues.includes(c) && cues.length < 4) cues.push(c);
+  if (terms.length) h += fold("terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, false);
+  if (cues.length) h += fold("cues", "Exam wording on these topics", cues.length,
+    `<table class="cues"><thead><tr><th>When you read</th><th>It usually points to</th><th>Example</th></tr></thead><tbody>` +
+    cues.map(c => `<tr><td><b>${esc(c[0])}</b></td><td>${esc(c[1])}</td><td class="muted">${esc(c[2])}</td></tr>`).join("") + `</tbody></table>`, false);
+
+  h += `<label class="notes-l c-notes">My notes on this step <span class="saved" data-saved="${id}">saved</span>` +
+    `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
+
+  if (qs.length) {
+    const seen = qs.filter(q => S.qs[q.id]), right = seen.filter(q => S.qs[q.id].last).length;
+    const live = S.run && !S.run.done && S.run.kind === "step" && S.run.item === id;
+    h += `<div class="c-prac"><span>${plural(qs.length, "quiz question")} ${qs.length === 1 ? "draws" : "draw"} on this step.` +
+      (seen.length ? ` You have answered ${seen.length}, ${right} right at the last try.` : "") + `</span>` +
+      `<button type="button" data-step-quiz="${id}">${live ? "Resume practice" : `Try ${Math.min(QZ.STEP, qs.length)} now`}</button></div>`;
+  }
+  return h;
+}
+function quizCardHTML(d) {
+  const r = S.quiz[d.id], tries = r ? r.tries.length : 0, ok = quizOk(d), live = liveQuiz(d);
+  const open = dIds(d).filter(id => !done(id));
+  let h = `<div class="c-h"><span class="tag t-quiz">Quiz</span><span class="c-meta">${QZ.DAILY} questions, ~${QUIZ_MIN} min</span>${ok ? `<span class="pill ok">✓ Passed</span>` : ""}</div>` +
+    `<h2 class="c-t" tabindex="-1">End-of-day quiz</h2><p class="c-n">${QZ.describe(d.day)}. Pass at ${QZ.needed(QZ.DAILY)} of ${QZ.DAILY} to complete Day ${d.day}.</p>`;
+  if (live) h += `<p class="c-st">In progress: question ${S.run.i + 1} of ${S.run.ids.length}.</p>`;
+  else if (ok) h += `<p class="c-st ok">Passed with ${r.best} of ${QZ.DAILY} on ${fmtD(parseDate(r.passed))}.</p><div class="c-w"><button type="button" data-quiz-start="${d.id}">Practice again</button></div>`;
+  else if (open.length) {
+    h += `<p class="c-st">${plural(open.length, "step")} still open. The quiz unlocks when every step of the day is complete.</p>` +
+      `<ul class="c-open">${open.map(id => `<li><button type="button" class="link" data-at="${id}">${itemIndex[id].it[1]}</button></li>`).join("")}</ul>`;
+  } else {
+    h += (tries ? `<p class="c-st">Best so far ${r.best} of ${QZ.DAILY} after ${plural(tries, "try", "tries")}. A retake draws different questions.</p>` : "") +
+      `<ul class="qz-facts"><li>After each answer you see why every option is right or wrong, and which step to go back to.</li>` +
+      `<li>Questions you miss come back for review over the next days and land in your notebook.</li>` +
+      `<li>You can close the quiz and resume it later; your answers are kept.</li></ul>`;
+  }
+  if (tries) h += `<p class="muted">Tries so far: ${r.tries.map(t => `${t.score} of ${t.n}`).join(", ")}.</p>`;
+  return h;
+}
+function doneCardHTML(d) {
+  const r = S.quiz[d.id], m = S.log[d.id] || 0, n = dIds(d).length;
+  const nx = DAYS.find(x => x.day > d.day && !dayDone(x));
+  const facts = [["Steps", `${n} of ${n}`]];
+  if (r && r.passed) facts.push(["Quiz", `${r.best} of ${QZ.DAILY}, ${plural(r.tries.length, "try", "tries")}`]);
+  if (m >= 1) facts.push(["Focus time", `${fmtH(m)} of ~${fmtH(dayPlanned(d))} planned`]);
+  if (S.dayDone[d.id]) facts.push(["Finished", fmtD(parseDate(S.dayDone[d.id]))]);
+  return `<div class="c-h"><span class="pill ok">✓ Day complete</span></div><h2 class="c-t" tabindex="-1">Day ${d.day} is done</h2><p class="c-n">${d.title}</p>` +
+    `<dl class="c-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>` +
+    (nx ? `<p class="c-st">Next: <b>Day ${nx.day}</b>, ${nx.title} (${fmtD(dayDate(nx.day))}).</p>`
+      : DAYS.every(dayDone) ? `<p class="c-st">Every day is done. Take a mock exam from the overview, then go pass SAA-C03.</p>` : "");
+}
+function flip(id, open) {
+  const panel = document.getElementById("ca-" + id), b = cardEl.querySelector(`[data-flip="${id}"]`);
+  if (!panel || !b) return;
+  panel.hidden = !open;
+  b.setAttribute("aria-expanded", String(open));
+}
+
+// ---------- completing steps & celebrations ----------
 function setTick(id, val, srcEl) {
   const { d, g } = itemIndex[id];
   const week = weekOf(d);
-  const was = { g: groupDone(g), items: itemsDone(d), d: dayDone(d), w: week.every(dayDone), a: DAYS.every(dayDone) };
+  const was = { g: groupDone(g), d: dayDone(d), w: week.every(dayDone), a: DAYS.every(dayDone) };
   if (val) S.ticks[id] = true; else delete S.ticks[id];
-  const cb = root.querySelector(`input[data-id="${id}"]`);
-  if (cb) cb.checked = val;
   markDayDone(d);
   save();
+  if (val) {
+    // effects start from the button that was pressed, so fire them before the card is redrawn
+    const nowDay = dayDone(d);
+    if (!was.a && DAYS.every(dayDone)) celebrate("all", d);
+    else if (!was.w && week.every(dayDone)) celebrate("week", d);
+    else if (!was.d && nowDay) celebrate("day", d);
+    else if (!was.g && groupDone(g)) FX.group(srcEl);
+    else FX.tick(srcEl);
+    const builds = d.groups.filter(x => x.t === "build");
+    if (g.t === "build" && !was.g && builds.every(groupDone)) setTimeout(() => whenFree(() => openCleanup(d.id)), nowDay ? 3400 : 1100);
+  }
   refresh();
-  if (!val) return;
-
-  const src = srcEl && srcEl.isConnected ? srcEl : cb;
-  const nowDay = dayDone(d);
-  if (!was.a && DAYS.every(dayDone)) celebrate("all", d);
-  else if (!was.w && week.every(dayDone)) celebrate("week", d);
-  else if (!was.d && nowDay) celebrate("day", d);
-  else if (!was.g && groupDone(g)) FX.group(src);
-  else FX.tick(src);
-
-  const builds = d.groups.filter(x => x.t === "build");
-  const cleanup = g.t === "build" && !was.g && builds.every(groupDone);
-  if (cleanup) setTimeout(() => whenFree(() => openCleanup(d.id)), nowDay ? 3400 : 1100);
-  if (!was.items && itemsDone(d) && !quizOk(d)) setTimeout(() => whenFree(() => promptQuiz(d)), cleanup ? 1300 : 1000);
+}
+// Mark the step on screen complete and move on: to the next open step, then the quiz, then the day's summary.
+function complete(id, srcEl) {
+  FX.unlock();
+  setTick(id, true, srcEl);
+  const d = itemIndex[id].d;
+  if (view.day !== d.id) return;
+  const ids = dIds(d), i = ids.indexOf(id);
+  move(ids.slice(i + 1).concat(ids.slice(0, i)).find(x => !done(x)) || (dayDone(d) ? "done" : hasQuiz(d) ? "quiz" : id));
 }
 function celebrate(kind, d) {
   const sk = streak();
@@ -508,13 +673,6 @@ function celebrate(kind, d) {
   if (kind === "all") { FX.all(); FX.banner("All 14 days done 🚀", "Go pass SAA-C03.", "all"); }
   else if (kind === "week") { FX.week(); FX.banner(`Week ${d.day <= 7 ? 1 : 2} complete 🏆`, (d.day <= 7 ? "Foundation done. Exam prep next." : "Only the exam left.") + skTxt, "week"); }
   else { FX.day(); FX.banner(`Day ${d.day} complete 🎉`, `${DAYS.filter(dayDone).length}/14 days done${skTxt}`, "day"); }
-  // fold the finished day and open the next one
-  setTimeout(() => {
-    const det = document.getElementById(d.id);
-    if (det) det.open = false;
-    const nx = DAYS.find(x => x.day > d.day && !dayDone(x));
-    if (nx) document.getElementById(nx.id).open = true;
-  }, 1800);
 }
 
 // ---------- scores ----------
@@ -561,9 +719,13 @@ function renderScores() {
   if (pe != null) sum.push(`practice exam ${pe}`);
   document.getElementById("score-sum").textContent = sum.length ? "· " + sum.join(" · ") : "";
 }
-document.querySelectorAll("[data-score]").forEach(inp => {
-  inp.value = S.scores[inp.dataset.score] ?? "";
-  inp.addEventListener("input", () => { S.scores[inp.dataset.score] = inp.value; save(); renderScores(); });
+// A score can be typed in the 📊 Scores panel or on the card of the step that asks for it: keep both in step.
+document.addEventListener("input", e => {
+  const k = e.target.dataset && e.target.dataset.score;
+  if (!k) return;
+  S.scores[k] = e.target.value;
+  document.querySelectorAll(`[data-score="${k}"]`).forEach(inp => { if (inp !== e.target) inp.value = e.target.value; });
+  save(); renderScores();
 });
 
 // ---------- practice panel ----------
@@ -606,7 +768,7 @@ let sel = [];        // options picked for the current question, not yet checked
 let intro = null;    // { title, html, go, goLabel } shown before a quiz or mock starts
 let drill = null;    // "Which service?" round, kept in memory only
 
-const runTitle = r => r.kind === "day" ? `Day ${dayOf(r.day).day} quiz` : r.kind === "mock" ? "Mock exam" : r.kind === "warm" ? "Warm-up" : "Review";
+const runTitle = r => r.kind === "day" ? `Day ${dayOf(r.day).day} quiz` : r.kind === "mock" ? "Mock exam" : r.kind === "warm" ? "Warm-up" : r.kind === "step" ? "Step practice" : "Review";
 function head(title, parts, barPct) {
   document.getElementById("qz-title").textContent = title;
   document.getElementById("qz-meta").innerHTML = parts.filter(Boolean).map(p => `<span>${p}</span>`).join("");
@@ -644,36 +806,27 @@ function renderQuiz() {
   if (r.kind === "mock") return r.view === "grid" ? renderGrid() : renderMockQ();
   renderQ();
 }
-function startRun(kind, dayId) {
+// of = the day id for a day quiz, the step id for step practice
+function startRun(kind, of) {
   intro = null;
   if (drill) stopDrill();
   if (S.run && !S.run.done) {
-    const same = S.run.kind === kind && (kind !== "day" || S.run.day === dayId);
+    const same = S.run.kind === kind && (kind !== "day" || S.run.day === of) && (kind !== "step" || S.run.item === of);
     if (same || !confirm(`You have an unfinished ${runTitle(S.run).toLowerCase()}. Drop it and start this instead?`)) return openQuiz();
   }
   const t = today();
-  const qs = kind === "day" ? QZ.pickDay(dayOf(dayId).day, BANK, S.qs)
+  const qs = kind === "day" ? QZ.pickDay(dayOf(of).day, BANK, S.qs)
     : kind === "mock" ? QZ.pickMock(BANK, S.qs)
     : kind === "warm" ? QZ.pickWarmup(BANK, S.qs, S.srs, t, 5)
+    : kind === "step" ? QZ.pickStep(of, itemIndex[of].d.day, BANK, S.qs)
     : QZ.pickReview(BANK, S.srs, t, 15);
   if (!qs.length) { if (qzDlg.open) qzDlg.close(); FX.banner("No questions available yet", "", "info"); return; }
   const ord = {};
   qs.forEach(q => { ord[q.id] = QZ.order(q); });
   const now = Date.now();
-  S.run = { kind, day: dayId || "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "" };
+  S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "" };
   sel = [];
   save(); refresh(); openQuiz();
-}
-function promptQuiz(d) {
-  if (quizOk(d) || (S.run && !S.run.done)) return;
-  intro = {
-    title: `Day ${d.day} quiz`, goLabel: "Start quiz", go: () => startRun("day", d.id),
-    html: `<p class="qz-lead">Every step of Day ${d.day} is ticked. One thing left: the end-of-day quiz.</p><ul class="qz-facts">` +
-      `<li>${QZ.DAILY} questions. ${QZ.describe(d.day)}.</li>` +
-      `<li>After each answer you see why every option is right or wrong, and exactly where to go back and study it.</li>` +
-      `<li>Pass at ${QZ.needed(QZ.DAILY)} of ${QZ.DAILY} (90%) to complete the day. A retake draws different questions.</li></ul>`
-  };
-  openQuiz();
 }
 function promptMock() {
   if (S.run && S.run.kind === "mock" && !S.run.done) return openQuiz();
@@ -707,7 +860,7 @@ function refHTML(id, extra = "") {
   const url = linkFor(g.link);
   return `<li><div class="ref-h">${extra}<span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span><span class="muted">Day ${d.day}</span></div><div class="ref-t">${it[1]}</div>` +
     (g.where ? `<div class="where">${g.where}</div>` : "") +
-    `<div class="ref-a">${url ? `<a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}<button type="button" class="sm" data-jump="${id}">Show in plan</button></div></li>`;
+    `<div class="ref-a">${url ? `<a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}<button type="button" class="sm" data-jump="${id}">Open step</button></div></li>`;
 }
 function studyHTML(q) {
   const refs = studyRefs(q);
@@ -860,6 +1013,7 @@ function finishResults() {
   if (r.kind === "day") {
     const d = dayOf(r.day);
     if (r.cel) celebrate(r.cel, d);
+    if (r.cel && view.day === d.id) move("done");   // the day's summary, with the button for the next day
     if (r.mockNew) setTimeout(() => whenFree(promptMock), 3800);
   }
 }
@@ -1026,7 +1180,7 @@ document.addEventListener("keydown", e => {
   }
   const r = S.run;
   if (intro || !r || r.done) return;
-  // Enter on a focused control (Previous, Flag, Open ↗, Show in plan) presses that control.
+  // Enter on a focused control (Previous, Flag, Open ↗, Open step) presses that control.
   if (k === "enter" && e.target.closest("button,a") && !e.target.closest(".qz-o")) return;
   const n = k.length === 1 ? Math.max("12345".indexOf(k), "abcde".indexOf(k)) : -1;
   if (n >= 0) {
@@ -1064,7 +1218,7 @@ setInterval(() => {
   if (el && qzDlg.open) el.textContent = clock(r.end - Date.now());
 }, 1000);
 
-// ---------- notebook, weak spots, cheat sheet ----------
+// ---------- notebook, weak spots, cheat sheet, day notes ----------
 const shDlg = document.getElementById("sheet"), shBody = document.getElementById("sh-body");
 let nbFilter = "open";
 function openSheet(kind) {
@@ -1075,9 +1229,22 @@ function openSheet(kind) {
 }
 function renderSheet() {
   const kind = shDlg.dataset.kind;
-  const [title, html] = kind === "notebook" ? ["📓 Wrong-answer notebook", notebookHTML()] : kind === "weak" ? ["📈 Weak spots", weakHTML()] : ["🗣 Exam wording", cuesHTML()];
+  const [title, html] = kind === "notebook" ? ["📓 Wrong-answer notebook", notebookHTML()] : kind === "weak" ? ["📈 Weak spots", weakHTML()]
+    : kind === "daynotes" ? dayNotesHTML() : ["🗣 Exam wording", cuesHTML()];
   document.getElementById("sh-title").textContent = title;
   shBody.innerHTML = html;
+}
+// Notes for the day on screen, plus the notes written on its single steps.
+function dayNotesHTML() {
+  const d = dayOf(view.day);
+  if (!d) return ["📝 Day notes", ""];
+  const mine = dIds(d).filter(id => (S.inotes[id] || "").trim());
+  return [`📝 Day ${d.day} notes`,
+    `<label class="notes-l">Notes for the whole day <span class="saved" data-saved="${d.id}">saved</span>` +
+    `<textarea data-notes="${d.id}" placeholder="${esc(d.notesHint || "Weak spots, wrong answers, things to revisit…")}">${esc(S.notes[d.id] || "")}</textarea></label>` +
+    (mine.length ? `<h3 class="sub-h">Your notes on single steps</h3><ul class="qz-refs">${mine.map(id => `<li><div class="ref-t">${itemIndex[id].it[1]}</div>` +
+      `<p class="in-note">${esc(S.inotes[id])}</p><div class="ref-a"><button type="button" class="sm" data-jump="${id}">Open step</button></div></li>`).join("")}</ul>`
+      : `<p class="muted">Notes you write on single steps of this day are listed here too.</p>`)];
 }
 function bookEntries() {
   return Object.keys(S.book).filter(id => QBY[id]).map(id => ({ q: QBY[id], b: S.book[id] }))
@@ -1162,46 +1329,59 @@ clDlg.addEventListener("change", e => {
 });
 clDlg.addEventListener("close", runPending);
 
-// ---------- events: plan ----------
-root.addEventListener("change", e => {
-  const id = e.target.dataset && e.target.dataset.id;
-  if (id) { FX.unlock(); setTick(id, e.target.checked, e.target); }
-});
-root.addEventListener("click", e => {
+// ---------- events: day flow ----------
+flowEl.addEventListener("click", e => {
   const g = e.target.closest(".g");
   if (g) { e.preventDefault(); g.classList.toggle("show"); return; }
+  if (e.target.closest("[data-home]")) { setView("", "", true); return; }
+  const at = e.target.closest("[data-at]");
+  if (at) { if (!at.disabled && at.dataset.at) move(at.dataset.at); return; }
+  const c = e.target.closest("[data-complete]");
+  // A double click must not also complete the card that slides in under the pointer.
+  if (c) { if (Date.now() - movedAt > 350) complete(c.dataset.complete, c); return; }
+  const u = e.target.closest("[data-undo]");
+  if (u) { setTick(u.dataset.undo, false); return; }
   const cl = e.target.closest("[data-cleanup]");
   if (cl) { openCleanup(cl.dataset.cleanup); return; }
+  const sq = e.target.closest("[data-step-quiz]");
+  if (sq) { FX.unlock(); startRun("step", sq.dataset.stepQuiz); return; }
   const fl = e.target.closest("[data-flip]");
-  if (fl) {
-    const panel = document.getElementById("ca-" + fl.dataset.flip);
-    panel.hidden = !panel.hidden;
-    fl.setAttribute("aria-expanded", String(!panel.hidden));
-    return;
-  }
+  if (fl) { flip(fl.dataset.flip, document.getElementById("ca-" + fl.dataset.flip).hidden); return; }
   const cf = e.target.closest("[data-conf]");
   if (cf) {
     const id = cf.dataset.cid;
     S.conf[id] = cf.dataset.conf;
-    const fb = root.querySelector(`[data-flip="${id}"]`);
-    fb.textContent = flipLabel(id);
-    fb.classList.toggle("shaky", S.conf[id] === "shaky");
-    document.getElementById("ca-" + id).hidden = true;
-    fb.setAttribute("aria-expanded", "false");
-    FX.unlock();
-    if (!done(id)) setTick(id, true, cf.isConnected ? cf : fb);
-    else { save(); refresh(); }
+    if (!done(id)) complete(id, cf);
+    else { flip(id, false); save(); refresh(); }
   }
 });
+// <details> toggles don't bubble: catch them on the way down and remember the choice.
+cardEl.addEventListener("toggle", e => {
+  const sec = e.target.dataset && e.target.dataset.sec;
+  if (!sec) return;
+  ui[sec] = e.target.open;
+  try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (err) {}
+}, true);
+// ← and → move between cards, Enter presses the card's main action (unless a control has the focus).
+document.addEventListener("keydown", e => {
+  if (!view.day || document.querySelector("dialog[open]") || e.ctrlKey || e.metaKey || e.altKey || e.target.matches("input,textarea,select")) return;
+  const nav = document.getElementById("fl-nav");
+  let b = null;
+  if (e.key === "ArrowLeft") b = nav.querySelector("[data-back]");
+  else if (e.key === "ArrowRight") b = nav.querySelector("[data-next]");
+  else if (e.key === "Enter" && !e.repeat && !e.target.closest("button,a,summary")) b = nav.querySelector("[data-main]");
+  if (b && !b.disabled) { e.preventDefault(); b.click(); }
+});
+// Day notes and step notes save as you type.
 const noteTimers = {};
-root.addEventListener("input", e => {
-  const id = e.target.dataset && e.target.dataset.notes;
+document.addEventListener("input", e => {
+  const ds = e.target.dataset || {}, id = ds.notes || ds.inote;
   if (!id) return;
-  S.notes[id] = e.target.value;
+  if (ds.notes) S.notes[id] = e.target.value; else S.inotes[id] = e.target.value.slice(0, NOTE_MAX);
   clearTimeout(noteTimers[id]);
   noteTimers[id] = setTimeout(() => {
     save();
-    const s = root.querySelector(`[data-saved="${id}"]`);
+    const s = document.querySelector(`[data-saved="${id}"]`);
     if (s) { s.classList.add("show"); setTimeout(() => s.classList.remove("show"), 1200); }
   }, 400);
 });
@@ -1210,19 +1390,12 @@ document.addEventListener("click", e => {
 }, true);
 
 document.getElementById("next").addEventListener("click", e => {
-  const b = e.target.closest("[data-nx-done]");
-  if (b) { FX.unlock(); setTick(b.dataset.nxDone, true, b); return; }
-  const j = e.target.closest("[data-nx-jump]");
-  if (j) { jumpTo(j.dataset.nxJump); return; }
-  const dj = e.target.closest("[data-nx-day]");
-  if (dj) { jumpDay(dj.dataset.nxDay); return; }
   const w = e.target.closest("[data-warm]");
-  if (w) {
-    if (w.dataset.warm === "skip") { S.warm[today()] = "skip"; save(); refresh(); }
-    else { FX.unlock(); startRun("warm"); }
-  }
+  if (!w) return;
+  if (w.dataset.warm === "skip") { S.warm[today()] = "skip"; save(); refresh(); }
+  else { FX.unlock(); startRun("warm"); }
 });
-// buttons that can appear anywhere: plan, next up, practice panel, slip banner, dialogs
+// buttons that can appear anywhere: overview, cards, practice panel, slip banner, dialogs
 document.addEventListener("click", e => {
   const t = e.target.closest("[data-quiz-start],[data-review],[data-mock],[data-drill],[data-sheet],[data-slip]");
   if (!t || t.disabled) return;
@@ -1236,21 +1409,16 @@ document.addEventListener("click", e => {
 });
 
 // ---------- header buttons ----------
-const bFx = document.getElementById("b-fx"), bSnd = document.getElementById("b-snd"), bHide = document.getElementById("hide");
+const bFx = document.getElementById("b-fx"), bSnd = document.getElementById("b-snd");
 function syncToggles() {
   bFx.textContent = `🎉 Effects ${S.settings.fx ? "on" : "off"}`;
   bFx.setAttribute("aria-pressed", S.settings.fx);
   bSnd.textContent = `${S.settings.sound ? "🔔" : "🔕"} Sound ${S.settings.sound ? "on" : "off"}`;
   bSnd.setAttribute("aria-pressed", S.settings.sound);
-  document.body.classList.toggle("hide-done", !!S.settings.hideDone);
-  bHide.textContent = S.settings.hideDone ? "Show done" : "Hide done";
   FX.set({ fx: S.settings.fx, sound: S.settings.sound });
 }
 bFx.onclick = () => { S.settings.fx = !S.settings.fx; save(); syncToggles(); if (S.settings.fx) FX.tick(bFx); };
 bSnd.onclick = () => { S.settings.sound = !S.settings.sound; save(); syncToggles(); if (S.settings.sound) { FX.unlock(); FX.sound("pop"); } };
-bHide.onclick = () => { S.settings.hideDone = !S.settings.hideDone; save(); syncToggles(); };
-document.getElementById("exp").onclick = () => document.querySelectorAll("details.day").forEach(d => d.open = true);
-document.getElementById("col").onclick = () => document.querySelectorAll("details.day").forEach(d => d.open = false);
 
 // ---------- settings ----------
 const setDlg = document.getElementById("settings");
@@ -1314,14 +1482,14 @@ function restoreScores() { document.querySelectorAll("[data-score]").forEach(inp
 const tm = document.getElementById("timer");
 const tmLeft = () => S.timer.running ? Math.max(0, Math.round((S.timer.endAt - Date.now()) / 1000)) : S.timer.left;
 const mmss = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-// Credit focused time to the day you're working on (the one Next up points at).
+// Credit focused time to the day you're working on: the one open on screen, else the one the overview points at.
 function logFocus() {
   const t = S.timer;
   if (t.mode !== "focus" || !t.running) return;
   const sec = (t.from || DUR.focus) - tmLeft();
-  const n = nextStep();
-  if (sec < 30 || !n) return;
-  S.log[n.d.id] = (S.log[n.d.id] || 0) + sec / 60;
+  const d = dayOf(view.day) || (nextStep() || {}).d;
+  if (sec < 30 || !d) return;
+  S.log[d.id] = (S.log[d.id] || 0) + sec / 60;
 }
 function tmRender() {
   const t = S.timer, left = tmLeft();
@@ -1380,7 +1548,7 @@ function mergeDocs(local, remote) {
   const m = clone(newer);
   const seenIn = (st, id) => (st.qs[id] ? st.qs[id].seen : 0);
   for (const k in older.ticks) m.ticks[k] = true;
-  for (const f of ["notes", "scores", "conf", "warm"]) for (const k in older[f]) if (!(k in m[f]) || m[f][k] === "") m[f][k] = older[f][k];
+  for (const f of ["notes", "inotes", "scores", "conf", "warm"]) for (const k in older[f]) if (!(k in m[f]) || m[f][k] === "") m[f][k] = older[f][k];
   for (const k in older.dayDone) if (!m.dayDone[k] || older.dayDone[k] < m.dayDone[k]) m.dayDone[k] = older.dayDone[k];
   for (const k in older.quiz) {
     const o = older.quiz[k], n = m.quiz[k];
@@ -1410,7 +1578,7 @@ function applyState() {
   DAYS.forEach(markDayDone);
   rebuild(); restoreScores(); tmRender();
   if (qzDlg.open && !drill && !intro && S.run) renderQuiz();
-  if (shDlg.open) renderSheet();
+  if (shDlg.open && shDlg.dataset.kind !== "daynotes") renderSheet();   // never redraw a notes box under the cursor
 }
 // The server holds a revision we haven't seen. Returns true when the result still needs pushing.
 function absorb(cur) {
@@ -1464,13 +1632,7 @@ addEventListener("storage", e => {
 });
 
 // ---------- boot ----------
-function rebuild() {
-  render(); renderLinks(); syncToggles(); refresh();
-  const ti = todayIdx();
-  const td = DAYS.find(d => d.day === ti);
-  const target = td && !dayDone(td) ? td : DAYS.find(d => !dayDone(d));
-  if (target) document.getElementById(target.id).open = true;
-}
+function rebuild() { renderLinks(); syncToggles(); refresh(); }
 // stay correct past midnight without reloading
 let lastIdx = todayIdx(), lastDate = today();
 setInterval(() => { if (todayIdx() !== lastIdx || today() !== lastDate) { lastIdx = todayIdx(); lastDate = today(); refresh(); } }, 60000);
@@ -1478,7 +1640,9 @@ setInterval(() => { if (todayIdx() !== lastIdx || today() !== lastDate) { lastId
 // Days ticked off before quizzes existed count as done once their quiz is passed.
 DAYS.forEach(markDayDone);
 document.getElementById("places").open = Object.keys(S.ticks).length === 0;
+restoreScores();
 rebuild();
+route();
 tmRender();
 pull();
 if (S.run && S.run.kind === "mock" && !S.run.done && Date.now() >= S.run.end) finishMock(true);

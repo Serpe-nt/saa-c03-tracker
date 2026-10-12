@@ -93,7 +93,7 @@ The wording of each affected question avoids depending on these, but verify befo
 
 - Refs point at plan steps (Essentials modules, Cloud Quest assignments, Exam Prep Plan tasks, own builds). Skill Builder needs a login, so lesson titles inside a module were never verified. Lesson-level pointers are possible if the owner pastes a module's lesson list.
 - Shared responsibility questions on Day 1 (q01-048–050) reference Module 1 (d1w1). Third-party listings of the 13-module Essentials course show a shared-responsibility lesson in Module 1; Skill Builder itself couldn't be opened.
-- `DOCS` holds only stable FAQ/overview URLs on aws.amazon.com. They could not be fetched from the sandbox, so they are unverified; a broken one only costs a 404.
+- `DOCS` holds only stable FAQ/overview URLs on aws.amazon.com and docs.aws.amazon.com. All 61 were fetched on 2026-10-12 from the owner's PC with `node tools/links.mjs` and answer a plain 200; the Aurora FAQ had moved to docs.aws.amazon.com and was repointed. Re-run the tool after adding a link.
 
 ## AWS changes the reviewers found (reported via web search, 2024–2026)
 
