@@ -361,7 +361,7 @@ window.GLOSSARY = {
   "SNS": "Simple Notification Service — pub/sub push to email, SMS, SQS, Lambda, HTTP.",
   "SQS": "Simple Queue Service — message queue that decouples producers from consumers.",
   "EventBridge": "Event bus and scheduler — routes events from AWS services and apps to targets by rules.",
-  "Lambda": "Run functions without managing servers; pay per request and duration; a standard invocation runs up to 15 minutes.",
+  "Lambda": "Run functions without managing servers; pay per request and duration; a function runs up to 15 minutes per invocation.",
   "Fargate": "Serverless compute for containers (ECS/EKS) — no EC2 instances to manage.",
   "ECS": "Elastic Container Service — AWS's own container orchestrator.",
   "EKS": "Elastic Kubernetes Service — managed Kubernetes control plane.",
