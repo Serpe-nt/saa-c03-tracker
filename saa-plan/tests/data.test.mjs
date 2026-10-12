@@ -161,8 +161,8 @@ test("every key-points file in site/keys is loaded by the page, before the app",
 });
 
 test("key points are well-formed and filed under their step's id", () => {
-  // dNN.js holds the steps whose id starts with dN, cN.js a lecture course (cN…) and its labs (lN…)
-  const home = id => { const m = /^([a-z])(\d+)/.exec(id); return m[1] === "d" ? "d" + m[2].padStart(2, "0") + ".js" : m[1] === "c" || m[1] === "l" ? "c" + m[2] + ".js" : ""; };
+  // dNN.js holds the steps whose id starts with dN, cN.js a lecture course (cN…) and its labs (lN…), rN.js a reading block
+  const home = id => { const m = /^([a-z])(\d+)/.exec(id); return m[1] === "d" ? "d" + m[2].padStart(2, "0") + ".js" : m[1] === "c" || m[1] === "l" ? "c" + m[2] + ".js" : m[1] + m[2] + ".js"; };
   const problems = [];
   for (const f of keyFiles) {
     const K = load("keys/" + f).KEYS;

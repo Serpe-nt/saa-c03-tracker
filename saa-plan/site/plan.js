@@ -14,6 +14,7 @@ window.LINKS = {
   signup:  { label: "aws.amazon.com",     url: "https://aws.amazon.com/", hidden: true },
   credly:  { label: "Credly",             url: "https://www.credly.com/", hidden: true },
   idc:     { label: "Identity Center docs", url: "https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html", hidden: true },
+  overview: { label: "Overview of Amazon Web Services", url: "https://docs.aws.amazon.com/whitepapers/latest/aws-overview/amazon-web-services-cloud-platform.html", hidden: true },
   // the lecture courses of the Solutions Architect plan (the Open button of each lecture block)
   c1:      { label: "Fundamentals of Architecting on AWS", url: "https://skillbuilder.aws/learn/ACYHAC5Q6K/aws-solutions-architect--fundamentals-of-architecting-on-aws/HNFECXKH8Q", hidden: true },
   c2:      { label: "Fundamentals of Security on AWS", url: "https://skillbuilder.aws/learn/3B33SJUS2V/aws-solutions-architect--fundamentals-of-security-on-aws/1YKQRRTHA7", hidden: true },
@@ -293,7 +294,7 @@ window.PLAN = [
 ]},
 
 {id:"d16", day:16, title:"Data labs and the wrap-up", quiz:"review",
- goal:"The last three labs and the plan's summary. From tomorrow it is all exam preparation.",
+ goal:"The last three labs, the plan's summary, and a short read on the in-scope services no lecture covered. From tomorrow it is all exam preparation.",
  groups:[
  {t:"play", label:"Labs", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:180, items:[
   ["l8a","AWS SimuLearn: <a href=\"https://skillbuilder.aws/learn/WT478HCMQE/aws-simulearn-data-ingestion-methods/MMQ3HG3UM1\" target=\"_blank\" rel=\"noopener\"><b>Data Ingestion Methods</b></a>","About 1 h."],
@@ -301,6 +302,11 @@ window.PLAN = [
   ["l8c","AWS SimuLearn: <a href=\"https://skillbuilder.aws/learn/92XVH8EMU7/aws-simulearn-federated-queries/8T4NUKBGQG\" target=\"_blank\" rel=\"noopener\"><b>Federated Queries</b></a>","About 1 h."]]},
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Summary and Resources", link:"c9", min:60, items:[
   ["c9a","<b>AWS Solutions Architect - Summary and Resources</b>","About 1 h: the wrap-up of the learning plan and its reference list."]]},
+ {t:"watch", label:"Read: services the courses skip", where:"docs.aws.amazon.com → Overview of Amazon Web Services (whitepaper). One paragraph per service is enough: what it is for.", link:"overview", min:45, items:[
+  ["r1a","<a href=\"https://docs.aws.amazon.com/whitepapers/latest/aws-overview/machine-learning.html\" target=\"_blank\" rel=\"noopener\"><b>Machine learning</b></a>: Comprehend, Lex, Polly, Rekognition, SageMaker AI, Textract, Transcribe, Translate.","The exam guide lists them as in scope. Questions ask which service fits a need, never how to train a model."],
+  ["r1b","<a href=\"https://docs.aws.amazon.com/whitepapers/latest/aws-overview/management-governance.html\" target=\"_blank\" rel=\"noopener\"><b>Management and governance</b></a>: CloudFormation, Service Catalog, Systems Manager, Trusted Advisor, Compute Optimizer, License Manager, AWS Health Dashboard, Managed Grafana, Managed Service for Prometheus."],
+  ["r1c","<a href=\"https://docs.aws.amazon.com/whitepapers/latest/aws-overview/migration-services.html\" target=\"_blank\" rel=\"noopener\"><b>Migration and transfer</b></a>: Application Migration Service, Database Migration Service, DataSync, Transfer Family."],
+  ["r1d","<a href=\"https://docs.aws.amazon.com/whitepapers/latest/aws-overview/database.html\" target=\"_blank\" rel=\"noopener\"><b>Databases</b></a> you have not used yet: DocumentDB, Keyspaces, Neptune, MemoryDB. Then <a href=\"https://docs.aws.amazon.com/whitepapers/latest/aws-overview/analytics.html\" target=\"_blank\" rel=\"noopener\"><b>Analytics</b></a>: Managed Streaming for Apache Kafka, OpenSearch Service, AWS Data Exchange."]]},
  {t:"check", label:"Self-check", min:5, items:[
   ["d10c3","Athena vs Glue vs EMR vs Redshift; Kinesis family."]]}
 ]},
@@ -468,10 +474,14 @@ window.STEP_TAGS = {
   l7e: ["CloudWatch"],
   c8a: ["Streaming","Analytics"],
   c8b: ["Analytics"],
-  c8c: ["Analytics","Redshift","AI/ML services"],
+  c8c: ["Analytics","Redshift"],
   l8a: ["Streaming"],
   l8b: ["Analytics"],
-  l8c: ["Analytics"]
+  l8c: ["Analytics"],
+  r1a: ["AI/ML services"],
+  r1b: ["Infrastructure as code","Governance"],
+  r1c: ["Migration & transfer"],
+  r1d: ["Purpose-built databases","Streaming","Analytics"]
 };
 
 window.CLEANUP = [
