@@ -214,14 +214,14 @@ window.QUIZ.push(
  q:"A data team has packaged a nightly processing job as a container image. The job runs for about two hours, and the team does not want to provision or manage servers. Which solution meets these requirements?",
  o:["Run the job as an AWS Lambda function on a nightly schedule","Run the job on an EC2 instance with a cron entry","Run the job as an Amazon ECS task on AWS Fargate on a schedule","Deploy the job to an Elastic Beanstalk web server environment"],
  a:[2],
- x:["Lambda functions can run for at most 15 minutes, so a two-hour job would time out.","This works, but the team would have to patch and manage the instance, which they want to avoid.","Correct. Fargate runs containers without servers to manage and has no 15-minute limit; an ECS scheduled task can start the job each night.","A web server environment is meant for continuously running web apps and still provisions EC2 instances behind the scenes."],
+ x:["A Lambda function invocation times out after at most 15 minutes (90 minutes for asynchronous invocations on Lambda Managed Instances), so a two-hour job cannot finish.","This works, but the team would have to patch and manage the instance, which they want to avoid.","Correct. Fargate runs containers without servers to manage and puts no time limit on a task; an ECS scheduled task can start the job each night.","A web server environment is meant for continuously running web apps and still provisions EC2 instances behind the scenes."],
  ref:["d1w3","d1c8"], doc:"fargate"},
 
 {id:"q01-032", day:1, dom:3, tags:["Containers"],
  q:"A company runs its microservices on a self-managed Kubernetes cluster on premises and uses Kubernetes manifests and tooling throughout. It wants to move to AWS with minimal changes and without managing worker nodes. Which solution meets these requirements?",
  o:["Amazon ECS with the EC2 launch type","AWS Elastic Beanstalk with the Docker platform","Amazon EKS with AWS Fargate","AWS Lambda with container image support"],
  a:[2],
- x:["ECS uses its own task definitions rather than Kubernetes manifests, and the EC2 launch type means managing instances.","Beanstalk can run Docker containers, but it does not understand Kubernetes manifests or tooling.","Correct. EKS runs upstream Kubernetes, so existing manifests and tools keep working, and Fargate removes the need to manage worker nodes.","Lambda can run container images, but the microservices would need refactoring into functions and the Kubernetes tooling would no longer apply."],
+ x:["ECS uses its own task definitions rather than Kubernetes manifests, and the EC2 launch type means managing instances.","Beanstalk can run Docker containers, but it deploys them from its own application and environment configuration, not from the team's Kubernetes manifests and tooling.","Correct. EKS runs upstream Kubernetes, so existing manifests and tools keep working, and Fargate removes the need to manage worker nodes.","Lambda can run container images, but the microservices would need refactoring into functions and the Kubernetes tooling would no longer apply."],
  ref:["d1w3","d1c8"], doc:"eks"},
 
 {id:"q01-033", day:1, dom:3, tags:["Elastic Beanstalk"],
@@ -235,14 +235,14 @@ window.QUIZ.push(
  q:"A manufacturer is migrating a legacy application that requires a specific Linux kernel module and a licensed monitoring agent installed at the operating system level. The application runs continuously. Which compute service meets these requirements?",
  o:["AWS Lambda","Amazon ECS on AWS Fargate","Amazon EC2","Amazon EKS on AWS Fargate"],
  a:[2],
- x:["Lambda gives no access to the operating system or kernel, and each invocation is limited to 15 minutes.","Fargate manages the underlying host for you, so you cannot load custom kernel modules or install host-level agents.","Correct. EC2 gives full control of the operating system, including kernel modules and OS-level agents.","EKS on Fargate has the same restriction as ECS on Fargate: no access to the underlying host or its kernel."],
+ x:["A Lambda function runs in an execution environment that AWS manages, with no way to load kernel modules or install host-level agents, and its invocations are time-limited, which rules out an application that runs continuously.","Fargate manages the underlying host for you, so you cannot load custom kernel modules or install host-level agents.","Correct. EC2 gives full control of the operating system, including kernel modules and OS-level agents.","EKS on Fargate has the same restriction as ECS on Fargate: no access to the underlying host or its kernel."],
  ref:["d1w3","d1c8","d1w2"], doc:"ec2"},
 
 {id:"q01-035", day:1, dom:3, tags:["Lambda"],
  q:"A team plans to run AWS Lambda functions with the default on-demand configuration. Which statements about this setup are correct? (Choose two.)",
  o:["You choose and patch the operating system for each function","A single invocation can run for at most 15 minutes","Each function needs an EC2 instance that you keep running","Functions must be deployed to a container cluster you manage","You pay for requests and execution time, not idle capacity"],
  a:[1,4],
- x:["AWS manages the operating system and managed runtimes; you supply only code and configuration.","Correct. The maximum timeout is 15 minutes, so longer jobs need containers or EC2.","In the default model there are no instances for you to provision or keep running; AWS runs the functions on capacity it manages.","Lambda handles all infrastructure; you upload a .zip package or container image and AWS runs it.","Correct. On-demand Lambda bills per request and per unit of execution duration, so idle time costs nothing for compute; provisioned concurrency and Lambda Managed Instances are opt-in models that also bill for capacity."],
+ x:["AWS manages the operating system and managed runtimes; you supply only code and configuration.","Correct. In this configuration the maximum function timeout is 15 minutes, so longer single runs fit containers or EC2 better. (Lambda Managed Instances, an opt-in model, allow up to 90 minutes for asynchronous invocations.)","In the default model there are no instances for you to provision or keep running; AWS runs the functions on capacity it manages.","Lambda handles all infrastructure; you upload a .zip package or container image and AWS runs it.","Correct. On-demand Lambda bills per request and per unit of execution duration, so idle time costs nothing for compute; provisioned concurrency and Lambda Managed Instances are opt-in models that also bill for capacity."],
  ref:["d1w3","d1c8"], doc:"lambda"},
 
 {id:"q01-036", day:1, dom:3, tags:["Containers"],
