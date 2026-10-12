@@ -49,7 +49,7 @@ window.DOCS = {
   storagegateway: ["AWS Storage Gateway FAQs", "https://aws.amazon.com/storagegateway/faqs/"],
   backup:         ["AWS Backup FAQs", "https://aws.amazon.com/backup/faqs/"],
   rds:            ["Amazon RDS FAQs", "https://aws.amazon.com/rds/faqs/"],
-  aurora:         ["Amazon Aurora FAQs", "https://aws.amazon.com/rds/aurora/faqs/"],
+  aurora:         ["Amazon Aurora FAQ", "https://docs.aws.amazon.com/rds/latest/auroraextendedcontent/aurora-faq.html"],
   dynamodb:       ["Amazon DynamoDB FAQs", "https://aws.amazon.com/dynamodb/faqs/"],
   elasticache:    ["Amazon ElastiCache FAQs", "https://aws.amazon.com/elasticache/faqs/"],
   redshift:       ["Amazon Redshift FAQs", "https://aws.amazon.com/redshift/faqs/"],

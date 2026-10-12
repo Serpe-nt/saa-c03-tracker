@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "saa-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "-d", "saa-plan/site", "8099"],
+      "port": 8099
+    },
+    {
+      "name": "saa-go-test",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "$env:ADDR='127.0.0.1:8090'; $env:SITE_DIR='../site'; $env:DB_PATH=(Join-Path $env:TEMP 'saa-preview-test.db'); Remove-Item $env:DB_PATH* -ErrorAction SilentlyContinue; Set-Location saa-plan/server; go run ."],
+      "port": 8090
+    }
+  ]
+}

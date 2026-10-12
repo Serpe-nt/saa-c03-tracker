@@ -82,22 +82,21 @@
   </div>
 </header>
 
+<!-- Overview: where you stand, one button to start or continue, the 14 days as tiles -->
+<div id="home">
 <div id="status" class="status"></div>
 <div id="slip" class="slip" role="status" hidden></div>
 
-<div class="stickybar">
+<section id="next" class="next" aria-live="polite"></section>
+
+<section class="stats" aria-label="Progress">
+  <div class="st-grid" id="stats"></div>
   <div class="bar"><div id="bar"></div></div>
-  <div class="row">
-    <span class="pct" id="pct"></span>
-    <button id="hide" class="ghost">Hide done</button>
-    <button id="exp" class="ghost">Expand all</button>
-    <button id="col" class="ghost">Collapse all</button>
-  </div>
-</div>
+</section>
 
 <nav id="links" class="links" aria-label="Quick links"></nav>
 
-<section id="next" class="next" aria-live="polite"></section>
+<div id="map" class="map"></div>
 
 <details class="panel" id="places">
   <summary>🗺 Where things happen: 4 separate places</summary>
@@ -141,7 +140,7 @@
       </ul>
     </div>
   </div>
-  <p class="rules"><b>Rules:</b> watch Essentials at 1.5–2×, then play the matching Cloud Quest assignments. Do each DIY challenge without opening the solution. Labs beat videos — if short on time, cut video, never labs. In ③ your own account, delete what you built every day. For every wrong practice answer, write why each wrong option is wrong. Dotted-underlined terms show a definition on hover.</p>
+  <p class="rules"><b>Rules:</b> watch Essentials at 1.5–2×, then play the matching Cloud Quest assignments. Do each DIY challenge without opening the solution. Labs beat videos — if short on time, cut video, never labs. In ③ your own account, delete what you built every day. For every wrong practice answer, write why each wrong option is wrong. Dotted-underlined terms on a step show a definition on hover.</p>
 </details>
 
 <details class="panel" id="scores">
@@ -166,9 +165,23 @@
   <div class="grid" id="pr-grid"></div>
 </details>
 
-<div id="plan"></div>
+<p class="foot">Resource names follow the published outlines of AWS Cloud Practitioner Essentials (13-module version), AWS Cloud Quest: Cloud Practitioner and the Exam Prep Enhanced Course (SAA-C03); a few Essentials module titles may be worded slightly differently in your view. Cloud Quest unlocks assignments in its own order — if one is locked, skip it with Next, play the following one and come back. Quiz and mock questions are original practice questions written in the exam's style, not official AWS questions. Progress is saved on the server when it runs from Docker, and in this browser either way; export a backup in ⚙ Settings now and then.</p>
+</div>
 
-<p class="foot">Resource names follow the published outlines of AWS Cloud Practitioner Essentials (13-module version), AWS Cloud Quest: Cloud Practitioner and the Exam Prep Enhanced Course (SAA-C03); a few Essentials module titles may be worded slightly differently in your view. Cloud Quest unlocks assignments in its own order — if one is locked, play the next unlocked one and come back. Quiz and mock questions are original practice questions written in the exam's style, not official AWS questions. Progress is saved on the server when it runs from Docker, and in this browser either way; export a backup in ⚙ Settings now and then.</p>
+<!-- One day, one step at a time: a single card with Back, Mark complete and Next under it -->
+<div id="flow" hidden>
+  <div class="fl-top">
+    <button type="button" class="ghost" data-home>← Overview</button>
+    <div class="fl-day" id="fl-day"></div>
+    <div class="fl-tools" id="fl-tools"></div>
+  </div>
+  <div class="fl-prog">
+    <div class="fl-strip" id="fl-strip"></div>
+    <span class="fl-count" id="fl-count"></span>
+  </div>
+  <article id="card" class="card" aria-live="polite"></article>
+  <div class="fl-nav" id="fl-nav"></div>
+</div>
 </div>
 
 <!-- Focus timer -->
@@ -208,7 +221,7 @@
   <div id="qz-body" class="qz-body"></div>
 </dialog>
 
-<!-- Notebook, weak spots, exam wording -->
+<!-- Notebook, weak spots, exam wording, day notes -->
 <dialog id="sheet" class="qz" aria-labelledby="sh-title">
   <div class="qz-h">
     <h2 id="sh-title"></h2>
@@ -227,9 +240,9 @@
       <small>After you book on Day 11. The plan warns you if it slips past this date.</small>
     </label>
     <div class="field" id="s-slips" hidden><span id="s-slips-t" class="muted"></span> <button type="button" id="s-unslip">Undo schedule moves</button></div>
-    <label class="field">AWS access portal URL
-      <input type="url" id="s-portal" placeholder="https://d-xxxxxxxxxx.awsapps.com/start">
-      <small>IAM Identity Center → Dashboard (Day 1). "Open" buttons for ③ your account will use it.</small>
+    <label class="field">AWS sign-in URL
+      <input type="url" id="s-portal" placeholder="https://123456789012.signin.aws.amazon.com/console">
+      <small>Your admin user's console sign-in page (Day 1). "Open" buttons for ③ your account will use it.</small>
     </label>
     <label class="chk"><input type="checkbox" id="s-fx"> Visual effects</label>
     <label class="chk"><input type="checkbox" id="s-snd"> Sounds</label>
@@ -262,6 +275,20 @@
 <script src="quiz/mock1.js"></script>
 <script src="quiz/mock2.js"></script>
 <script src="extras.js"></script>
+<script src="keys/d01.js"></script>
+<script src="keys/d02.js"></script>
+<script src="keys/d03.js"></script>
+<script src="keys/d04.js"></script>
+<script src="keys/d05.js"></script>
+<script src="keys/d06.js"></script>
+<script src="keys/d07.js"></script>
+<script src="keys/d08.js"></script>
+<script src="keys/d09.js"></script>
+<script src="keys/d10.js"></script>
+<script src="keys/d11.js"></script>
+<script src="keys/d12.js"></script>
+<script src="keys/d13.js"></script>
+<script src="keys/d14.js"></script>
 <script src="qcore.js"></script>
 <script src="fx.js"></script>
 <script src="app.js"></script>

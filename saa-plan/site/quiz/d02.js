@@ -355,7 +355,7 @@ window.QUIZ.push(
  x:["A transit gateway is a regional hub with transitive routing for VPC and VPN attachments, and separate route tables keep production and development isolated.",
     "A full mesh of 40 VPCs needs 780 peering connections plus routes, which is the problem itself, and peering cannot carry the VPN traffic onward.",
     "Interface endpoints expose individual services, not full network connectivity, and they would not connect the data center.",
-    "A Direct Connect gateway connects Direct Connect to VPCs; it does not route traffic between the VPCs associated with it."],
+    "A Direct Connect gateway links Direct Connect virtual interfaces to VPCs. It is not a hub for routing between the VPCs associated with it, and this company connects over VPN, not Direct Connect."],
  ref:["d2c2","d2w1"], doc:"tgw"},
 
 {id:"q02-036", day:2, dom:3, tags:["Hybrid connectivity","VPC peering & Transit Gateway"],

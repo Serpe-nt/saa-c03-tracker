@@ -1,21 +1,23 @@
 # SAA-C03 two-week plan
 
-Study tracker for the AWS Certified Solutions Architect – Associate exam: a 14-day plan with ticks, an end-of-day quiz you must pass at 90%, spaced review of what you missed, and a full mock exam at the end. Static HTML/CSS/JS (no frameworks) served by a small Go server that also keeps your progress in SQLite.
+Study tracker for the AWS Certified Solutions Architect – Associate exam: a 14-day plan you work through one step at a time, an end-of-day quiz you must pass at 90%, spaced review of what you missed, and a full mock exam at the end. Static HTML/CSS/JS (no frameworks) served by a small Go server that also keeps your progress in SQLite.
 
 ```
 site/
-  index.html     page layout, dialogs
+  index.html     page layout: overview, one-step card view, dialogs
   style.css      styles (light/dark)
   plan.js        the plan: days, steps, links, time estimates, glossary, cleanup list
   quiz/          question pools: meta.js (tags, AWS links), d01–d11.js (50 per study day), mock1–2.js (65 each)
   extras.js      self-check model answers, "Which service?" drill, exam-wording cheat sheet
+  keys/          key points per step: d01–d14.js (what to take away, the exam trap, AWS pages)
   qcore.js       quiz logic without the DOM: picking, grading, spaced repetition, weak spots
   fx.js          confetti, fireworks, sounds
-  app.js         page logic: ticks, quizzes, mock exam, notebook, timer, settings, server sync
+  app.js         page logic: overview, step cards, quizzes, mock exam, notebook, timer, settings, server sync
 server/          Go: serves site/ and stores progress in SQLite (GET/PUT /api/state)
 tests/           node --test unit + data tests, Playwright end-to-end script
-tools/           qstats.mjs (question pool stats), similar.mjs (near-duplicate finder)
-docs/            architecture.md (how it works, why), questions.md (writing + checking questions, status)
+tools/           qstats.mjs (question pool stats), similar.mjs (near-duplicate finder), links.mjs (AWS link check)
+docs/            architecture.md (how it works, why), questions.md (writing + checking questions, status),
+                 keypoints.md (writing + checking the key points per step)
 Dockerfile       two stages: Go build → distroless, non-root
 compose.yaml
 ```
@@ -28,9 +30,16 @@ docker compose up -d --build
 
 Open http://localhost:8080
 
+## How a day works
+
+- **Overview.** The first screen shows where you stand (steps, days, focus time, quiz accuracy, streak), the day to work on with one button (Start Day 1, Continue Day 3, Take the Day 3 quiz), and the 14 days as tiles. Any tile opens its day.
+- **One step at a time.** A day opens as a single card with three buttons under it: Back, Mark complete, Next. Mark complete moves you to the next open step; Next skips a step without marking it, and the row of dots above the card shows what is still open. The arrow keys and Enter work too.
+- **Everything for that step is on its card:** where to do it and the link, key points and the exam trap, the AWS pages to read, the exam topics it feeds with your accuracy so far, glossary terms, exam wording, your own notes, and three practice questions on exactly that step.
+- **The last card of a day is its quiz.** Pass it and you get the day's summary and the button for the next day.
+
 ## How the quizzes work
 
-- **End of every day (Days 1–13):** when every step of a day is ticked, a 30-question quiz opens. After each answer you see why every option is right or wrong, plus the exact plan step to go back to: the Skill Builder module or Exam Prep task, with its Open link. A day counts as complete only at 27 of 30 (90%).
+- **End of every day (Days 1–13):** when every step of a day is complete, its 30-question quiz unlocks. After each answer you see why every option is right or wrong, plus the exact plan step to go back to: the Skill Builder module or Exam Prep task, with its Open link. A day counts as complete only at 27 of 30 (90%).
 - **Retakes draw different questions.** Each study day has 50 questions, and new ones come first. Option order is shuffled every time.
 - **Day 7** mixes Days 1–6. **Day 12** is built from your weakest topics and past misses. **Day 13** mixes all four domains, weighted like the exam.
 - **Missed questions come back** after 1, 2 and 4 days, as a morning warm-up or a review. Each one also goes into the **wrong-answer notebook**, with a line for why you missed it. You can export the notebook as Markdown.

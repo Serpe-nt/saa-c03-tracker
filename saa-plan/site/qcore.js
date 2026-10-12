@@ -6,6 +6,7 @@ window.QZ = (() => {
   const MOCK = { n: 65, minutes: 130, split: [20, 17, 15, 13] };   // exam guide weights 30/26/24/20 %
   const MIX = [9, 8, 7, 6];               // the same weights for a 30-question mix
   const SRS_DAYS = [1, 2, 4];             // a missed question comes back after 1, 2, then 4 days
+  const STEP = 3;                         // questions in a "try this step" practice round
   const STUDY_DAYS = 11;                  // days with their own question pool (Day 7 has none)
 
   // ---------- helpers ----------
@@ -125,6 +126,15 @@ window.QZ = (() => {
     const by = index(bank);
     return dueIds(srs, today).filter(id => by[id]).slice(0, n).map(id => by[id]);
   }
+  // Step practice: questions that send you back to one plan step. The step's own day comes first,
+  // then later days, then the mock pool, so a Day 3 step doesn't open with Day 9 material.
+  function pickStep(itemId, day, bank, stats, n = STEP, rand = Math.random) {
+    const far = q => (q.day === day ? 0 : q.day === "mock" ? 2 : 1);
+    return rank(bank.filter(q => q.ref.includes(itemId)), stats, rand)
+      .map((q, i) => ({ q, i, f: far(q) }))
+      .sort((a, b) => a.f - b.f || a.i - b.i)
+      .slice(0, n).map(r => r.q);
+  }
 
   // ---------- answering ----------
   const order = (q, rand = Math.random) => shuffle(range(q.o.length), rand);
@@ -185,9 +195,9 @@ window.QZ = (() => {
   }
 
   return {
-    DAILY, PASS, MOCK, SRS_DAYS, needed, passed, describe, hasQuiz,
+    DAILY, PASS, MOCK, SRS_DAYS, STEP, needed, passed, describe, hasQuiz,
     shuffle, addDays, rank, stratified,
-    pickDay, pickWeak, pickMock, pickWarmup, pickReview,
+    pickDay, pickWeak, pickMock, pickWarmup, pickReview, pickStep,
     order, isRight, record, srsMiss, srsHit, dueIds, weakTags, tagWeakness, domainAcc, mockResult
   };
 })();
