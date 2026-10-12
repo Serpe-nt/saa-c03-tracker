@@ -85,7 +85,7 @@ Fixed in this change:
 - `d4s2`: "no access keys on disk" → "no long-term access keys on disk" (the SSO token is cached).
 - `DOCS.aurora`: the Aurora FAQ moved to docs.aws.amazon.com.
 
-Not changed here (other files, being re-verified separately):
+Passed on to the sessions that re-verified the question bank and the study extras the same day (what each did with it is in `docs/verification/`):
 - **Quiz explanations:** q03-001 (30-day minimum age for an IA transition is no longer documented), q03-032 (blue/green deployment is now a documented way to encrypt an RDS instance), q06-007 and q06-009 (CloudTrail Insights analyses management and data events), q06-019 (Trusted Advisor plan names), q08-003 (S3 now has `UpdateObjectEncryption`, so a copy job is no longer the only path), q09-033 (Replication Time Control 99.9% vs 99.99%), q10-038, q11-044, q11-047 (Direct Connect lead time and transfer rate not confirmable), q11-046 (Price Class 100 region list not confirmable), q11-049 (EFS One Zone price not confirmable).
 - **Model answers:** `d4c3` and `d8c3` list fewer AWS WAF resource types than the docs now do; `d1c8` treats the 15-minute Lambda limit as absolute; `d9c3` omits IP-based routing; `d11c2` predates Database Savings Plans.
 - **Naming drift:** Elastic Beanstalk now has a Standard (EC2) and a Cluster (EKS) mode; the S3 static-hosting page recommends Amplify Hosting first; EventBridge scheduled rules are labelled legacy in favour of EventBridge Scheduler (`d9b3` still works); Snowball support ends 2026-12-31 and Data Transfer Terminal is limited to Enterprise Support customers.

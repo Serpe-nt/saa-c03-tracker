@@ -70,22 +70,42 @@ The remaining pairs at 0.38–0.40 (q01-049/q04-002, q10-013/q11-018, q04-039/q0
 
 ## Verification status (as of 2026-10-12)
 
-All content was written on 2026-10-12 by AI writer agents working from this guide. All of it was fact-checked the same day by separate reviewer agents. They used web search on AWS sources; direct fetches of aws.amazon.com/docs.aws.amazon.com are blocked in the build sandbox, so they relied on search results. No reviewer changed an answer key; they corrected many explanations and stems (see git history `8f11bb3..9c604c8`).
+**History.** All content was written on 2026-10-12 by AI writer agents working from this guide, and reviewed the same day by separate reviewer agents inside a cloud sandbox where aws.amazon.com and docs.aws.amazon.com were blocked. They worked from web-search snippets, and 90 late rewrites were reviewed from model knowledge only.
 
-Later, near-duplicates across pools were rewritten so retakes and mocks stay fresh. Web search was exhausted by then, so these 90 questions were reviewed by a second agent **from model knowledge only** (no web check). Uncertain facts were worded around rather than asserted. They are the first candidates for a web-verified pass:
+**Second pass, against the pages themselves.** Later on 2026-10-12 the whole bank was re-checked on the owner's PC, where both sites can be fetched. Seven agent sessions each took their own files and read every entry against pages fetched from `docs.aws.amazon.com` and `aws.amazon.com` (a fact counted as confirmed only when the sentence was found in the page text). Their logs, with one line and a source URL per change, are in `docs/verification/`.
 
-- Day pools (36): q04-025, q04-034, q05-004, q05-014, q05-025, q06-033, q08-002, q08-003, q08-004, q08-007, q08-008, q08-015, q08-024, q08-025, q08-027, q08-029, q08-037, q09-018, q09-027, q09-029, q09-039, q09-048, q09-049, q10-004, q10-008, q10-015, q10-016, q10-025, q10-027, q10-036, q10-039, q10-046, q11-003, q11-022, q11-037, q11-049.
-- Mock set 1 (29): m1-001, m1-003, m1-004, m1-005, m1-008, m1-011, m1-013, m1-016, m1-017, m1-020, m1-021, m1-026, m1-027, m1-029, m1-032, m1-033, m1-034, m1-035, m1-036, m1-037, m1-038, m1-043, m1-044, m1-046, m1-048, m1-050, m1-051, m1-056, m1-062.
-- Mock set 2 (25): m2-001, m2-004, m2-005, m2-006, m2-008, m2-011, m2-014, m2-015, m2-022, m2-023, m2-027, m2-028, m2-031, m2-040, m2-043, m2-045, m2-046, m2-050, m2-052, m2-053, m2-055, m2-059, m2-063, m2-064, m2-065.
+| Part | Checked | Changed | Answer keys changed | Log |
+|---|---|---|---|---|
+| `d01.js`–`d03.js` | 150 of 150 | 13 | 0 | `verification/d01-d03.md` |
+| `d04.js`–`d06.js` | 150 of 150 | 5 | 0 | `verification/d04-d06.md` |
+| `d08.js`, `d09.js` | 100 of 100 | 8 | 0 | `verification/d08-d09.md` |
+| `d10.js`, `d11.js` | 100 of 100 | 18 | 0 | `verification/d10-d11.md` |
+| `mock1.js` | 65 of 65 | 3 | 0 | `verification/mock1.md` |
+| `mock2.js` | 65 of 65 | 11 | 0 | `verification/mock2.md` |
+| `extras.js` and the glossary | 335 of 335 | 32 (11 model answers, 9 glossary terms, 9 drill items, 3 cues) | n/a | `verification/extras.md` |
 
-Doubts the reviewers flagged and couldn't settle:
-- **Organization conformance packs (m2-046):** whether they deploy automatically to accounts that join later.
-- **Local Zone GPUs (m2-064):** which Local Zones offer GPU instances.
-- **Rekognition (m2-050):** whether it works directly on Kinesis Video Streams.
-- **Firehose (q10-039):** whether dynamic partitioning can only be enabled when the stream is created.
-- **S3 encryption change (q08-003):** whether S3 now has an in-place encryption change API.
-- **Shield Response Team plans:** whether the new Business Support+ plan qualifies (docs name Business/Enterprise).
-- **Closures (m1-026, m1-038):** whether Amazon AppFlow and Amazon Detective are still open to new customers.
+All 90 formerly knowledge-only questions are covered by this pass. No answer key changed; in m2-050 the keyed option was reworded (same index) because it relied on a feature closed to new customers, and q08-003 now keys the current S3 operation and names the older one in its explanation.
+
+What this pass was: one read by an AI agent per file, on one day. It was not a review by a human AWS expert, and most entries had no second, independent read.
+
+**Doubts from the first pass, now settled:**
+- Organization conformance packs do deploy to accounts that join later (m2-046).
+- The Los Angeles Local Zone lists GPU instances (m2-064).
+- Rekognition does work on Kinesis video streams, but that feature is closed to new customers (m2-050, rewritten).
+- Firehose dynamic partitioning can only be enabled when the stream is created (q10-039).
+- S3 has an in-place encryption change, `UpdateObjectEncryption` (q08-003).
+- Amazon AppFlow and Amazon Detective are on none of AWS's lifecycle lists, so both are open to new customers (m1-026, m1-038).
+
+**Still not confirmed** (details per question in the logs):
+- **Price comparisons.** AWS pricing pages load their figures by script, so statements such as "A costs less than B" were checked only as far as AWS says them in words (for example q03-001, q03-004, q11-002, q11-018, q11-042, m1-024, m2-051, card `d11c3`).
+- **Lead times.** That Direct Connect takes weeks and a VPN hours (q02-037, q02-043, q10-038, q11-044, q11-047) is not stated on any page fetched.
+- **AWS pages that disagree.** S3 Replication Time Control: the SLA says 99.9%, the FAQ's design target 99.99% (q09-033, m1-061 no longer depends on the number). Aurora Global Database recovery time: minutes in the user guide, under a minute on the product page.
+- **Shield Response Team plans.** The Shield docs still name Business or Enterprise Support and not Business Support+ (q04-045 says "Business-tier or higher").
+- **What a wrong option cannot do.** Explanations that say a distractor service lacks a feature were checked for plausibility against the service overview, not against a page that states the absence.
+- **Inferred, not quoted:** q01-029, q02-002, q05-016, q09-043, m2-014, m2-016, m2-022 and the items listed as such in the logs.
+- **Refs to Skill Builder steps.** `ref` ids were checked to exist and to fit the step titles in plan.js; the lessons behind them need a login and were never opened.
+- **Names the exam may still print.** The bank uses current names ("Aurora serverless", AWS Transform MGN, Security Hub CSPM) with the older one in an explanation; exam items written earlier may show only the old name.
+- **AWS Data Transfer Terminal** is available only to Enterprise Support customers at this time; drill item 48 and one cue name it with that caveat because Snowball Edge is closed.
 
 The wording of each affected question avoids depending on these, but verify before building on them.
 
@@ -139,3 +159,39 @@ Treat these as reported facts with the source type noted in git history; re-veri
 - **Support plans:**
   - Developer, Business and Enterprise On-Ramp end on 2027-01-01; Business Support+ replaces them.
   - Shield Response Team access requires a Business-level or Enterprise plan.
+
+### Added by the 2026-10-12 pass against fetched pages
+
+Read from AWS pages by the verification sessions; the source URL for each is in `docs/verification/`.
+
+- **Closed or ending:**
+  - Snowball support ends in all commercial Regions on 2026-12-31. AWS Data Transfer Terminal is available only to Enterprise Support customers at this time.
+  - Rekognition Streaming Video is closed to new customers (2026-04-30).
+  - Amazon AppFlow and Amazon Detective are on none of the lifecycle lists (maintenance, sunset, full shutdown in the AWS General Reference): both are open.
+- **Renames:**
+  - Aurora Serverless v2 → the docs now say "Aurora serverless".
+  - AWS Application Migration Service → AWS Transform MGN (the exam guide still prints the old name).
+  - Performance Insights pages are retitled Database Insights; the Performance Insights API is still documented.
+  - Kinesis Data Streams capacity modes are "On-demand Standard", "On-demand Advantage" and "Provisioned". EFS Max I/O is labelled "previous generation".
+  - AWS WAF calls a web ACL a "protection pack (web ACL)" and also attaches to App Runner, Verified Access, Amplify and Bedrock AgentCore Gateway.
+  - EventBridge scheduled rules are labelled legacy; AWS recommends EventBridge Scheduler.
+- **Compute:**
+  - The 15-minute Lambda limit is for standard functions. Lambda Managed Instances allow up to 90 minutes for asynchronous invocations, and Lambda MicroVMs and durable functions run longer.
+  - Elastic Beanstalk has a Standard mode (EC2) and a Cluster mode (EKS).
+- **Storage:**
+  - S3 `UpdateObjectEncryption` changes an object from SSE-S3 to SSE-KMS (or swaps the key, or applies Bucket Keys) in place, also through Batch Operations. A copy job is no longer the only way.
+  - The 30-day minimum age before a lifecycle transition to an IA class is no longer documented; the Transition API accepts 0 days. The 30-day minimum storage charge in IA remains.
+  - S3 Replication Time Control: the SLA commits to 99.9%; 99.99% within 15 minutes is the design target in the FAQ.
+  - SSE-C is also disabled on existing buckets in accounts that hold no SSE-C objects.
+  - The S3 static-hosting page recommends Amplify Hosting first, CloudFront second.
+- **Security, monitoring, networking:**
+  - CloudTrail Insights analyses management and data events.
+  - Trusted Advisor's full set of checks needs Business Support+, Enterprise Support or Unified Operations.
+  - KMS on-demand rotation works for imported key material.
+  - A CloudWatch Logs log group's class cannot be changed after creation.
+  - Firehose dynamic partitioning can only be enabled when the stream is created.
+  - Some Athena federated connectors created through the Glue Data Catalog no longer use a Lambda function (2026-04-21).
+  - Site-to-Site VPN tunnels carry 1.25 Gbps, or up to 5 Gbps with a Large Bandwidth Tunnel on Transit Gateway or Cloud WAN.
+- **Accounts and billing:**
+  - A Free plan account is upgraded to the Paid plan when it creates or joins an AWS Organization, which enabling an organization instance of IAM Identity Center does in a standalone account. The plan therefore keeps the account out of Organizations.
+  - AWS is rolling out a new sign-up ("Sign up for AWS (new)") to a limited number of customers: a Google, GitHub, Apple or Amazon login, projects and AWS Settings. IAM users with console access can't be created in it.

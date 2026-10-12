@@ -98,7 +98,7 @@ The e2e run covers: overview and day tiles, one step per card (Mark complete mov
 
 Done: daily quiz with 90% gate, spaced review, warm-up, wrong-answer notebook, weak-spot map, flip cards, "Which service?" drill, exam-wording cheat sheet, mock exam, slip guard, study-time log, Go + SQLite backend, overview + one-step-per-card day flow, key points per step, step practice, step notes.
 
-0. Web-verify the 90 questions listed under "Verification status" in docs/questions.md (rewritten after the search budget ran out), and the open doubts listed there.
+0. Content was re-checked against fetched AWS pages on 2026-10-12 (logs in `docs/verification/`). What is still unconfirmed is listed under "Verification status" in docs/questions.md and in docs/keypoints.md: price comparisons, lead times, a few inferred statements, and everything behind the Skill Builder login. A human AWS expert has never reviewed it.
 1. Clickable blueprint diagrams with explanations
 2. Day 10 build: host this site on S3 + CloudFront (OAC) with Terraform (static mode; no sync there)
 3. CI: node --test, go test, Playwright run, Trivy scan, SBOM, cosign signing
