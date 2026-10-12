@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAA-C03 Plan</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☁️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Blueprint drawings in the margins (decorative) -->
+<svg class="bp-art" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+  </defs>
+  <g class="ink">
+    <!-- Left: Region / VPC / 2 AZs -->
+    <rect x="34" y="110" width="292" height="470" rx="6" class="dash"/>
+    <text x="46" y="132">Region eu-west-1</text>
+    <rect x="54" y="160" width="252" height="400" rx="4"/>
+    <text x="66" y="182">VPC 10.0.0.0/16</text>
+    <circle cx="180" cy="160" r="13"/><text x="200" y="152" class="sm">IGW</text>
+    <rect x="68" y="200" width="108" height="342" rx="3" class="dash"/>
+    <rect x="186" y="200" width="108" height="342" rx="3" class="dash"/>
+    <text x="78" y="220" class="sm">AZ a</text><text x="196" y="220" class="sm">AZ b</text>
+    <rect x="78" y="234" width="88" height="110" rx="2"/><text x="86" y="252" class="sm">public</text><text x="86" y="268" class="xs">10.0.1.0/24</text>
+    <rect x="196" y="234" width="88" height="110" rx="2"/><text x="204" y="252" class="sm">public</text><text x="204" y="268" class="xs">10.0.2.0/24</text>
+    <rect x="96" y="290" width="52" height="36" rx="2"/><text x="104" y="313" class="xs">NAT</text>
+    <rect x="78" y="364" width="88" height="160" rx="2"/><text x="86" y="382" class="sm">private</text><text x="86" y="398" class="xs">10.0.11.0/24</text>
+    <rect x="196" y="364" width="88" height="160" rx="2"/><text x="204" y="382" class="sm">private</text><text x="204" y="398" class="xs">10.0.12.0/24</text>
+    <rect x="98" y="420" width="48" height="34" rx="2"/><text x="108" y="442" class="xs">EC2</text>
+    <rect x="216" y="420" width="48" height="34" rx="2"/><text x="226" y="442" class="xs">EC2</text>
+    <path d="M122 420 V326" marker-end="url(#ar)"/>
+    <path d="M68 610 H294 M68 602 V618 M294 602 V618"/><text x="148" y="632" class="sm">2 × AZ</text>
+    <!-- Right: users → ALB → ASG → RDS -->
+    <circle cx="1420" cy="120" r="16"/><text x="1444" y="125" class="sm">users</text>
+    <path d="M1420 136 V206" marker-end="url(#ar)"/>
+    <rect x="1340" y="210" width="160" height="40" rx="3"/><text x="1364" y="236">Application LB</text>
+    <path d="M1380 250 L1350 318" marker-end="url(#ar)"/><path d="M1460 250 L1490 318" marker-end="url(#ar)"/>
+    <rect x="1290" y="300" width="260" height="110" rx="4" class="dash"/>
+    <text x="1300" y="400" class="sm">Auto Scaling group (min 2)</text>
+    <rect x="1312" y="322" width="76" height="46" rx="2"/><text x="1336" y="350" class="sm">EC2</text>
+    <rect x="1452" y="322" width="76" height="46" rx="2"/><text x="1476" y="350" class="sm">EC2</text>
+    <path d="M1420 410 V476" marker-end="url(#ar)"/>
+    <ellipse cx="1380" cy="492" rx="34" ry="9"/><path d="M1346 492 V538 A34 9 0 0 0 1414 538 V492"/>
+    <text x="1356" y="524" class="sm">RDS</text>
+    <ellipse cx="1488" cy="492" rx="34" ry="9" class="dash"/><path d="M1454 492 V538 A34 9 0 0 0 1522 538 V492" class="dash"/>
+    <text x="1460" y="524" class="xs">standby</text>
+    <path d="M1414 515 H1452" class="dash"/><text x="1404" y="570" class="xs">Multi-AZ, synchronous</text>
+    <!-- Right lower: S3 + CloudFront -->
+    <rect x="1330" y="690" width="70" height="56" rx="3"/><text x="1352" y="724" class="sm">S3</text>
+    <circle cx="1490" cy="718" r="30"/><text x="1462" y="770" class="xs">CloudFront</text>
+    <path d="M1460 718 H1404" marker-end="url(#ar)"/><text x="1416" y="708" class="xs">OAC</text>
+    <!-- Left lower: SQS decoupling -->
+    <rect x="60" y="760" width="64" height="40" rx="3"/><text x="72" y="785" class="xs">producer</text>
+    <path d="M124 780 H160" marker-end="url(#ar)"/>
+    <rect x="164" y="766" width="70" height="28" rx="2"/><path d="M181 766 V794 M198 766 V794 M215 766 V794"/><text x="180" y="814" class="xs">SQS</text>
+    <path d="M234 780 H268" marker-end="url(#ar)"/>
+    <rect x="272" y="760" width="56" height="40" rx="3"/><text x="280" y="785" class="xs">Lambda</text>
+  </g>
+</svg>
+
+<div class="wrap">
+
+<header class="tb">
+  <div class="tb-title">
+    <span class="tb-k">Project</span>
+    <h1>AWS Solutions Architect – Associate</h1>
+    <span class="tb-sub">SAA-C03 in 14 days</span>
+  </div>
+  <div class="tb-cell"><span class="tb-k">Sheet</span><b id="tb-sheet"></b></div>
+  <div class="tb-cell"><span class="tb-k">Exam</span><b id="tb-exam"></b></div>
+  <div class="tb-cell"><span class="tb-k">Done</span><b id="tb-pct"></b></div>
+  <div class="tb-tools">
+    <button id="b-fx" class="ghost" title="Visual effects"></button>
+    <button id="b-snd" class="ghost" title="Sounds"></button>
+    <button id="b-set" class="ghost">⚙ Settings</button>
+  </div>
+</header>
+
+<div id="status" class="status"></div>
+
+<div class="stickybar">
+  <div class="bar"><div id="bar"></div></div>
+  <div class="row">
+    <span class="pct" id="pct"></span>
+    <button id="hide" class="ghost">Hide done</button>
+    <button id="exp" class="ghost">Expand all</button>
+    <button id="col" class="ghost">Collapse all</button>
+  </div>
+</div>
+
+<nav id="links" class="links" aria-label="Quick links"></nav>
+
+<section id="next" class="next" aria-live="polite"></section>
+
+<details class="panel" id="places">
+  <summary>🗺 Where things happen: 4 separate places</summary>
+  <p class="p-intro">AWS splits learning, the actual cloud, and exam booking into different sites with different logins. Every step says which one it uses.</p>
+  <div class="grid">
+    <div class="place">
+      <h3>① Skill Builder</h3>
+      <span class="url">skillbuilder.aws</span>
+      <ul>
+        <li>The learning site you already use (login: AWS Builder ID).</li>
+        <li>Essentials videos, Cloud Quest, Exam Prep Plan.</li>
+        <li>Free. One month of subscription in week 2.</li>
+        <li>It is <b>not</b> an AWS account — you can't build anything here.</li>
+      </ul>
+    </div>
+    <div class="place">
+      <h3>② Cloud Quest lab sandbox</h3>
+      <span class="url">opened from inside Cloud Quest</span>
+      <ul>
+        <li>Each assignment's lab opens a <b>temporary AWS account</b> that AWS gives you.</li>
+        <li>Real AWS console, wiped after the lab.</li>
+        <li>Free. No card, no setup.</li>
+      </ul>
+    </div>
+    <div class="place">
+      <h3>③ Your own AWS account</h3>
+      <span class="url">console.aws.amazon.com</span>
+      <ul>
+        <li>A real, permanent cloud account you create on Day 1.</li>
+        <li>Needs a card. Free plan gives credits, so labs should cost $0.</li>
+        <li>Used for every <span class="tag t-build">Build</span> step.</li>
+      </ul>
+    </div>
+    <div class="place">
+      <h3>④ Certification account</h3>
+      <span class="url">aws.training → Certification</span>
+      <ul>
+        <li>Only for booking and managing the exam.</li>
+        <li>Booking hands you over to Pearson VUE (the exam provider).</li>
+        <li>Online from home or at a test centre.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="rules"><b>Rules:</b> watch Essentials at 1.5–2×, then play the matching Cloud Quest assignments. Do each DIY challenge without opening the solution. Labs beat videos — if short on time, cut video, never labs. In ③ your own account, delete what you built every day. For every wrong practice answer, write why each wrong option is wrong. Dotted-underlined terms show a definition on hover.</p>
+</details>
+
+<details class="panel" id="scores">
+  <summary>📊 Scores <span id="score-sum" class="muted"></span></summary>
+  <div class="scores-grid">
+    <label><span>Official Practice Question Set — Day 7</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs7"> / 20</span></label>
+    <label><span>Domain 1 bonus questions — Secure</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b1"> %</span></label>
+    <label><span>Domain 2 bonus questions — Resilient</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b2"> %</span></label>
+    <label><span>Domain 3 bonus questions — High-performing</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b3"> %</span></label>
+    <label><span>Domain 4 bonus questions — Cost</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b4"> %</span></label>
+    <label><span>Official Practice Exam — Day 11</span><span class="in"><input type="number" min="100" max="1000" inputmode="numeric" data-score="pe"> / 1000</span></label>
+    <label><span>Question Set retake — Day 13</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs13"> / 20</span></label>
+  </div>
+  <div id="dom-bars" class="dom-bars"></div>
+  <div class="verdict" data-verdict></div>
+</details>
+
+<div id="plan"></div>
+
+<p class="foot">Resource names follow the published outlines of AWS Cloud Practitioner Essentials (13-module version), AWS Cloud Quest: Cloud Practitioner and the Exam Prep Enhanced Course (SAA-C03); a few Essentials module titles may be worded slightly differently in your view. Cloud Quest unlocks assignments in its own order — if one is locked, play the next unlocked one and come back. Progress is saved in this browser; export a backup in ⚙ Settings now and then.</p>
+</div>
+
+<!-- Focus timer -->
+<div id="timer" class="timer">
+  <button class="tm-min" data-tm="min" title="Minimise">–</button>
+  <div class="tm-mode"></div>
+  <div class="tm-time"></div>
+  <div class="tm-btns">
+    <button data-tm="toggle" class="primary"></button>
+    <button data-tm="reset" title="Reset">↺</button>
+    <button data-tm="switch"></button>
+  </div>
+</div>
+
+<!-- Cleanup check -->
+<dialog id="cleanup">
+  <form method="dialog">
+    <h2>🧹 Cleanup check <span id="cl-day" class="muted"></span></h2>
+    <p class="muted">Before you stop for the day — in ③ your AWS account, Region eu-west-1, confirm:</p>
+    <ul id="cl-list" class="cl"></ul>
+    <p id="cl-ok" class="cl-ok" hidden>All clean ✓ — nothing left burning credits.</p>
+    <div class="row end">
+      <a class="btn" id="cl-open" target="_blank" rel="noopener">Open AWS ↗</a>
+      <button value="close" class="primary">Done</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Settings -->
+<dialog id="settings">
+  <form method="dialog">
+    <h2>⚙ Settings</h2>
+    <label class="field">Day 1 date <input type="date" id="s-start" required></label>
+    <label class="field">AWS access portal URL
+      <input type="url" id="s-portal" placeholder="https://d-xxxxxxxxxx.awsapps.com/start">
+      <small>IAM Identity Center → Dashboard (Day 1). "Open" buttons for ③ your account will use it.</small>
+    </label>
+    <label class="chk"><input type="checkbox" id="s-fx"> Visual effects</label>
+    <label class="chk"><input type="checkbox" id="s-snd"> Sounds</label>
+    <div class="row">
+      <button type="button" id="s-export">Export progress</button>
+      <button type="button" id="s-import">Import…</button>
+      <input type="file" id="s-file" accept="application/json,.json" hidden>
+      <button type="button" id="s-reset" class="danger">Reset progress</button>
+    </div>
+    <small class="muted">Progress lives in this browser for this address (e.g. localhost:8080). Changing the port or browser starts empty — import a backup there.</small>
+    <div class="row end">
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button value="save" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="plan.js"></script>
+<script src="fx.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

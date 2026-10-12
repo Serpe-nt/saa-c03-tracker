@@ -1,0 +1,10 @@
+# progress exports from ⚙ Settings → Export
+saa-plan-progress-*.json
+
+# Terraform (Day 8+ builds, if added here)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+.DS_Store

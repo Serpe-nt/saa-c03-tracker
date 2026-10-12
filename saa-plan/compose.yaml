@@ -1,0 +1,14 @@
+services:
+  saa-plan:
+    build: .
+    image: saa-plan:latest
+    container_name: saa-plan
+    ports:
+      - "127.0.0.1:8080:8080"   # only reachable from this PC; use "8080:8080" to open it to your LAN
+    restart: unless-stopped     # comes back after reboot as long as the Docker service starts at boot
+    read_only: true
+    tmpfs:
+      - /tmp                    # nginx-unprivileged keeps its pid and temp files here
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
