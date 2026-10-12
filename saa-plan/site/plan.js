@@ -582,5 +582,21 @@ window.GLOSSARY = {
   "Credly": "Site hosting AWS digital badges you can share on LinkedIn.",
   "Global Accelerator": "Routes users over the AWS backbone via 2 static anycast IPs; for non-HTTP or fast failover.",
   "RDS Proxy": "Connection pool in front of RDS/Aurora; helps Lambda-heavy apps and speeds failover.",
-  "Cognito": "User sign-up/sign-in for apps (user pools) and temporary AWS credentials for them (identity pools)."
+  "Cognito": "User sign-up/sign-in for apps (user pools) and temporary AWS credentials for them (identity pools).",
+  "Step Functions": "Coordinates the steps of a distributed application or of several microservices as a visual workflow.",
+  "ECR": "Elastic Container Registry — managed registry that stores, manages and deploys container images; integrated with ECS.",
+  "Firehose": "Amazon Data Firehose — loads streaming data into stores such as S3, Redshift and OpenSearch Service in near real time.",
+  "Lake Formation": "Service for setting up a secure data lake.",
+  "data lake": "A centralized, curated and secured repository that stores all your data, both in its original form and prepared for analysis.",
+  "Direct Connect": "A dedicated network connection from your premises to AWS: private, and more consistent than a connection over the internet.",
+  "Site-to-Site VPN": "Encrypted tunnels between your network and your VPCs or transit gateways.",
+  "Client VPN": "Connects remote users to AWS or on-premises resources through a VPN software client.",
+  "Storage Gateway": "Hybrid storage: on-premises applications use AWS cloud storage through NFS, SMB or iSCSI.",
+  "X-Ray": "Follows requests as they travel through a distributed application, to find the cause of errors and slow responses.",
+  "AWS Organizations": "Central management of many AWS accounts: group them, apply policies to the groups, pay with one bill.",
+  "Control Tower": "Sets up and governs a multi-account AWS environment (a landing zone), built on AWS Organizations.",
+  "Outposts": "Fully managed service that extends AWS infrastructure, services and APIs to your own premises.",
+  "ACM": "AWS Certificate Manager — provisions, manages and deploys SSL/TLS certificates for use with AWS services.",
+  "OAC": "Origin access control — lets CloudFront read a private S3 bucket while the bucket stays non-public.",
+  "dead-letter queue": "A queue that receives the messages a source queue could not get processed, so you can inspect them."
 };
