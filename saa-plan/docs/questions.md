@@ -227,6 +227,7 @@ Read from AWS pages by the second-pass sessions; sources are in the `pass2-*.md`
   - S3 Block Public Access also has an organization level.
   - The S3 static-hosting page no longer prints "does not support server-side scripting".
 - **Security and identity:**
+  - CloudTrail Lake (event data stores) is reported as closed to new customers since 2026-03-31 (one session's reading of the General Reference lifecycle list; no question, drill item or key point uses it).
   - AWS managed KMS keys are a legacy key type, no longer created for new AWS services as of 2021.
   - ACM renews a certificate automatically only when it is DNS-validated; email-validated ones get notices (re-read).
   - Trusted Advisor can display Security Hub CSPM controls.

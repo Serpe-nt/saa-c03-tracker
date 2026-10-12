@@ -475,7 +475,7 @@ window.QUIZ.push(
     "Stop the instance from the EC2 console until the work is done.",
     "Put the instance into the Standby state in the group."],
  a:[3],
- x:["Scale-in protection only stops the group from choosing the instance during scale-in; it keeps receiving traffic and can still be replaced if it fails health checks.",
+ x:["Scale-in protection only stops the group from choosing the instance during scale-in; it does not protect the instance from being replaced when it fails health checks.",
     "Suspending Launch stops new instances from starting; the instance still receives traffic and can be marked unhealthy and terminated.",
     "Auto Scaling treats any instance that is not in the running state as unhealthy, so a stopped instance is terminated and replaced.",
     "Standby keeps the instance in the group but deregisters it from the load balancer and stops health checks against it; it can be moved back to InService when the work is done."],

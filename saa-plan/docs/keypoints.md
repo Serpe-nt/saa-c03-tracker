@@ -56,23 +56,28 @@ node tools/links.mjs     # needs network; a redirect counts as broken (docs.aws.
 
 ## Verification status (as of 2026-10-12)
 
-Written on 2026-10-12 by five writer agents, one group of days each, on the owner's PC where `aws.amazon.com` and `docs.aws.amazon.com` can be fetched directly. Each writer checked its statements against fetched AWS pages (roughly 110–190 pages per writer) and cited only pages it fetched. Afterwards: the data tests pass, every cited link answers a plain 200, and Days 1–2 were read through in full. Days 3–14 had no second, independent read. The entries for `d1u1`–`d1u4` and the rewritten `d4s2` were added the same day with the Free-plan change, each sentence taken from the IAM and CLI pages they cite.
+**Written** on 2026-10-12 by five writer agents, one group of days each, on the owner's PC where `aws.amazon.com` and `docs.aws.amazon.com` can be fetched directly. Each writer checked its statements against fetched AWS pages and cited only pages it fetched. The entries for `d1u1`–`d1u4` and the rewritten `d4s2` were added the same day with the Free-plan change.
 
-Sentences the writers marked as inferred from the docs rather than stated by them. They are believed correct; reword or re-check before building on one:
+**Second read** the same day by two fresh sessions that had not written the entries. Each sentence in `k` and `trap` was looked up on a fetched page (redirects not followed) and counted as confirmed only when it was found in the page text; a sentence that could not be found was reworded to what the page says, or removed. Links were checked to be pages that support the entry.
 
-- **Day 1:** credits after the Free plan upgrade (`d1a2`, `d1c1` state only the upgrade, because the Identity Center page says credits expire immediately and the Billing page says remaining credits apply); "standard" Lambda invocations cap at 15 minutes while Managed Instances and MicroVMs run longer (`d1w3`); EC2 needed for kernel modules, host agents or GPUs (`d1w3`); edge locations don't satisfy residency and host no EC2 or RDS (`d1b2`, `d1w4`, `d1c6`); a certificate uploaded as an object does nothing (`d1p1`); custom AMI when bootstrapping is too slow (`d1p3`).
-- **Day 2:** 1024–65535 covers every client's ephemeral ports (`d2b4`); "low cost" means Site-to-Site VPN (`d2w1`); the "VPC and more" wizard's exact labels (`d2b1`).
-- **Day 3:** a DELETE replicates to the standby and every replica (`d3p1`); lifecycle transitions only move down the waterfall (`d3b2`).
-- **Day 4:** an Identity Center profile shows an assumed-role ARN (`d4s3`); `assume-role` is denied until the trust policy allows it (`d4b2`); AWS patches the OS on RDS and Lambda, simplified (`d4w1`).
-- **Day 5:** check auto-assign public IPv4 on the wizard's public subnets (`d5b1`); a termination lifecycle hook only delays the instance already picked (`d5p1`).
-- **Day 6:** basic cost drivers, from a whitepaper AWS now marks historical (`d6w3`); task nodes as the place for Spot (`d6w1`); exam domains mirror four of the six pillars (`d6w5`); 730 hours per month is arithmetic (`d6b4`).
-- **Day 7:** a scaled 720 is not 72% of questions (`d7e3`, `d7e4`).
-- **Day 8:** keep Terraform state out of Git (`d8b1`, standard practice rather than an AWS statement); Flow Logs hold no packet contents (`d8e3`); revoking sessions rather than shortening them (`d8e2`).
-- **Day 9:** the Terraform wording for the Lambda permission (`d9b3`); more capacity in front of a saturated database raises the pressure (`d9e2`); S3 Replication Time Control percentage left out because the user guide says 99.9% and the product page 99.99% (`d9e3`).
-- **Day 10:** Transfer Acceleration doesn't help inside the bucket's Region (`d10e2`); "storage optimized for local disk I/O" as a descriptor (`d10e3`).
-- **Day 11:** a cache costs less than more read replicas (`d11e4`); Direct Connect "can reduce" network cost (`d11e5`); Graviton price performance is product-page wording (`d11e3`).
+| Days | Entries read | Changed | Log in `docs/verification/` |
+|---|---|---|---|
+| 1–7 | 91 of 91 | 69 entries: 87 sentences changed, added or removed; 39 links added, swapped or retitled | `pass2-keys-d01-d07.md` |
+| 8–14 | 60 of 60 | 16 sentences changed, 2 links | `pass2-keys-d08-d14.md` |
 
-Left out because no AWS page confirmed them: how long Direct Connect takes to provision, EFS One Zone being cheaper than Regional, whether a KMS key is billed while pending deletion.
+The sentences the writers had marked as inferred were each sourced, reworded or removed; the logs say which, per day. After the second read the data tests pass and every cited link answers a plain 200.
+
+What this was: two reads by AI agents on one day, not a review by a human AWS expert.
+
+**Still uncertain** (details and sources in the logs):
+- **Never tried in a real account:** the IAM admin user block (`d1u1`–`d1u4`), `aws login --profile lab` (`d4s2`), `aws sts assume-role` from that profile (`d4b3`), and what the "VPC and more" wizard builds (`d2b1`, `d5b1`). Console labels were checked in the docs, not in a console.
+- **Credits after a Free plan upgrade** (`d1a2`, `d1c1`): the Identity Center page says credits expire immediately, the Billing page says remaining credits apply to future bills. Neither entry states either.
+- **Exam-framing sentences** (which option is the usual distractor, what a phrase in a stem "means") have no AWS source by nature; the facts inside them were checked.
+- **Conclusions from two documented facts:** `d1w3` k5 (kernel modules or OS-level agents point to EC2), `d1w1` k3, `d1w4` k5 (arithmetic), `d5b3` k3 (design advice that q05-009 keys on), `d9b2` k1, `d10e5` trap ("never an S3 bucket" is the complement of the endpoint list), `d11p2` k1.
+- **Historical or indirect sources:** the basic cost drivers in `d6w3` and `d6p1` come from a whitepaper AWS marks as historical; `d2c3` k2 and `d2p2` k4 rest on a 2024 whitepaper; the RPO and RTO ranges in `d9e3` are in a figure, not in text; `d8e2` k1 and `d8e3` k2 use policy examples that are no longer on a docs page; `d10b2` k3 ("Init Duration in the REPORT log line") was not found.
+- **Left alone by the owner's decision:** price comparisons (`d11e2` trap, `d11e3` k1, `d11e5` trap among them), provisioning lead times, figures on which AWS's own pages disagree, and anything about what a Skill Builder lesson or lab contains.
+
+Left out because no AWS page confirmed them: how long Direct Connect takes to provision, and EFS One Zone being cheaper than Regional. (A KMS key scheduled for deletion is not charged: the KMS pricing page says so.)
 
 ## Found in existing content while checking
 
