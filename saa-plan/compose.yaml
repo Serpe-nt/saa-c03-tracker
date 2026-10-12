@@ -5,10 +5,17 @@ services:
     container_name: saa-plan
     ports:
       - "127.0.0.1:8080:8080"   # only reachable from this PC; use "8080:8080" to open it to your LAN
+    environment:
+      # Host names the server answers to (blocks DNS-rebinding attacks from other websites).
+      # Opening it to your LAN? Add this PC's LAN IP or hostname, e.g. "localhost,127.0.0.1,::1,192.168.1.20".
+      ALLOWED_HOSTS: "localhost,127.0.0.1,::1"
+    volumes:
+      - saa-data:/data          # SQLite database with your progress; survives rebuilds and reboots
     restart: unless-stopped     # comes back after reboot as long as the Docker service starts at boot
     read_only: true
-    tmpfs:
-      - /tmp                    # nginx-unprivileged keeps its pid and temp files here
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
+
+volumes:
+  saa-data:

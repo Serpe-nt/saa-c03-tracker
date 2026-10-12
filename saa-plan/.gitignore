@@ -8,3 +8,6 @@ saa-plan-progress-*.json
 *.tfvars
 
 .DS_Store
+
+# local server database (go run in server/)
+server/data/

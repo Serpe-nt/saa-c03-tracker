@@ -73,7 +73,7 @@
     <span class="tb-sub">SAA-C03 in 14 days</span>
   </div>
   <div class="tb-cell"><span class="tb-k">Sheet</span><b id="tb-sheet"></b></div>
-  <div class="tb-cell"><span class="tb-k">Exam</span><b id="tb-exam"></b></div>
+  <div class="tb-cell"><span class="tb-k" id="tb-exam-k">Exam</span><b id="tb-exam"></b></div>
   <div class="tb-cell"><span class="tb-k">Done</span><b id="tb-pct"></b></div>
   <div class="tb-tools">
     <button id="b-fx" class="ghost" title="Visual effects"></button>
@@ -83,6 +83,7 @@
 </header>
 
 <div id="status" class="status"></div>
+<div id="slip" class="slip" role="status" hidden></div>
 
 <div class="stickybar">
   <div class="bar"><div id="bar"></div></div>
@@ -156,11 +157,18 @@
   </div>
   <div id="dom-bars" class="dom-bars"></div>
   <div class="verdict" data-verdict></div>
+  <div id="time-log" class="time-log"></div>
+</details>
+
+<details class="panel" id="practice">
+  <summary>🎯 Practice <span id="pr-sum" class="muted"></span></summary>
+  <p class="p-intro">Each day ends with a 30-question quiz you pass at 90%. Around it: reviews of what you missed, a quick service drill, your wrong-answer notebook, a weak-spot map, and a full mock exam once Days 1–13 are done.</p>
+  <div class="grid" id="pr-grid"></div>
 </details>
 
 <div id="plan"></div>
 
-<p class="foot">Resource names follow the published outlines of AWS Cloud Practitioner Essentials (13-module version), AWS Cloud Quest: Cloud Practitioner and the Exam Prep Enhanced Course (SAA-C03); a few Essentials module titles may be worded slightly differently in your view. Cloud Quest unlocks assignments in its own order — if one is locked, play the next unlocked one and come back. Progress is saved in this browser; export a backup in ⚙ Settings now and then.</p>
+<p class="foot">Resource names follow the published outlines of AWS Cloud Practitioner Essentials (13-module version), AWS Cloud Quest: Cloud Practitioner and the Exam Prep Enhanced Course (SAA-C03); a few Essentials module titles may be worded slightly differently in your view. Cloud Quest unlocks assignments in its own order — if one is locked, play the next unlocked one and come back. Quiz and mock questions are original practice questions written in the exam's style, not official AWS questions. Progress is saved on the server when it runs from Docker, and in this browser either way; export a backup in ⚙ Settings now and then.</p>
 </div>
 
 <!-- Focus timer -->
@@ -189,11 +197,36 @@
   </form>
 </dialog>
 
+<!-- Quiz, review, warm-up, mock exam and drill all run in this dialog -->
+<dialog id="quiz" class="qz" aria-labelledby="qz-title">
+  <div class="qz-h">
+    <h2 id="qz-title"></h2>
+    <div class="qz-meta" id="qz-meta"></div>
+    <button type="button" class="qz-x" data-qz="close" aria-label="Close (your progress is kept)" title="Close (your progress is kept)">✕</button>
+  </div>
+  <div class="qz-bar"><div id="qz-bar"></div></div>
+  <div id="qz-body" class="qz-body"></div>
+</dialog>
+
+<!-- Notebook, weak spots, exam wording -->
+<dialog id="sheet" class="qz" aria-labelledby="sh-title">
+  <div class="qz-h">
+    <h2 id="sh-title"></h2>
+    <button type="button" class="qz-x" data-sh-close aria-label="Close">✕</button>
+  </div>
+  <div id="sh-body" class="qz-body"></div>
+</dialog>
+
 <!-- Settings -->
 <dialog id="settings">
   <form method="dialog">
     <h2>⚙ Settings</h2>
     <label class="field">Day 1 date <input type="date" id="s-start" required></label>
+    <label class="field">Booked exam date
+      <input type="date" id="s-exam">
+      <small>After you book on Day 11. The plan warns you if it slips past this date.</small>
+    </label>
+    <div class="field" id="s-slips" hidden><span id="s-slips-t" class="muted"></span> <button type="button" id="s-unslip">Undo schedule moves</button></div>
     <label class="field">AWS access portal URL
       <input type="url" id="s-portal" placeholder="https://d-xxxxxxxxxx.awsapps.com/start">
       <small>IAM Identity Center → Dashboard (Day 1). "Open" buttons for ③ your account will use it.</small>
@@ -206,7 +239,7 @@
       <input type="file" id="s-file" accept="application/json,.json" hidden>
       <button type="button" id="s-reset" class="danger">Reset progress</button>
     </div>
-    <small class="muted">Progress lives in this browser for this address (e.g. localhost:8080). Changing the port or browser starts empty — import a backup there.</small>
+    <small class="muted" id="s-sync"></small>
     <div class="row end">
       <button value="cancel" formnovalidate>Cancel</button>
       <button value="save" class="primary">Save</button>
@@ -215,6 +248,21 @@
 </dialog>
 
 <script src="plan.js"></script>
+<script src="quiz/meta.js"></script>
+<script src="quiz/d01.js"></script>
+<script src="quiz/d02.js"></script>
+<script src="quiz/d03.js"></script>
+<script src="quiz/d04.js"></script>
+<script src="quiz/d05.js"></script>
+<script src="quiz/d06.js"></script>
+<script src="quiz/d08.js"></script>
+<script src="quiz/d09.js"></script>
+<script src="quiz/d10.js"></script>
+<script src="quiz/d11.js"></script>
+<script src="quiz/mock1.js"></script>
+<script src="quiz/mock2.js"></script>
+<script src="extras.js"></script>
+<script src="qcore.js"></script>
 <script src="fx.js"></script>
 <script src="app.js"></script>
 </body>
