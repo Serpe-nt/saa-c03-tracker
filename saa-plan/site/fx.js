@@ -148,7 +148,8 @@ window.FX = (() => {
       tone(1046.5, 0.55, 1.3, { vol: 0.06 });
     },
     timer: () => { tone(784, 0, 0.35, { vol: 0.09 }); tone(1046.5, 0.25, 0.5, { vol: 0.08 }); tone(784, 0.8, 0.35, { vol: 0.09 }); tone(1046.5, 1.05, 0.5, { vol: 0.08 }); },
-    clean: () => { tone(660, 0, 0.15, { vol: 0.06 }); tone(990, 0.08, 0.25, { vol: 0.06 }); }
+    clean: () => { tone(660, 0, 0.15, { vol: 0.06 }); tone(990, 0.08, 0.25, { vol: 0.06 }); },
+    miss: () => tone(330, 0, 0.22, { type: "triangle", vol: 0.06, to: 220 })
   };
   const sound = n => { if (soundOn && SND[n]) SND[n](); };
 

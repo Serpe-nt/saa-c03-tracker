@@ -1,5 +1,6 @@
 // Plan data. Edit freely: ids must stay unique (they key your saved ticks).
 // Group fields: t = type, label, where, link (key in LINKS or "own"), min = estimated minutes.
+// Optional day fields: tools = extra buttons ("notebook", "weak"), decision, notesHint.
 
 window.LINKS = {
   sb:      { label: "Skill Builder",      url: "https://skillbuilder.aws/" },
@@ -38,7 +39,7 @@ window.PLAN = [
   ["d1c4","<b>AWS accounts</b> → tick your account → <b>Assign users or groups</b> → your user → AdministratorAccess."],
   ["d1c5","Copy the <b>AWS access portal URL</b> (Identity Center → Dashboard) into ⚙ Settings here. Sign out of root; from now on log in only through the portal.","Root is for emergencies only. The \"Open\" buttons for ③ will then take you to the portal."]]},
  {t:"setup", label:"Setup: protect your wallet", where:"console.aws.amazon.com → search bar → \"Budgets\"", link:"console", min:10, items:[
-  ["d1d1","<b>Create budget</b> → <b>Use a template</b> → <b>Zero spend budget</b> → your email.","Emails you the moment anything costs money beyond credits."],
+  ["d1d1","<b>Create budget</b> → <b>Use a template</b> → <b>Zero spend budget</b> → your email.","Emails you once anything costs money beyond credits. Budget data refreshes a few times a day, so alerts can lag by hours."],
   ["d1d2","Search <b>Billing and Cost Management</b> → <b>Credits</b>: note your credit balance and expiry.","Check this page every few days."]]},
  {t:"watch", label:"Watch", where:SB, link:"ess", min:140, items:[
   ["d1w1","<b>Module 1: Introduction to the Cloud</b>"],
@@ -268,7 +269,7 @@ window.PLAN = [
   ["d11c3","NAT gateway cost vs VPC endpoints; inter-AZ and internet data transfer costs."]]}
 ]},
 
-{id:"d12", day:12, title:"Weak areas",
+{id:"d12", day:12, title:"Weak areas", tools:["notebook","weak"],
  goal:"Turn wrong answers into understanding.",
  notesHint:"For each wrong answer: why the right one is right, why each wrong one is wrong…",
  groups:[
@@ -279,7 +280,7 @@ window.PLAN = [
   ["d12e4","<b>AWS Certified Solutions Architect – Associate Bonus Questions (SAA-C03)</b> — finish any remaining."]]}
 ]},
 
-{id:"d13", day:13, title:"Final pass + logistics",
+{id:"d13", day:13, title:"Final pass + logistics", tools:["weak"],
  goal:"Consolidate. No new topics.",
  groups:[
  {t:"prep", label:"Final pass", where:EPP, link:"sb", min:240, items:[
@@ -291,7 +292,7 @@ window.PLAN = [
   ["d13l2","③ Your AWS account: delete everything still running; check Bills and Credits."]]}
 ]},
 
-{id:"d14", day:14, title:"Exam",
+{id:"d14", day:14, title:"Exam", tools:["notebook"],
  goal:"65 questions, 130 minutes, pass mark 720.",
  groups:[
  {t:"prep", label:"Exam day", min:200, items:[
