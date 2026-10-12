@@ -117,7 +117,7 @@ window.QUIZ.push(
  x:["Correct. Unattached volumes are billed for their full provisioned size whether used or not. Deleting them stops the charge, and DeleteOnTermination makes future data volumes go away with their instances.",
     "sc1 lowers the price per GB, but the company would still pay every month for volumes that hold nothing of value; deleting them removes the cost entirely.",
     "Correct. Data Lifecycle Manager creates snapshots on a schedule and automatically deletes those older than the retention rule, replacing manual snapshots that nobody cleans up.",
-    "The archive tier has a 90-day minimum and a restore fee, it still bills for snapshots the 14-day policy says are not needed, and it does nothing to stop new ones piling up.",
+    "The archive tier is meant for rarely accessed snapshots kept 90 days or longer; it still bills for snapshots the 14-day policy says are not needed, and it does nothing to stop new ones piling up.",
     "Attaching useless volumes to an instance keeps paying for them and adds instance and backup costs, the opposite of the goal."],
  ref:["d11e2","d3c1"], doc:"ebs"},
 
@@ -130,7 +130,7 @@ window.QUIZ.push(
  a:[2],
  x:["Old files would no longer be at the same mount path and would need a restore taking minutes to hours, which breaks how researchers reopen them.",
     "A One Zone file system keeps data in a single AZ, which fails the requirement to survive the loss of an AZ.",
-    "Correct. Lifecycle management moves files not accessed for 14 days to the much cheaper Infrequent Access storage class while they stay in the same file system and path, and can move a file back to Standard when it is read again.",
+    "Correct. Lifecycle management moves files not accessed for 14 days to the lower-cost Infrequent Access storage class while they stay in the same file system and path, and can move a file back to Standard when it is read again.",
     "Scratch file systems are for temporary high-performance processing; they do not replicate data and are not meant for durable long-term storage, and the migration adds work."],
  ref:["d11e2","d3c1","d3p3"], doc:"efs"},
 
@@ -157,7 +157,7 @@ window.QUIZ.push(
  x:["Correct. DataSync handles NFS-to-S3 transfers end to end: it copies only new and changed files, verifies data integrity, retries failures, and runs on a schedule, and the spare 10 Gbps capacity can carry the initial 80 TB within days.",
     "File Gateway is built for ongoing hybrid file access, not migration; the team would have to script the copies and change detection, size a local cache for the upload backlog, and build its own verification.",
     "This can work, but the team must build and maintain the scheduling, retries, monitoring, and integrity checks that DataSync provides as a managed service.",
-    "Transfer Family is for partners exchanging files over SFTP or FTPS; it bills per endpoint hour, and the lab would still need to script uploads, change detection, and verification."],
+    "Transfer Family is for partners exchanging files over SFTP or FTPS; it bills for each enabled protocol endpoint and for the data transferred, and the lab would still need to script uploads, change detection, and verification."],
  ref:["d11e2","d6w4"], doc:"datasync"},
 
 {id:"q11-013", day:11, dom:4, tags:["EC2 purchase options"],
@@ -171,7 +171,7 @@ window.QUIZ.push(
     "Convertible RIs can be exchanged among EC2 instance configurations, but they never apply to Fargate or Lambda usage, which is where most of the spend is heading.",
     "Correct. Compute Savings Plans apply automatically to EC2 usage in any family, size, Region, or OS, and to Fargate and Lambda, so the commitment keeps earning a discount through the planned changes.",
     "Standard RIs are locked to specific instance attributes and cover only EC2, so they would go unused after the move to Graviton, Fargate, and Lambda."],
- ref:["d11e3","d11c2","d1c7"], doc:"ec2-pricing"},
+ ref:["d11e3","d11c2","d1c7"], doc:"savings-plans"},
 
 {id:"q11-014", day:11, dom:4, tags:["EC2 purchase options"],
  q:"A gaming company runs its matchmaking fleet on r7i instances in one Region 24/7, and the service must not be interrupted. The fleet will stay on the r7i instance family in that Region for at least 3 years, but the team expects to change instance sizes as player numbers grow and to move some instances from Windows to Linux. Which purchase option gives the LARGEST discount while allowing these changes?",
@@ -184,7 +184,7 @@ window.QUIZ.push(
     "Correct. An EC2 Instance Savings Plan gives the deepest Savings Plans discount in exchange for committing to one instance family in one Region, and it still applies across sizes, operating systems, and tenancy within that family.",
     "Standard RIs are bought for a specific platform: Windows reservations would stop applying to instances moved to Linux, and Windows RIs don't get instance size flexibility.",
     "Spot Instances can be interrupted with a two-minute warning, which the always-on matchmaking service cannot tolerate."],
- ref:["d11e3","d11c2","d1c7"], doc:"ec2-pricing"},
+ ref:["d11e3","d11c2","d1c7"], doc:"savings-plans"},
 
 {id:"q11-015", day:11, dom:4, tags:["EC2 purchase options"],
  q:"A visual effects studio renders frames every night on about 500 instances. Each frame is an independent task that checkpoints its progress, and failed tasks are retried automatically; the full job must finish by morning, but its exact start time is flexible. The studio currently uses On-Demand c6i.4xlarge instances in a single AZ. Which approach is MOST cost-effective while keeping the risk of losing capacity low?",
@@ -225,7 +225,7 @@ window.QUIZ.push(
     "Cost Explorer rightsizing recommendations cover EC2 instances only, so the EBS volumes and Lambda functions would be left out.",
     "Manual dashboard reviews across 20 accounts are labor-intensive and produce no ready-made size recommendations.",
     "Budgets alert when spend or usage crosses a threshold; they don't analyze utilization or recommend smaller resources."],
- ref:["d11e3","d1p3"]},
+ ref:["d11e3","d1p3"], doc:"compute-optimizer"},
 
 {id:"q11-018", day:11, dom:4, tags:["EC2 instance types","Containers"],
  q:"A fintech startup runs Go and Java microservices in containers on Amazon ECS with an EC2 capacity provider of m6i instances. The services have no x86-specific dependencies, and the CI pipeline can already build multi-architecture images. The company wants to cut compute cost for the same performance with minimal application changes. Which solution is MOST cost-effective?",
@@ -263,7 +263,7 @@ window.QUIZ.push(
  x:["Correct. Fargate bills per second for the vCPU and memory a task uses, only while it runs, with no servers to manage, which fits long but sporadic container jobs.",
     "A Lambda invocation can run for at most 15 minutes (90 minutes for asynchronous invocations on Lambda Managed Instances), so a simulation that takes up to 3 hours cannot run there.",
     "The instance would be paid for during the many idle hours between runs, overlapping runs would have to wait, and the team would have to patch and manage it.",
-    "EKS adds an hourly control-plane charge and a node that is billed while idle, plus the cluster management the team wants to avoid."],
+    "EKS adds a per-cluster charge and a node that is billed while idle, plus the cluster management the team wants to avoid."],
  ref:["d11e3","d1c8","d1w3"], doc:"fargate"},
 
 {id:"q11-021", day:11, dom:4, tags:["Auto Scaling"],
@@ -384,7 +384,7 @@ window.QUIZ.push(
  x:["Capacity provisioned for the peak is billed every hour, so the long near-idle stretches would be paid for at spike levels.",
     "Auto scaling adjusts over minutes, so sudden spikes can throttle before capacity catches up, and reserved capacity is a long-term commitment the team cannot size without traffic history.",
     "Correct. On-demand mode bills per request, needs no capacity planning, and instantly accommodates up to double the table's previous peak (new tables start at thousands of requests per second), while idle periods cost nothing for throughput.",
-    "DAX caches reads only, so write spikes would still throttle, and the DAX nodes are billed every hour even while the game is idle."],
+    "DAX is a cache that offloads repeated reads, so write spikes would still throttle a table with low provisioned capacity, and the DAX nodes are billed every hour even while the game is idle."],
  ref:["d11e4","d3b3","d3p2"], doc:"dynamodb"},
 
 {id:"q11-030", day:11, dom:4, tags:["DynamoDB"],
@@ -397,7 +397,7 @@ window.QUIZ.push(
  a:[1,2],
  x:["Standard-IA lowers the storage price but raises throughput prices, so it suits storage-dominated tables, not this throughput-dominated one.",
     "Correct. For steady, predictable traffic, provisioned capacity costs less per request than on-demand, and auto scaling follows the smooth daily curve to avoid throttling.",
-    "Correct. Reserved capacity gives an additional discount on provisioned throughput committed for 1 or 3 years, which fits a baseline that has been stable for 2 years.",
+    "Correct. Reserved capacity gives an additional discount on provisioned throughput committed for 1 year (3 years in some Regions), which fits a baseline that has been stable for 2 years.",
     "DAX caches reads, but this workload is write-heavy, so DAX would add node costs without reducing most of the throughput spend.",
     "Global tables replicate every write to another Region, adding replicated write and data transfer charges instead of reducing cost."],
  ref:["d11e4","d3p2"], doc:"dynamodb"},
@@ -477,7 +477,7 @@ window.QUIZ.push(
  x:["Replicas share the same cluster storage, so they do not reduce the write I/O being billed, and each one adds instance charges.",
     "With Aurora Standard storage, Aurora serverless (formerly Aurora Serverless v2) still bills every I/O request, and a steady heavy workload gains nothing from capacity scaling.",
     "More memory can reduce some read I/O, but writes must still go to storage and be billed, and the larger instance costs more.",
-    "Correct. I/O-Optimized has no per-request I/O charges in exchange for higher instance and storage prices, which lowers total cost when I/O is a large share of the Aurora bill (AWS suggests above about 25%)."],
+    "Correct. I/O-Optimized has no per-request I/O charges in exchange for higher instance and storage prices, which lowers total cost when I/O is a large share of the Aurora bill (AWS says 25% or more of Aurora spend)."],
  ref:["d11e4","d3w2"], doc:"aurora"},
 
 {id:"q11-037", day:11, dom:4, tags:["VPC endpoints & PrivateLink","VPC peering & Transit Gateway"],
@@ -493,7 +493,7 @@ window.QUIZ.push(
     "NAT gateways add hourly and per-GB processing charges in every VPC and send the traffic to the services' public endpoints, so access is no longer private.",
     "With private DNS turned off on the central endpoints, private hosted zones for the service names, associated with every VPC, let workloads keep the default DNS names while resolving to the central endpoints.",
     "Single-AZ endpoints only halve the hourly charge and make each VPC's private access depend on one AZ; centralizing saves far more."],
- ref:["d11e5","d2c3","d2c2"], doc:"vpc"},
+ ref:["d11e5","d2c3","d2c2"], doc:"endpoints"},
 
 {id:"q11-038", day:11, dom:4, tags:["VPC endpoints & PrivateLink","Containers"],
  q:"A company runs hundreds of Amazon ECS tasks on AWS Fargate in private subnets. The service scales out often, and every new task pulls a large container image from Amazon ECR in the same Region. All outbound traffic leaves through NAT gateways, and image pulls cause most of the NAT gateway data processing charges. Security policy requires the tasks to stay in private subnets. Which solution reduces cost the MOST?",
@@ -506,7 +506,7 @@ window.QUIZ.push(
     "This avoids cross-AZ traffic, but every gigabyte of image data still incurs NAT gateway data processing charges, and each extra NAT gateway adds hourly charges.",
     "Correct. ECR stores image layers in S3, so the free S3 gateway endpoint carries the bulk of the pull traffic, while the ECR endpoints carry the API and registry calls privately, keeping image pulls off the NAT gateways.",
     "ECR serves image layers from Amazon S3, so without an S3 endpoint the large layer downloads would still go through the NAT gateways."],
- ref:["d11e5","d2c3","d8b1"], doc:"vpc"},
+ ref:["d11e5","d2c3","d8b1"], doc:"endpoints"},
 
 {id:"q11-039", day:11, dom:4, tags:["Data transfer costs"],
  q:"A company's web servers and a self-managed message broker run on EC2 instances in the same VPC and the same AZ. The web servers connect to the broker by using the broker's Elastic IP address, and the monthly bill shows significant data transfer charges for this traffic. Which change will remove these data transfer charges with the LEAST effort?",
@@ -530,7 +530,7 @@ window.QUIZ.push(
  a:[0],
  x:["Correct. Data transfer between instances in the same AZ over private IPs is free, and the job can tolerate an AZ outage by rerunning, so a single AZ removes the inter-AZ charges (a cluster placement group also improves network performance).",
     "A spread placement group places instances on distinct hardware and can span AZs, so node-to-node traffic would still cross AZs and be billed.",
-    "Transit Gateway connects VPCs and networks; it doesn't carry traffic between subnets of the same VPC, and it would add per-GB processing charges anyway.",
+    "A transit gateway connects VPCs and on-premises networks and charges for each gigabyte it processes; it would add cost without making the nodes any less spread across three AZs.",
     "Enhanced networking increases bandwidth and lowers latency, but inter-AZ traffic is billed the same no matter how fast it moves."],
  ref:["d11e5","d11c3","d1c6"], doc:"regions"},
 
@@ -556,7 +556,7 @@ window.QUIZ.push(
  a:[0],
  x:["Correct. Transfer from S3 to CloudFront is free, CloudFront's data transfer out rates are generally lower than S3's, and popular releases are served from edge caches near customers.",
     "Transfer Acceleration adds a per-GB fee on top of normal data transfer and is designed to speed up long-distance transfers, especially uploads; it doesn't cache content.",
-    "Global Accelerator does not support S3 buckets as endpoints and has no caching; it adds hourly and data transfer premium charges rather than reducing egress cost.",
+    "Global Accelerator endpoints can only be load balancers, EC2 instances, or Elastic IP addresses, not S3 buckets, and it proxies packets instead of caching content; it adds hourly and data transfer premium charges rather than reducing egress cost.",
     "Replication adds storage in three more Regions plus inter-Region transfer, and customers would still download directly from S3 at internet egress rates."],
  ref:["d11e5","d1w4","d10b1"], doc:"cloudfront"},
 
@@ -607,7 +607,7 @@ window.QUIZ.push(
     "Switch the distribution to Price Class 100 to use only lower-cost edge locations."],
  a:[3],
  x:["Without caching, every request goes back to the origin, raising origin load and cost, and viewers are still billed as CloudFront data transfer.",
-    "Global Accelerator has no caching, so every video byte would come from the origin, and it adds hourly and data transfer premium charges.",
+    "Global Accelerator proxies packets to the origin instead of caching content, so every video byte would come from the origin, and it adds hourly and data transfer premium charges.",
     "Origin Shield adds a caching layer that reduces load on the origin and is billed per request; it does not lower CloudFront's data transfer out charges.",
     "Correct. Price Class 100 serves the distribution only from the lowest-cost edge locations (North America, Europe, Israel, and Türkiye), which covers these students; viewers elsewhere are served from those locations with higher latency."],
  ref:["d11e5","d1w4","d10b1"], doc:"cloudfront"},
@@ -623,7 +623,7 @@ window.QUIZ.push(
     "A dedicated connection usually takes weeks to provision, bills port hours whether used or not, and is not encrypted by default, which is overkill for a few gigabytes a day.",
     "Hosted connections still take time to provision through a partner, add port and circuit charges, and are not encrypted by default.",
     "Client VPN bills per endpoint association hour and per connection hour, and a client on every PC is meant for remote users, not for linking a whole office."],
- ref:["d11e5","d2w1"]},
+ ref:["d11e5","d2w1"], doc:"vpn"},
 
 {id:"q11-048", day:11, dom:4, tags:["Cost management tools"],
  q:"A company runs workloads for 12 product teams in one shared AWS account and cannot move to separate accounts this year. Finance wants a monthly cost breakdown per team and wants to view each team's spending trend in AWS Cost Explorer. Which actions should a solutions architect take? (Choose two.)",
@@ -660,7 +660,7 @@ window.QUIZ.push(
     "Enable VPC Flow Logs and analyze them with CloudWatch Logs Insights queries.",
     "Create AWS Budgets usage budgets for each data transfer usage type."],
  a:[1],
- x:["Cost Explorer shows aggregated costs in a visual interface; it doesn't provide 12 months of hourly, resource-level line items to join with other data in SQL.",
+ x:["Cost Explorer's hourly data comes without resource-level detail for anything except EC2 instances, and it is a visual tool, not a dataset of line items to join with other tables in SQL.",
     "Correct. The Cost and Usage Report (now delivered through AWS Data Exports) is the most detailed billing data, with hourly line items and resource IDs, and Athena can query it in S3 with SQL alongside other tables.",
     "Flow logs show traffic between IP addresses, not what that traffic costs, so they cannot produce the billing line items the team needs.",
     "Usage budgets alert when usage crosses a threshold; they don't provide line-item data to query."],

@@ -27,7 +27,7 @@ Object.assign(window.KEYS, {
   d13l1: {
     k: [
       "The first and last name on your ID must be identical to the name in your AWS Certification Account, otherwise you are not allowed to test. Correct the account name before exam day.",
-      "A primary ID is an original, unexpired, government-issued document with your name in Roman characters, a photo and a signature. A test center asks for two IDs (two primary, or one primary and one secondary); an online exam asks for one primary ID.",
+      "A primary ID is an original, unexpired, government-issued document with your name in Roman characters, a recent photo and your signature, such as a passport or driving licence. A secondary ID needs your name plus either a signature or a recent photo.",
       "As an exception, EU candidates testing in the EU may use an EU ID card. Expired, damaged, photocopied and digital IDs are not accepted.",
       "Online, you can launch the exam up to 30 minutes early. If you are more than 15 minutes late or the computer fails the system test, the exam does not launch and the fee is forfeited. At a test center, arrive 15 to 30 minutes early."
     ],
@@ -45,6 +45,7 @@ Object.assign(window.KEYS, {
     ],
     docs: [
       ["How EC2 instance stop and start works", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-stop-start-works.html"],
+      ["Amazon EC2 instance state changes (billing by state)", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html"],
       ["Delete an AWS KMS key", "https://docs.aws.amazon.com/kms/latest/developerguide/deleting-keys.html"]
     ]
   }
