@@ -746,7 +746,7 @@ window.QUIZ.push(
     "Stream the logs to S3 through a subscription filter and Data Firehose, with lifecycle rules to S3 Glacier Deep Archive.",
     "Create metric filters for the important log patterns and delete the raw log events after each day."],
  a:[0,3],
- x:["Retention deletes events older than 30 days from CloudWatch Logs automatically, so the company stops paying CloudWatch storage for years of logs that engineers never query there.",
+ x:["Retention deletes events older than 30 days from CloudWatch Logs automatically, so the company stops paying CloudWatch storage for logs that engineers never query there. Export the existing older events to S3 once before shortening retention.",
     "The Infrequent Access log class lowers the ingestion price, but keeping 7 years of logs in CloudWatch still costs far more than archival storage in S3.",
     "Moving logs to S3 helps, but keeping 7 years in S3 Standard costs much more than an archive class for data that is almost never read.",
     "A subscription filter streams logs to Firehose, which writes them to S3; lifecycle rules move them to Deep Archive, the cheapest class, whose standard and bulk retrievals complete within 12 and 48 hours, and expire them after 7 years.",
@@ -797,7 +797,7 @@ window.QUIZ.push(
  a:[2],
  x:["Anomaly detection flags unusual spending patterns rather than progress against a fixed grant, and the Lambda function is custom code to maintain.",
     "Terminating instances destroys running work, the opposite of the requirement, and a billing alarm cannot block new resource creation.",
-    "Budgets sends threshold alerts and supports budget actions that automatically apply an SCP or IAM policy when a threshold is crossed, so new provisioning is denied while existing resources keep running.",
+    "Budgets sends alerts on actual or forecasted thresholds, and budget actions (SCP actions are set up from the management account) automatically apply a deny policy when a threshold is crossed, so new provisioning is blocked while existing resources keep running.",
     "Reports rely on people to act, so nothing is blocked automatically."],
  ref:["d11e3","d1d1"], doc:"budgets"}
 );
