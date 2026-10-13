@@ -11,7 +11,7 @@ Each plan step is shown alone on a card. Under the step text the card shows "Key
 | `tests/data.test.mjs` | shape, ids, markup, coverage, closed-service wording |
 | `tools/links.mjs` | every `docs` URL (and every `DOCS` URL) answers a plain 200 |
 
-175 of the 186 steps have an entry. The eleven without one are pure admin: `d8s1` (buy the subscription), `s0a` and `d1e3` (enrolling), `d1a3`, `d1a4`, `d1d2`, `d4s1`, `d8e7`, `d9e6`, `d11e7` (the Domain Practice labs) and `d13e4`.
+176 of the 188 steps have an entry. The twelve without one are pure admin: `d8s1` (buy the subscription), `s0a` and `d1e3` (enrolling), `d1a3`, `d1a4`, `d1d2`, `d4s1`, `d8e7`, `d9e6`, `d11e7` (the Domain Practice labs), `d13e4` and `d13l3` (cancel the renewal).
 
 ## Format
 
@@ -77,6 +77,16 @@ node tools/links.mjs     # needs network; a redirect counts as broken (docs.aws.
 
 ## Verification status (as of 2026-10-13)
 
+### The move to the Paid plan (2026-10-13)
+
+The owner could not buy the Skill Builder subscription with a Free plan account and upgraded. Changed for it, each new fact found on a page fetched that day:
+
+- `d1a2` (choose the Paid plan), the order of Day 1 (the account before the subscription), `d8s1` and the new `d13l3` (cancel the renewal): the Individual subscription "will be billed to your AWS account", renews until cancelled, and after cancelling access runs to the end of the billing period (https://aws.amazon.com/training/faqs/). What the Paid plan changes, the credits and the upgrade path: https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html.
+- New `d1d3` (a monthly cost budget above the subscription): "Actual alerts are only sent out once per budget, per budget period" and billing data "is updated at least once per day" (https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-best-practices.html); the template texts (https://docs.aws.amazon.com/cost-management/latest/userguide/budget-templates.html).
+- `d1c1`: IAM Identity Center "is offered at no extra charge" (https://aws.amazon.com/iam/identity-center/faqs/).
+- **Not stated on a page:** that a Free plan account cannot buy the Individual subscription. That is what the owner found. The Billing guide only says that Free plan accounts incur no charges and that buying a Team subscription upgrades an account automatically.
+- **Not known:** whether sign-up credits pay for the subscription, and how its charge is labelled on the bill. `d1d3` therefore tells the owner to read the charge under Bills and set the budget from it.
+
 ### The purpose-first rewrite (2026-10-13)
 
 The owner found the cards hard to follow and asked that every explanation start with the problem the thing was made to solve. All 175 entries were restructured: a `why` first, the points as `[label, text]` (627 in all), sentences shortened to an average of 13 words. The 32 model answers in `CARDS` now open with a Why line and close with a Pick line. Three entries were written as the pattern (`c1d`, `d2b1`, `d2c1`); three sessions did the rest, one group of files each.
@@ -123,7 +133,7 @@ What this was: two reads by AI agents on one day, not a review by a human AWS ex
 
 **Still uncertain** (details and sources in the logs):
 - **Never tried in a real account:** the IAM admin user block (`d1u1`–`d1u4`), `aws login --profile lab` (`d4s2`), `aws sts assume-role` from that profile (`d4b3`), and what the "VPC and more" wizard builds (`d2b1`, `d5b1`). Console labels were checked in the docs, not in a console.
-- **Credits after a Free plan upgrade** (`d1a2`, `d1c1`): the Identity Center page says credits expire immediately, the Billing page says remaining credits apply to future bills. Neither entry states either.
+- **Credits after a Free plan upgrade** (`d1a2`): AWS's pages disagree. The Billing guide ("Choosing a plan") says remaining credits are applied to future bills automatically, and `d1a2` follows it; the Identity Center page says free tier credits expire immediately when an organization is created. The owner upgraded on 2026-10-13: the Credits page of their account is the answer for them.
 - **Exam-framing sentences** (which option is the usual distractor, what a phrase in a stem "means") have no AWS source by nature; the facts inside them were checked.
 - **Conclusions from two documented facts:** `d1w3` k5 (kernel modules or OS-level agents point to EC2), `d1w1` k3, `d1w4` k5 (arithmetic), `d5b3` k3 (design advice that q05-009 keys on), `d9b2` k1, `d10e5` trap ("never an S3 bucket" is the complement of the endpoint list), `d11p2` k1.
 - **Historical or indirect sources:** the basic cost drivers in `d6w3` and `d6p1` come from a whitepaper AWS marks as historical; `d2c3` k2 and `d2p2` k4 rest on a 2024 whitepaper; the RPO and RTO ranges in `d9e3` are in a figure, not in text; `d8e2` k1 and `d8e3` k2 use policy examples that are no longer on a docs page; `d10b2` k3 ("Init Duration in the REPORT log line") was not found.
