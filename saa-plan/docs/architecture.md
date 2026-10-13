@@ -70,12 +70,32 @@ Two containers share the page and exactly one is visible: `#home` (the overview)
 
 **The card (`renderFlow`)** has a header (day, date, tools: day notes, cleanup check, notebook, weak spots), a strip with one dot per card grouped like the day's blocks, the card itself, and a fixed bar with Back, the card's main action and Next.
 
-- **Step card (`stepCardHTML`):** block tag and position, the step text and note, where to do it with its Open link, then whatever applies: the 📊 Scores field for that step (`SCORE_AT`, cloned from the Scores panel so both stay in step), the go/no-go verdict (`decision`), the model answer (`CARDS`, self-checks), key points (`KEYS`), AWS docs and exam topics with your accuracy (the topics are the step's `STEP_TAGS`; the docs come from the quiz questions on those topics, via `QREF`), glossary terms found in the text, exam wording for the step's topics (`CUE_TAGS`), a notes box (`inotes`) and a "try 3 now" practice round.
+- **Step card (`stepCardHTML`):** block tag and position, the step text and note, then **why it exists** (`KEYS[id].why`: the problem the thing solves, shown before anything else because the owner asked for purpose first), where to do it with its Open link, then whatever applies: the 📊 Scores field for that step (`SCORE_AT`, cloned from the Scores panel so both stay in step), the go/no-go verdict (`decision`), the model answer (`CARDS`, self-checks), key points (`KEYS[id].k` as labelled rows under "What to know", and the exam trap), AWS docs and exam topics with your accuracy (the topics are the step's `STEP_TAGS`; the docs come from the quiz questions on those topics, via `QREF`), glossary terms found in the text, exam wording for the step's topics (`CUE_TAGS`), a notes box (`inotes`) and a "try 3 now" practice round.
 - **Quiz card:** locked while steps are open (it lists them as links), then Start/Resume/Retake, then "passed".
 - **Summary card:** steps, quiz result, focus time, date, and a button for the next day.
 - **Mark complete** ticks the step and moves to the next *open* step after it (wrapping round), then to the quiz card, then to the summary. **Next** and **Back** move strictly in order and never tick, so a step can be skipped and found again as a hollow dot. A completed step shows "Completed" with Undo, and Next becomes the main action.
 - **Guards:** a click on Mark complete within 350 ms of a card appearing is ignored, so a double click can't also complete the card that slid in under the pointer. While a field on the card has the focus, a redraw leaves the card alone and only updates the strip and the bar, so typing a note is never interrupted.
 - **Keyboard:** ← and → press Back and Next; Enter presses the main action unless a button, link or summary has the focus. Not while a dialog is open or a field is being typed in.
+
+## Celebrations (fx.js, and "completing steps & celebrations" in app.js)
+
+The owner asked for more to see and hear whenever something is finished. The effects form a ladder, and each rung is clearly bigger than the one below, so the size of the effect tells you what you just finished:
+
+| Finished | What happens | Where it is fired |
+|---|---|---|
+| A step | A burst of confetti and a ring from the button, the step's dot pops, a toast says "✓ 5 of 9 · 4 steps to go". The sound is one note of a scale that climbs with the steps of the day. A long step (a lab, a lecture chunk: 30 minutes or more) adds stars and a rocket. | `stepDone` |
+| Half the day's steps | The toast says so. | `stepToast` |
+| A block of the day (a lecture, its labs, a build) | Corner cannons, stars, two rockets, a chord, the block's dots bounce, a banner names the block and what is left. | `blockDone` |
+| The last step, when the day has a quiz | Rings and stars in blue, a banner: the quiz is open. | `blockDone` |
+| A right answer in a quiz | A sparkle on the verdict. 3, 5, 10, 15… right in a row: a bigger burst, rising notes and a toast. | `check` |
+| A quiz passed | Cannons and a fanfare on the results screen; with every answer right, a rain of stars and "Perfect score". | `finishRun` |
+| A day | Cannons, rockets, a rain of emoji, a banner (after the results are closed, if a quiz finished the day). A streak of 3, 5, 7, 10, 14 or 21 days adds a toast. | `celebrate` |
+| A week, the whole plan | The same, larger and longer. | `celebrate` |
+| Smaller things | "Got it" on a self-check, a review or step practice with every answer right, a full focus block, a mock exam at 80% or more. | at each handler |
+
+- **Canvas, banner and toast live in the open dialog when there is one.** A modal `<dialog>` is in the browser's top layer, above everything else on the page, so an effect drawn on `<body>` would hide behind the quiz. `host()` in fx.js picks the open dialog or the body each time.
+- **Switches:** canvas effects need the effects toggle on and no `prefers-reduced-motion`; sounds need the sound toggle. Banners and toasts carry information (what was finished, what is left), so they always show; with reduced motion they appear without animation.
+- **Nothing is stored:** the streak of right answers and the dot animation marks are in memory only.
 
 ## Day completion
 

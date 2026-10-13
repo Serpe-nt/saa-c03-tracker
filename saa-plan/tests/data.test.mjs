@@ -172,10 +172,17 @@ test("key points are well-formed and filed under their step's id", () => {
       if (home(id) !== f) bad(`belongs in keys/${home(id)}`);
       const k = e.k || [];
       if (!k.length && !e.trap) bad("needs k or trap");
-      if (k.length > 5) bad("more than 5 points");
-      k.forEach((s, i) => { if (typeof s !== "string" || s.length < 40 || s.length > 260) bad(`k[${i}] length ${String(s).length}`); });
+      // a point is [label, text]; a bare string is the older form, allowed only until the entry gets its "why"
+      if (k.length > ("why" in e ? 6 : 5)) bad("too many points");
+      k.forEach((p, i) => {
+        if (typeof p === "string") { if ("why" in e) bad(`k[${i}] needs a label: [label, text]`); if (p.length < 40 || p.length > 260) bad(`k[${i}] length ${p.length}`); return; }
+        if (!Array.isArray(p) || p.length !== 2 || typeof p[0] !== "string" || typeof p[1] !== "string") return bad(`k[${i}] must be [label, text]`);
+        if (p[0].length < 2 || p[0].length > 40 || /[.:]$/.test(p[0])) bad(`k[${i}] label "${p[0]}" (2–40 characters, no closing full stop or colon)`);
+        if (p[1].length < 40 || p[1].length > 260) bad(`k[${i}] text length ${p[1].length}`);
+      });
+      if ("why" in e && (typeof e.why !== "string" || e.why.length < 80 || e.why.length > 420)) bad(`why length ${String(e.why).length}`);
       if ("trap" in e && (typeof e.trap !== "string" || e.trap.length < 40 || e.trap.length > 280)) bad(`trap length ${String(e.trap).length}`);
-      const text = [...k, e.trap || ""].join(" ");
+      const text = [e.why || "", ...k.flat(), e.trap || ""].join(" ");
       const tags = (text.match(/<\/?([a-z]+)/gi) || []).map(t => t.replace(/[</]/g, "").toLowerCase()).filter(t => t !== "code" && t !== "b");
       if (tags.length) bad(`HTML other than <b> and <code>: ${tags.join(",")}`);
       const docs = e.docs || [];
@@ -194,12 +201,19 @@ test("every Watch, Play, Build and Self-check step has key points", () => {
   assert.deepEqual(missing, []);
 });
 
+test("every card starts with why: the problem or need comes before the details", () => {
+  // spread: arrays made inside the sandbox have their own prototype, which deepEqual rejects
+  assert.deepEqual([...Object.keys(W.KEYS).filter(id => !W.KEYS[id].why)], [], "entries without a why");
+  const bare = Object.keys(W.CARDS).filter(id => !/^<b>Why[^<]{0,40}:<\/b>/.test(W.CARDS[id]));
+  assert.deepEqual([...bare], [], "model answers that do not open with a <b>Why …:</b> line");
+});
+
 test("key points don't send the learner to a retired or closed service without saying so", () => {
   // A closed service may be named only together with its status.
   const closed = /Snowball|Snowcone|Snowmobile|Snow Family|FSx File Gateway|Timestream for LiveAnalytics|OpsWorks|CodeCommit|Cloud9|QLDB|S3 Select|CloudSearch|Data Pipeline|EC2-Classic|Kinesis Data Firehose|Kinesis Data Analytics/i;
   const status = /closed|no longer|end of support|ends|retired|formerly|legacy|older|not available|instead/i;
   const hits = [];
-  for (const [id, e] of Object.entries(W.KEYS)) for (const s of [...(e.k || []), e.trap || ""]) if (closed.test(s) && !status.test(s)) hits.push(`${id}: ${s}`);
+  for (const [id, e] of Object.entries(W.KEYS)) for (const s of [e.why || "", ...(e.k || []).map(p => (Array.isArray(p) ? p.join(": ") : p)), e.trap || ""]) if (closed.test(s) && !status.test(s)) hits.push(`${id}: ${s}`);
   assert.deepEqual(hits, []);
 });
 

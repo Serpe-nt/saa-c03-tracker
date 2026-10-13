@@ -19,14 +19,20 @@ Each plan step is shown alone on a card. Under the step text the card shows "Key
 // Key points per plan step for … Data only. Keys are plan item ids from plan.js.
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
-  d2w1: {
-    k: ["One or two full sentences stating a fact or a decision rule.", "…"],   // 1–5, each 40–260 characters
+  c1d: {
+    why: "Some of your servers must be reachable from the internet and others must never be. Amazon VPC gives you …",   // 80–420 characters
+    k: [
+      ["Public or private", "A subnet is public when its route table has a route to an internet gateway, and private when it has none. …"],
+      ["NAT gateway", "Lets instances in a private subnet connect out, while external services cannot start a connection to them."]
+    ],                                                                           // up to 6 points: [label, text]
     trap: "How the exam tries to catch you on this topic.",                      // optional, 40–280 characters
     docs: [["Page title", "https://docs.aws.amazon.com/…"]]                      // optional, at most 3
   }
 });
 ```
 
+- `why` comes first on the card, above "Where" and above every detail: the problem the thing was made to solve, or the need it answers. Required on every entry.
+- `k`: each point is `[label, text]`. The label (2–40 characters, no closing full stop or colon) is what the eye scans for: a service, a choice, a rule. The text is 40–260 characters.
 - Key: a plan item id; the file is fixed by the id's prefix (see above; `data.test.mjs` checks it). An entry needs `k` or `trap`.
 - `docs`: only `https://aws.amazon.com/…` or `https://docs.aws.amazon.com/…`, and only pages that were fetched while writing the entry.
 - Markup: plain text plus `<b>` and `<code>`. Write a literal `<` as `&lt;`.
@@ -35,13 +41,27 @@ What the card adds by itself, with no authoring: exam topics are the step's `STE
 
 ## Writing rules
 
+### Purpose first (the owner's rule)
+
+The owner asked for this in their own words: "When explaining a concept, tool, invention, or idea, always start by describing the problem it was designed to solve, the context that led to its creation, or the need it addresses. Explain the purpose first before diving into details, mechanisms, or technical aspects." And: clearly structured, easy to follow.
+
+- **`why`: two or three short sentences in plain words.** Start from the problem a person would have without the thing ("A private server still has to reach out, while nothing outside may reach in"). Then name the thing as the answer. No numbers, no option names, no detail: that is what the points are for. For a step that is a task rather than a concept (setup, an exam-technique step), say what goes wrong without it.
+- **Each point also leads with purpose.** Say what the thing is for or when you reach for it, then how it works. "NAT gateway: lets instances in a private subnet connect out, …" and not "A NAT gateway is a managed NAT service that …".
+- **One idea per sentence, short sentences.** Aim for 22 words or fewer. No chains held together by semicolons. Split a dense point into two labelled points instead.
+- **Plain words.** Write the way you would explain it to a colleague who is new to AWS. Spell out an abbreviation the first time on a card unless it is the service's everyday name (VPC, S3, IAM).
+- **Self-check steps:** the entry's `why` says why the things must be told apart (the need each one answers). The model answer in `CARDS` (extras.js) opens with a `<b>Why …:</b>` line, then gives one `<b>Name</b>` paragraph per thing (what it is for first, then how it works), then a `<b>Pick:</b>` line with the decision rule. `<br>` between paragraphs.
+- **Restructure, do not re-research.** The facts in the entries were checked against AWS pages (see "Verification status"). Keep each fact's meaning; splitting, reordering and simpler wording are the job. A new factual claim (most often in `why`) needs an AWS page that says it: look first in the pages the entry's `docs` already cite. A framing sentence (what would go wrong, a comparison with a data center) needs no page but must hold by plain reasoning.
+- `data.test.mjs` checks the shape, and that every entry has a `why` and every model answer opens with its Why line.
+
+### The rest
+
 - Each point is a fact or a decision rule ("X when Y, because Z"). Never "understand X" or "know the difference".
 - Cover what the bank's questions on the step's topics decide on: read the questions tagged with the step's `STEP_TAGS` first.
 - The same topic returns on several days (a Fundamentals lecture, a lab, a design course, an Exam Prep review). Build on what the earlier step's points say instead of repeating them: basics first, trade-offs and decision rules later.
 - By step type:
-  - **Watch** (lecture chunks, reading steps) and Exam Prep **task statements**: 3–5 points and a trap. A "putting it all together" chunk gets points on how the pieces fit and which requirement decides each choice.
+  - **Watch** (lecture chunks, reading steps) and Exam Prep **task statements**: 3–6 points and a trap. A "putting it all together" chunk gets points on how the pieces fit and which requirement decides each choice.
   - **Play** and **Build**: 2–4 points on what to notice while doing it.
-  - **Self-check**: the model answer is in `CARDS`, so give only the trap and docs; add a point only for something the quiz tests that the card lacks.
+  - **Self-check**: the model answer is in `CARDS`, so the entry gives the `why`, the trap and docs; add a point only for something the quiz tests that the card lacks.
   - **Setup** and admin steps: an entry only for a real exam fact, a cost fact or a safety tip.
 - Don't repeat the step's own note from plan.js.
 - No volatile numbers (prices, most quotas). Stable limits that decide exam answers are fine.
@@ -56,6 +76,15 @@ node tools/links.mjs     # needs network; a redirect counts as broken (docs.aws.
 ```
 
 ## Verification status (as of 2026-10-13)
+
+### The purpose-first rewrite (2026-10-13)
+
+The owner found the cards hard to follow and asked that every explanation start with the problem the thing was made to solve. All 175 entries were restructured: a `why` first, the points as `[label, text]` (627 in all), sentences shortened to an average of 13 words. The 32 model answers in `CARDS` now open with a Why line and close with a Pick line. Three entries were written as the pattern (`c1d`, `d2b1`, `d2c1`); three sessions did the rest, one group of files each.
+
+- **It was a restructuring, not new research.** The facts in the points and traps are the ones checked earlier (below); the sessions were told not to look them up again, to keep each fact's meaning and to drop nothing an exam question turns on. Session C reports no fact left out; thirteen domain-review entries sit at the six-point limit and a few of their points still hold two ideas.
+- **New factual claims** are almost all in a `why`, and each was found on a page the entry already cites (ten pages fetched in all): listed with their URLs in `docs/verification/why-b.md` and `why-c.md`. Session A added none: where it carried a fact from one entry to another, `why-a.md` says from where.
+- **Framing sentences** (what goes wrong without the thing, a comparison with your own data center, study technique) have no AWS source by nature. The ones their writers were less than sure of are listed in each log under "Framing sentences".
+- No second read was done on this pass, to keep it cheap. `data.test.mjs` checks the shape of every entry and that none lacks its `why`.
 
 ### Steps new with the 21-day plan
 
