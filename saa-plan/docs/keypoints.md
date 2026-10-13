@@ -11,7 +11,7 @@ Each plan step is shown alone on a card. Under the step text the card shows "Key
 | `tests/data.test.mjs` | shape, ids, markup, coverage, closed-service wording |
 | `tools/links.mjs` | every `docs` URL (and every `DOCS` URL) answers a plain 200 |
 
-176 of the 188 steps have an entry. The twelve without one are pure admin: `d8s1` (buy the subscription), `s0a` and `d1e3` (enrolling), `d1a3`, `d1a4`, `d1d2`, `d4s1`, `d8e7`, `d9e6`, `d11e7` (the Domain Practice labs), `d13e4` and `d13l3` (cancel the renewal).
+182 of the 196 steps have an entry. The fourteen without one are pure admin: `d8s1` (buy the subscription), `s0a`, `s0b` and `d1e3` (enrolling), `d1a3`, `d1a4`, `d1d2`, `d4s1`, `t1g` (the Technical Essentials assessment), `d8e7`, `d9e6`, `d11e7` (the Domain Practice labs), `d13e4` and `d13l3` (cancel the renewal).
 
 ## Format
 
@@ -77,6 +77,15 @@ node tools/links.mjs     # needs network; a redirect counts as broken (docs.aws.
 
 ## Verification status (as of 2026-10-13)
 
+### AWS Technical Essentials (2026-10-13)
+
+Six entries in `t1.js` (`t1a`–`t1f`), one per module of the course, written by the main session at beginner level. The course page and both outline pages were read on Skill Builder that day (free, 4 hours, level Fundamental, "No prior cloud computing or AWS experience is required"); the videos were not watched.
+
+- **Facts reused** from entries checked earlier: `c1c` (Regions, Availability Zones, shared responsibility), `c2b` (root user, IAM), `c1d` (VPC, subnets, firewalls), `c1e` (Fargate, Lambda), `c4a` (what a container packages), `c1f` (storage and databases), `c3d` and `c3e` (CloudWatch, load balancing, Auto Scaling), and the model answer `d2c1`.
+- **New facts, each from a page fetched that day:** cloud computing as "the on-demand delivery of IT resources over the Internet with pay-as-you-go pricing" (https://aws.amazon.com/what-is-cloud-computing/); the console, the CLI and the SDKs (https://docs.aws.amazon.com/whitepapers/latest/aws-overview/accessing-aws-services.html); billing by instance state, including "billed for each second, with a one-minute minimum" and that EBS volumes and Elastic IP addresses "incur charges regardless of the instance's state" (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html).
+- **Framing, no source by nature:** the "Choosing" points in `t1b`, `t1d` and `t1e` (they restate the points above them as a rule), and the opening of each `why`.
+- No second read.
+
 ### The move to the Paid plan (2026-10-13)
 
 The owner could not buy the Skill Builder subscription with a Free plan account and upgraded. Changed for it, each new fact found on a page fetched that day:
@@ -98,7 +107,7 @@ The owner found the cards hard to follow and asked that every explanation start 
 
 ### Steps new with the 21-day plan
 
-The key points for the lecture chunks, the labs and the Day 16 reading block were written on 2026-10-12 by four sessions, one group of courses each, on separate branches. Each looked every sentence up on AWS pages it fetched (redirects not followed), read the bank's questions on the step's topics first, and then had sub-agents that had not seen its sources re-check every sentence against pages they fetched themselves.
+The key points for the lecture chunks, the labs and the reading block (Day 17) were written on 2026-10-12 by four sessions, one group of courses each, on separate branches. Each looked every sentence up on AWS pages it fetched (redirects not followed), read the bank's questions on the step's topics first, and then had sub-agents that had not seen its sources re-check every sentence against pages they fetched themselves.
 
 | Files | Steps | Entries | Second read | Log in `docs/verification/` |
 |---|---|---|---|---|

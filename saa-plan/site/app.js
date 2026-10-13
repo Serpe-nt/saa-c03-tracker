@@ -8,7 +8,8 @@ const KEYS = window.KEYS || {}, CUE_TAGS = window.CUE_TAGS || {}, SCORE_AT = win
 const KEY = "saa-plan-v2";
 // Bumped when the plan's days change meaning: entries keyed by a day (quiz results, completion dates) then start again.
 // 2 = the 21-day plan on the Solutions Architect learning plan.
-const PLAN_V = 2;
+// 3 = 22 days: AWS Technical Essentials in front, a new Day 2, every later day one further down.
+const PLAN_V = 3;
 const DEF = {
   ticks: {}, notes: {}, scores: {}, dayDone: {},
   planV: 0,    // the plan these entries were saved under (see PLAN_V)
@@ -57,10 +58,18 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const num0 = (v, d = 0) => (typeof v === "number" && isFinite(v) ? v : d);
 const str0 = v => (typeof v === "string" ? v : "");
 const ints = v => Array.isArray(v) && v.every(Number.isInteger);
+// A day was inserted in front of Day `from`: what was saved for Day n (n ≥ from) belongs to Day n + 1 now.
+function shiftDays(s, from) {
+  const up = k => { const m = /^d(\d+)$/.exec(k); return m && +m[1] >= from ? "d" + (+m[1] + 1) : k; };
+  for (const f of ["quiz", "dayDone", "notes", "log"]) if (isObj(s[f])) s[f] = Object.fromEntries(Object.entries(s[f]).map(([k, v]) => [up(k), v]));
+  if (Array.isArray(s.slips)) s.slips.forEach(x => { if (isObj(x) && Number.isInteger(x.from) && x.from >= from) x.from++; });
+  if (isObj(s.run) && typeof s.run.day === "string") s.run.day = up(s.run.day);
+}
 function clean(s) {
   const keep = (m, ok) => { for (const k of Object.keys(m)) if (!ok(m[k])) delete m[k]; };
   // Saved under an earlier plan: steps keep their ids, so ticks, step notes and answers carry over,
   // but "Day 5" is now a different day, so its quiz result and completion date do not.
+  if (s.planV === 2) { shiftDays(s, 2); s.planV = 3; }   // same days, one place further down: nothing is lost
   if (s.planV !== PLAN_V) {
     s.quiz = {}; s.dayDone = {};
     if (isObj(s.run) && s.run.kind === "day") s.run = null;
