@@ -65,7 +65,7 @@ Object.assign(window.KEYS, {
   d7h2: {
     k: [
       "A stopped EC2 instance still bills for its EBS volumes and for any Elastic IP address, and a public IPv4 address is charged whether it is in use or idle. Terminate what you no longer need and release unused Elastic IP addresses.",
-      "A NAT gateway is charged for every hour it is provisioned, and an Application Load Balancer for every hour it exists, even with no traffic. Both are easy to leave behind after the Day 2 and Day 5 builds.",
+      "A NAT gateway is charged for every hour it is provisioned, and an Application Load Balancer for every hour it exists, even with no traffic. Both are easy to leave behind after a build or a lab of your own.",
       "Stopping an RDS instance does not park it for long: storage is still billed, and RDS starts the instance again automatically after 7 days. Delete lab databases instead."
     ],
     docs: [

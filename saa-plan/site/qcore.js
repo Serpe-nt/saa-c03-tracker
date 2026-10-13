@@ -7,7 +7,7 @@ window.QZ = (() => {
   const MIX = [9, 8, 7, 6];               // the same weights for a 30-question mix
   const SRS_DAYS = [1, 2, 4];             // a missed question comes back after 1, 2, then 4 days
   const STEP = 3;                         // questions in a "try this step" practice round
-  const STUDY_DAYS = 11;                  // days with their own question pool (Day 7 has none)
+  const FOUNDATION = 6;                   // pools 1–6 are foundation level, the later ones exam level
 
   // ---------- helpers ----------
   function shuffle(a, rand = Math.random) {
@@ -44,26 +44,64 @@ window.QZ = (() => {
     return shuffle(out, rand);
   }
 
+  // ---------- the plan's topics ----------
+  // What each day teaches, from the topics of its steps (STEP_TAGS): own = that day, sofar = that day and every day before it.
+  function topics(plan, stepTags) {
+    const out = {}, sofar = new Set();
+    for (const d of plan) {
+      if (!d.id) continue;
+      const own = new Set(d.groups.flatMap(g => g.items.flatMap(it => stepTags[it[0]] || [])));
+      own.forEach(t => sofar.add(t));
+      out[d.id] = { own, sofar: new Set(sofar) };
+    }
+    return out;
+  }
+  const NONE = { own: new Set(), sofar: new Set() };
+  const about = (q, set) => q.tags.some(t => set.has(t));
+  const within = (q, set) => q.tags.every(t => set.has(t));
+  const studied = bank => bank.filter(q => q.day !== "mock");
+  const doms = spec => spec.slice(4).split(",").map(Number).filter(n => n >= 1 && n <= 4);
+  // The questions a "tags" day draws on: about one of the day's topics, and about nothing that comes later in the plan.
+  const dayPool = (d, tp, bank) => { const t = tp[d.id] || NONE; return studied(bank).filter(q => about(q, t.own) && within(q, t.sofar)); };
+
   // ---------- picking ----------
-  const studied = bank => bank.filter(q => typeof q.day === "number" && q.day <= STUDY_DAYS);
-  function describe(day) {
-    if (day === 7) return "Mixed review of Days 1–6";
-    if (day === 12) return "Built from your weakest topics and past misses";
-    if (day === 13) return "Mixed from all four domains, weighted like the exam";
+  // A day's quiz field: "tags" (the day's topics), "review" (everything so far), "dom:1,2" (exam domains),
+  // "weak" (your weakest topics), "exam" (weighted like the exam). No field: no quiz that day.
+  const hasQuiz = d => !!d.quiz;
+  function describe(d) {
+    const k = d.quiz || "";
+    if (k === "review") return "Mixed review of everything so far";
+    if (k === "weak") return "Built from your weakest topics and past misses";
+    if (k === "exam") return "Mixed from all four domains, weighted like the exam";
+    if (k.startsWith("dom:")) { const ds = doms(k); return `Exam ${ds.length > 1 ? "domains" : "domain"} ${ds.join(" and ")}, exam-style questions`; }
     return "On today's topics";
   }
-  function hasQuiz(day) { return day >= 1 && day <= 13; }
 
-  function pickDay(day, bank, stats, rand = Math.random) {
-    const own = bank.filter(q => q.day === day);
-    if (own.length) return shuffle(take(own, DAILY, stats, rand), rand);
-    if (day === 7) return stratified(range(6).map(i => bank.filter(q => q.day === i + 1)), [5, 5, 5, 5, 5, 5], stats, rand);
-    if (day === 12) return pickWeak(studied(bank), stats, DAILY, rand);
-    if (day === 13) return stratified(range(4).map(i => studied(bank).filter(q => q.dom === i + 1)), MIX, stats, rand);
-    return [];
+  function pickDay(d, tp, bank, stats, rand = Math.random) {
+    const k = d.quiz || "", pool = studied(bank), t = tp[d.id] || NONE;
+    if (k === "weak") return pickWeak(pool, stats, DAILY, rand);
+    if (k === "exam") return stratified(range(4).map(i => pool.filter(q => q.dom === i + 1)), MIX, stats, rand);
+    if (k.startsWith("dom:")) {
+      const ds = doms(k), each = Math.floor(DAILY / ds.length);
+      return stratified(ds.map(n => pool.filter(q => q.dom === n)), ds.map((_, i) => each + (i < DAILY - each * ds.length ? 1 : 0)), stats, rand);
+    }
+    const taught = pool.filter(q => within(q, t.sofar));
+    if (k === "review") return shuffle(take(taught, DAILY, stats, rand), rand);
+    if (k !== "tags") return [];
+    // Today's topics first. New questions before seen ones, and among the new ones the foundation level before the exam level.
+    const own = rank(taught.filter(q => about(q, t.own)), stats, rand)
+      .map((q, i) => ({ q, i, l: stats[q.id] ? 2 : q.day > FOUNDATION ? 1 : 0 }))
+      .sort((a, b) => a.l - b.l || a.i - b.i).slice(0, DAILY).map(r => r.q);
+    // A short day is filled from earlier topics, then from anything left.
+    for (const more of [taught, pool]) {
+      if (own.length >= DAILY) break;
+      const have = new Set(own.map(q => q.id));
+      own.push(...take(more.filter(q => !have.has(q.id)), DAILY - own.length, stats, rand));
+    }
+    return shuffle(own, rand);
   }
 
-  // Day 12: questions from the topics you get wrong most, past misses first, at most 6 per topic.
+  // Questions from the topics you get wrong most, past misses first, at most 6 per topic.
   function pickWeak(pool, stats, n, rand = Math.random) {
     const w = tagWeakness(pool, stats);
     const score = q => {
@@ -126,11 +164,17 @@ window.QZ = (() => {
     const by = index(bank);
     return dueIds(srs, today).filter(id => by[id]).slice(0, n).map(id => by[id]);
   }
-  // Step practice: questions that send you back to one plan step. The step's own day comes first,
-  // then later days, then the mock pool, so a Day 3 step doesn't open with Day 9 material.
-  function pickStep(itemId, day, bank, stats, n = STEP, rand = Math.random) {
-    const far = q => (q.day === day ? 0 : q.day === "mock" ? 2 : 1);
-    return rank(bank.filter(q => q.ref.includes(itemId)), stats, rand)
+  // Questions for one plan step: those that name it (ref) and those on a topic it teaches (tags = its STEP_TAGS).
+  function forStep(id, tags, bank) {
+    const set = new Set(tags || []);
+    return bank.filter(q => q.ref.includes(id) || about(q, set));
+  }
+  // Step practice: questions that name the step first, then its topics as a question's main topic, then as a side topic;
+  // the mock pool last, so practice does not use up the mock exam.
+  function pickStep(id, tags, bank, stats, n = STEP, rand = Math.random) {
+    const set = new Set(tags || []);
+    const far = q => (q.ref.includes(id) ? 0 : set.has(q.tags[0]) ? 1 : 2) + (q.day === "mock" ? 3 : 0);
+    return rank(forStep(id, tags, bank), stats, rand)
       .map((q, i) => ({ q, i, f: far(q) }))
       .sort((a, b) => a.f - b.f || a.i - b.i)
       .slice(0, n).map(r => r.q);
@@ -169,13 +213,12 @@ window.QZ = (() => {
       const s = stats[q.id];
       if (!s) continue;
       for (const t of q.tags) {
-        const a = agg[t] || (agg[t] = { tag: t, seen: 0, right: 0, refs: {} });
+        const a = agg[t] || (agg[t] = { tag: t, seen: 0, right: 0 });
         a.seen += s.seen; a.right += s.right;
-        q.ref.forEach((r, i) => { a.refs[r] = (a.refs[r] || 0) + (i ? 1 : 2); });
       }
     }
     return Object.values(agg).filter(a => a.seen >= minSeen)
-      .map(a => ({ tag: a.tag, seen: a.seen, right: a.right, acc: a.right / a.seen, refs: Object.keys(a.refs).sort((x, y) => a.refs[y] - a.refs[x]).slice(0, 3) }))
+      .map(a => ({ tag: a.tag, seen: a.seen, right: a.right, acc: a.right / a.seen }))
       .sort((x, y) => x.acc - y.acc || y.seen - x.seen);
   }
   function domainAcc(bank, stats) {
@@ -196,7 +239,7 @@ window.QZ = (() => {
 
   return {
     DAILY, PASS, MOCK, SRS_DAYS, STEP, needed, passed, describe, hasQuiz,
-    shuffle, addDays, rank, stratified,
+    shuffle, addDays, rank, stratified, topics, dayPool, forStep,
     pickDay, pickWeak, pickMock, pickWarmup, pickReview, pickStep,
     order, isRight, record, srsMiss, srsHit, dueIds, weakTags, tagWeakness, domainAcc, mockResult
   };

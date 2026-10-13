@@ -4,10 +4,14 @@
 const PLAN = window.PLAN, LINKS = window.LINKS, GLOSS = window.GLOSSARY, CLEANUP = window.CLEANUP;
 const QZ = window.QZ, BANK = window.QUIZ || [], DOCS = window.DOCS || {};
 const CARDS = window.CARDS || {}, DRILL = window.DRILL || [], CUES = window.CUES || [];
-const KEYS = window.KEYS || {}, CUE_TAGS = window.CUE_TAGS || {}, SCORE_AT = window.SCORE_AT || {};
+const KEYS = window.KEYS || {}, CUE_TAGS = window.CUE_TAGS || {}, SCORE_AT = window.SCORE_AT || {}, STEP_TAGS = window.STEP_TAGS || {};
 const KEY = "saa-plan-v2";
+// Bumped when the plan's days change meaning: entries keyed by a day (quiz results, completion dates) then start again.
+// 2 = the 21-day plan on the Solutions Architect learning plan.
+const PLAN_V = 2;
 const DEF = {
   ticks: {}, notes: {}, scores: {}, dayDone: {},
+  planV: 0,    // the plan these entries were saved under (see PLAN_V)
   inotes: {},  // step id → your own note on that step
   quiz: {},    // day id → { best, passed: date or "", tries: [{ at, score, n }] }
   qs: {},      // question id → { seen, right, last, at }
@@ -55,6 +59,13 @@ const str0 = v => (typeof v === "string" ? v : "");
 const ints = v => Array.isArray(v) && v.every(Number.isInteger);
 function clean(s) {
   const keep = (m, ok) => { for (const k of Object.keys(m)) if (!ok(m[k])) delete m[k]; };
+  // Saved under an earlier plan: steps keep their ids, so ticks, step notes and answers carry over,
+  // but "Day 5" is now a different day, so its quiz result and completion date do not.
+  if (s.planV !== PLAN_V) {
+    s.quiz = {}; s.dayDone = {};
+    if (isObj(s.run) && s.run.kind === "day") s.run = null;
+    s.planV = PLAN_V;
+  }
   keep(s.ticks, v => v === true);
   keep(s.notes, v => typeof v === "string");
   keep(s.inotes, v => typeof v === "string");
@@ -136,14 +147,26 @@ DAYS.forEach(d => d.groups.forEach((g, gi) => {
   g.key = d.id + "g" + gi;
   g.items.forEach(it => { itemIndex[it[0]] = { d, g, it }; });
 }));
-const QBY = {}, QREF = {};      // questions by id, and by the plan step they send you back to
-BANK.forEach(q => { QBY[q.id] = q; q.ref.forEach(id => { (QREF[id] = QREF[id] || []).push(q); }); });
+const LAST = DAYS[DAYS.length - 1].day;
+const TP = QZ.topics(PLAN, STEP_TAGS);   // what each day teaches; the day quizzes are drawn from it
+// Questions by id and by plan step (the ones that name the step, plus the ones on a topic it teaches), and the steps that teach each topic.
+const QBY = {}, QREF = {}, TAG_STEPS = {}, ORDER = {};
+BANK.forEach(q => { QBY[q.id] = q; });
+Object.keys(itemIndex).forEach((id, i) => {
+  ORDER[id] = i;
+  const qs = QZ.forStep(id, STEP_TAGS[id], BANK);
+  if (qs.length) QREF[id] = qs;
+  (STEP_TAGS[id] || []).forEach(t => { (TAG_STEPS[t] = TAG_STEPS[t] || []).push(id); });
+});
+// Weeks are whatever the plan's {week: "…"} entries make them.
+const WEEK = {}, WEEKS = [];
+PLAN.forEach(d => { if (d.week) WEEKS.push(d.week); else if (d.id) WEEK[d.id] = Math.max(0, WEEKS.length - 1); });
 const dayOf = id => DAYS.find(x => x.id === id);
 const done = id => !!S.ticks[id];
 const gIds = g => g.items.map(i => i[0]);
 const dIds = d => d.groups.flatMap(gIds);
 const groupDone = g => gIds(g).every(done);
-const hasQuiz = d => QZ.hasQuiz(d.day);
+const hasQuiz = d => QZ.hasQuiz(d);
 const quizOk = d => !hasQuiz(d) || !!(S.quiz[d.id] && S.quiz[d.id].passed);
 const itemsDone = d => dIds(d).every(done);
 const dayDone = d => itemsDone(d) && quizOk(d);
@@ -152,9 +175,11 @@ const stepIds = d => (hasQuiz(d) ? [...dIds(d), "quiz"] : dIds(d));
 const groupLeft = g => { const ids = gIds(g); return (g.min || 0) * ids.filter(i => !done(i)).length / ids.length; };
 const dayLeft = d => d.groups.reduce((a, g) => a + groupLeft(g), 0) + (quizOk(d) ? 0 : QUIZ_MIN);
 const dayPlanned = d => d.groups.reduce((a, g) => a + (g.min || 0), 0) + (hasQuiz(d) ? QUIZ_MIN : 0);
-const weekOf = d => DAYS.filter(x => (x.day <= 7) === (d.day <= 7));
-const studyDays = DAYS.filter(d => d.day <= 13);
-const mockOpen = () => studyDays.every(dayDone);
+const weekOf = d => DAYS.filter(x => WEEK[x.id] === WEEK[d.id]);
+// The mock exam opens once the days of new material are done (MOCK_AFTER in plan.js; without it, every day but the last).
+const MOCK_AFTER = Number.isInteger(window.MOCK_AFTER) ? window.MOCK_AFTER : LAST - 1;
+const mockDays = DAYS.filter(d => d.day <= MOCK_AFTER);
+const mockOpen = () => mockDays.every(dayDone);
 function markDayDone(d) {
   if (dayDone(d)) { if (!S.dayDone[d.id]) S.dayDone[d.id] = today(); }
   else delete S.dayDone[d.id];
@@ -166,18 +191,18 @@ const shift = n => S.slips.reduce((a, s) => a + (n >= s.from ? s.n : 0), 0);
 function dayDate(n) { const d = parseDate(S.settings.start); d.setDate(d.getDate() + n - 1 + shift(n)); return d; }
 function midnight(d = new Date()) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 const diffDays = (a, b) => Math.round((midnight(a) - midnight(b)) / 864e5);
-// Which plan day today is: 0 or less before Day 1, more than 14 after the last day.
+// Which plan day today is: 0 or less before Day 1, more than the last day's number after it.
 function todayIdx() {
   const t = midnight();
   if (t < dayDate(1)) return 1 + diffDays(t, dayDate(1));
-  if (t > dayDate(14)) return 14 + diffDays(t, dayDate(14));
+  if (t > dayDate(LAST)) return LAST + diffDays(t, dayDate(LAST));
   let n = 1;
-  for (let k = 1; k <= 14; k++) if (dayDate(k) <= t) n = k;
+  for (let k = 1; k <= LAST; k++) if (dayDate(k) <= t) n = k;
   return n;
 }
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const today = () => iso(new Date());
-const examDate = () => S.settings.exam ? parseDate(S.settings.exam) : dayDate(14);
+const examDate = () => S.settings.exam ? parseDate(S.settings.exam) : dayDate(LAST);
 const fmtD = d => d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 const fmtH = m => m < 1 ? "0 min" : m < 60 ? `${Math.round(m / 5) * 5 || 5} min` : `${Math.round(m / 30) / 2} h`;
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
@@ -302,10 +327,8 @@ function renderMap(ti) {
 }
 function renderLinks() {
   const nav = document.getElementById("links");
-  const items = [];
-  for (const k of ["sb", "ess", "cq", "epp"]) items.push([LINKS[k].label, LINKS[k].url]);
-  items.push(S.settings.portal ? ["AWS sign-in", S.settings.portal] : [LINKS.console.label, LINKS.console.url]);
-  for (const k of ["calc", "cert"]) items.push([LINKS[k].label, LINKS[k].url]);
+  // every link of the plan that is not marked hidden, in the plan's order; the console link becomes your own sign-in page once you set it
+  const items = Object.keys(LINKS).filter(k => !LINKS[k].hidden).map(k => (k === "console" && S.settings.portal ? ["AWS sign-in", S.settings.portal] : [LINKS[k].label, LINKS[k].url]));
   nav.innerHTML = items.map(([l, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(l)} ↗</a>`).join("");
 }
 
@@ -324,7 +347,7 @@ function renderStats(dn, total) {
   for (const id in S.qs) if (QBY[id]) { seen += S.qs[id].seen; right += S.qs[id].right; }
   const cells = [
     ["Steps", `${dn} <small>of ${total}</small>`],
-    ["Days", `${DAYS.filter(dayDone).length} <small>of 14</small>`],
+    ["Days", `${DAYS.filter(dayDone).length} <small>of ${DAYS.length}</small>`],
     ["Focus time", mins >= 1 ? fmtH(mins) : "–"],
     ["Quiz answers right", seen ? `${pct(right, seen)}% <small>of ${seen}</small>` : "–"],
     ["Streak", sk ? `🔥 ${plural(sk, "day")}` : "–"]
@@ -341,7 +364,7 @@ function refresh() {
   const p = pct(dn, total);
   document.getElementById("bar").style.width = p + "%";
   document.getElementById("tb-pct").textContent = p + "%";
-  document.getElementById("tb-sheet").textContent = ti < 1 ? "Not started" : ti > 14 ? "Finished" : `Day ${ti} of 14`;
+  document.getElementById("tb-sheet").textContent = ti < 1 ? "Not started" : ti > LAST ? "Finished" : `Day ${ti} of ${LAST}`;
   const examD = examDate();
   document.getElementById("tb-exam").textContent = fmtD(examD);
   document.getElementById("tb-exam-k").textContent = S.settings.exam ? "Exam (booked)" : "Exam";
@@ -350,8 +373,8 @@ function refresh() {
   const st = [];
   if (ti < 1) {
     st.push(`<span>Starts <b>${fmtD(dayDate(1))}</b> (in ${plural(1 - ti, "day")})</span>`);
-  } else if (ti > 14) {
-    st.push(`<span>Plan period ended ${fmtD(dayDate(14))}</span>`);
+  } else if (ti > LAST) {
+    st.push(`<span>Plan period ended ${fmtD(dayDate(LAST))}</span>`);
   } else {
     const td = DAYS[ti - 1];
     st.push(`<span><b>Today:</b> ${td.title}</span>`);
@@ -361,7 +384,7 @@ function refresh() {
     else if (DAYS.some(d => d.day > ti && dIds(d).some(done))) st.push(`<span class="pill ok">Ahead of plan</span>`);
     else st.push(`<span class="pill ok">On track</span>`);
   }
-  if (S.settings.exam && dayDate(14) > parseDate(S.settings.exam)) st.push(`<span class="pill bad">Plan now ends after your booked exam</span>`);
+  if (S.settings.exam && dayDate(LAST) > parseDate(S.settings.exam)) st.push(`<span class="pill bad">Plan now ends after your booked exam</span>`);
   const daysToExam = diffDays(examD, new Date());
   if (daysToExam >= 0) st.push(`<span>${daysToExam ? `Exam in <b>${plural(daysToExam, "day")}</b>` : "<b>Exam today</b>"}</span>`);
   document.getElementById("status").innerHTML = st.join("");
@@ -384,7 +407,7 @@ function renderSlip() {
   const late = diffDays(new Date(), dayDate(d.day));
   el.hidden = false;
   el.innerHTML = `<span>Day ${d.day} was planned for <b>${fmtD(dayDate(d.day))}</b> and isn't finished.</span>` +
-    `<button type="button" class="primary" data-slip="${late}">Move Day ${d.day}${d.day < 14 ? "–14" : ""} ${plural(late, "day")} later</button>` +
+    `<button type="button" class="primary" data-slip="${late}">Move Day ${d.day}${d.day < LAST ? "–" + LAST : ""} ${plural(late, "day")} later</button>` +
     `<button type="button" data-slip="skip">Not now</button>` +
     (S.settings.exam ? `<span class="muted">Booked exam: ${fmtD(parseDate(S.settings.exam))}. Pearson VUE lets you reschedule up to 24 h before.</span>` : "");
 }
@@ -394,7 +417,7 @@ function applySlip(v) {
   if (!d || !(n > 0)) return;
   S.slips.push({ from: d.day, n });
   save(); refresh();
-  FX.banner("Schedule moved", `Day ${d.day} is today. Day 14 is now ${fmtD(dayDate(14))}.`, "info");
+  FX.banner("Schedule moved", `Day ${d.day} is today. Day ${LAST} is now ${fmtD(dayDate(LAST))}.`, "info");
 }
 
 // ---------- overview: the day to work on, with one button to start or continue ----------
@@ -511,18 +534,20 @@ function renderFlow(moved) {
     (at === "done" ? `<span></span>` : `<button type="button" class="fl-n ${nextMain ? "primary" : "ghost"}" data-next data-at="${next}"${nextMain ? " data-main" : ""}${next ? "" : " disabled"}>Next →</button>`);
 }
 
-// Docs for a step: the pages its key points cite, then the AWS pages its quiz questions point to most often.
+// Docs for a step: the pages its key points cite, then the AWS pages its own quiz questions point to most often
+// (questions that name the step or have one of its topics as their main topic).
 function stepDocs(id) {
   const out = [], seen = new Set();
   const add = (label, url) => { if (/^https:\/\//.test(url) && !seen.has(url)) { seen.add(url); out.push([label, url]); } };
   ((KEYS[id] || {}).docs || []).forEach(x => add(x[0], x[1]));
-  const n = {};
-  (QREF[id] || []).forEach(q => { if (DOCS[q.doc]) n[q.doc] = (n[q.doc] || 0) + 1; });
+  const n = {}, mine = STEP_TAGS[id] || [];
+  (QREF[id] || []).forEach(q => { if (DOCS[q.doc] && (q.ref.includes(id) || mine.includes(q.tags[0]))) n[q.doc] = (n[q.doc] || 0) + 1; });
   Object.keys(n).sort((a, b) => n[b] - n[a]).forEach(k => add(DOCS[k][0], DOCS[k][1]));
   return out.slice(0, 5);
 }
-// Exam topics a step feeds: the tags of its quiz questions, most frequent first.
+// Exam topics a step feeds: the ones the plan names for it, else the tags of the quiz questions that point at it, most frequent first.
 function stepTags(id) {
+  if (STEP_TAGS[id]) return STEP_TAGS[id].slice(0, 4);
   const n = {};
   (QREF[id] || []).forEach(q => q.tags.forEach(t => { n[t] = (n[t] || 0) + 1; }));
   return Object.keys(n).sort((a, b) => n[b] - n[a]).slice(0, 4);
@@ -593,7 +618,7 @@ function stepCardHTML(id) {
   if (qs.length) {
     const seen = qs.filter(q => S.qs[q.id]), right = seen.filter(q => S.qs[q.id].last).length;
     const live = S.run && !S.run.done && S.run.kind === "step" && S.run.item === id;
-    h += `<div class="c-prac"><span>${plural(qs.length, "quiz question")} ${qs.length === 1 ? "draws" : "draw"} on this step.` +
+    h += `<div class="c-prac"><span>${plural(qs.length, "quiz question")} ${qs.length === 1 ? "covers" : "cover"} this step.` +
       (seen.length ? ` You have answered ${seen.length}, ${right} right at the last try.` : "") + `</span>` +
       `<button type="button" data-step-quiz="${id}">${live ? "Resume practice" : `Try ${Math.min(QZ.STEP, qs.length)} now`}</button></div>`;
   }
@@ -603,7 +628,7 @@ function quizCardHTML(d) {
   const r = S.quiz[d.id], tries = r ? r.tries.length : 0, ok = quizOk(d), live = liveQuiz(d);
   const open = dIds(d).filter(id => !done(id));
   let h = `<div class="c-h"><span class="tag t-quiz">Quiz</span><span class="c-meta">${QZ.DAILY} questions, ~${QUIZ_MIN} min</span>${ok ? `<span class="pill ok">✓ Passed</span>` : ""}</div>` +
-    `<h2 class="c-t" tabindex="-1">End-of-day quiz</h2><p class="c-n">${QZ.describe(d.day)}. Pass at ${QZ.needed(QZ.DAILY)} of ${QZ.DAILY} to complete Day ${d.day}.</p>`;
+    `<h2 class="c-t" tabindex="-1">End-of-day quiz</h2><p class="c-n">${QZ.describe(d)}. Pass at ${QZ.needed(QZ.DAILY)} of ${QZ.DAILY} to complete Day ${d.day}.</p>`;
   if (live) h += `<p class="c-st">In progress: question ${S.run.i + 1} of ${S.run.ids.length}.</p>`;
   else if (ok) h += `<p class="c-st ok">Passed with ${r.best} of ${QZ.DAILY} on ${fmtD(parseDate(r.passed))}.</p><div class="c-w"><button type="button" data-quiz-start="${d.id}">Practice again</button></div>`;
   else if (open.length) {
@@ -670,9 +695,12 @@ function complete(id, srcEl) {
 function celebrate(kind, d) {
   const sk = streak();
   const skTxt = sk > 1 ? ` · 🔥 ${sk}-day streak` : "";
-  if (kind === "all") { FX.all(); FX.banner("All 14 days done 🚀", "Go pass SAA-C03.", "all"); }
-  else if (kind === "week") { FX.week(); FX.banner(`Week ${d.day <= 7 ? 1 : 2} complete 🏆`, (d.day <= 7 ? "Foundation done. Exam prep next." : "Only the exam left.") + skTxt, "week"); }
-  else { FX.day(); FX.banner(`Day ${d.day} complete 🎉`, `${DAYS.filter(dayDone).length}/14 days done${skTxt}`, "day"); }
+  if (kind === "all") { FX.all(); FX.banner(`All ${DAYS.length} days done 🚀`, "Go pass SAA-C03.", "all"); }
+  else if (kind === "week") {
+    const w = WEEK[d.id], next = WEEKS[w + 1];
+    FX.week(); FX.banner(`Week ${w + 1} complete 🏆`, (next ? `Next: ${strip(next)}.` : "Only the exam left.") + skTxt, "week");
+  }
+  else { FX.day(); FX.banner(`Day ${d.day} complete 🎉`, `${DAYS.filter(dayDone).length}/${DAYS.length} days done${skTxt}`, "day"); }
 }
 
 // ---------- scores ----------
@@ -681,9 +709,10 @@ function verdictHTML() {
   const pe = num("pe");
   const weak = weakestDomain();
   const weakTxt = weak ? ` Focus on <b>Domain ${weak.i + 1} (${weak.name})</b>.` : "";
-  if (pe == null) return ["", "Enter your <b>Official Practice Exam</b> score (Day 11) in 📊 Scores to get the go/no-go decision."];
+  const peStep = itemIndex[Object.keys(SCORE_AT).find(k => SCORE_AT[k] === "pe")];
+  if (pe == null) return ["", `Enter your <b>Official Practice Exam</b> score${peStep ? ` (Day ${peStep.d.day})` : ""} in 📊 Scores to get the go/no-go decision.`];
   if (pe < 100 || pe > 1000) return ["", "Practice exam score must be between 100 and 1000."];
-  if (pe >= 750) return ["go", `<b>GO</b> — ${pe}/1000. Book the exam for Day 14 (${fmtD(dayDate(14))}).`];
+  if (pe >= 750) return ["go", `<b>GO</b> — ${pe}/1000. Book the exam for Day ${LAST} (${fmtD(dayDate(LAST))}).`];
   if (pe >= 720) return ["mid", `<b>BORDERLINE</b> — ${pe}/1000 passes, but with no margin. Add 3–4 days, then book.${weakTxt}`];
   return ["no", `<b>NOT YET</b> — ${pe}/1000 (pass is 720). Add a week before booking.${weakTxt}`];
 }
@@ -736,14 +765,14 @@ function renderPractice() {
   const open = book.filter(id => !S.book[id].fixed).length;
   const weak = QZ.weakTags(BANK, S.qs)[0];
   const last = S.mocks[S.mocks.length - 1];
-  const left = studyDays.filter(d => !dayDone(d)).length;
+  const left = mockDays.filter(d => !dayDone(d)).length;
   const liveMock = S.run && S.run.kind === "mock" && !S.run.done;
   const cards = [
     ["🔁 Review", due ? `${plural(due, "missed question")} due today.` : `Nothing due. Questions you miss come back after ${QZ.SRS_DAYS.join(", ").replace(/, (\d+)$/, " and $1")} days until you get them right three times.`,
       `<button type="button" data-review${due ? ' class="primary"' : " disabled"}>Start review</button>`],
     ["🧪 Mock exam", mockOpen() || liveMock
       ? `${QZ.MOCK.n} questions in ${QZ.MOCK.minutes} minutes, results at the end like the real exam. Each attempt draws different questions.${last ? ` Last: ${last.pct}% on ${fmtD(parseDate(last.at))}.` : ""}`
-      : `Unlocks when Days 1–13 are complete (${left} to go).`,
+      : `Unlocks when Days 1–${MOCK_AFTER} are complete (${left} to go): the lectures and labs.`,
       `<button type="button" data-mock${mockOpen() || liveMock ? ' class="primary"' : " disabled"}>${liveMock ? `Resume (${clock(S.run.end - Date.now())} left)` : "Start mock exam"}</button>`],
     ["⚡ Which service?", `60 seconds of quick picks: a requirement, four services, choose one.${S.drill.best ? ` Your best: ${S.drill.best}.` : ""}`,
       `<button type="button" data-drill${DRILL.length ? "" : " disabled"}>Start drill</button>`],
@@ -815,10 +844,10 @@ function startRun(kind, of) {
     if (same || !confirm(`You have an unfinished ${runTitle(S.run).toLowerCase()}. Drop it and start this instead?`)) return openQuiz();
   }
   const t = today();
-  const qs = kind === "day" ? QZ.pickDay(dayOf(of).day, BANK, S.qs)
+  const qs = kind === "day" ? QZ.pickDay(dayOf(of), TP, BANK, S.qs)
     : kind === "mock" ? QZ.pickMock(BANK, S.qs)
     : kind === "warm" ? QZ.pickWarmup(BANK, S.qs, S.srs, t, 5)
-    : kind === "step" ? QZ.pickStep(of, itemIndex[of].d.day, BANK, S.qs)
+    : kind === "step" ? QZ.pickStep(of, STEP_TAGS[of], BANK, S.qs)
     : QZ.pickReview(BANK, S.srs, t, 15);
   if (!qs.length) { if (qzDlg.open) qzDlg.close(); FX.banner("No questions available yet", "", "info"); return; }
   const ord = {};
@@ -852,9 +881,12 @@ function fbHTML(q, ord, ans) {
     return `<li class="${right ? "right" : mine ? "wrong" : ""}"><span class="qz-l">${LETTERS[k]}</span><div><div class="qz-t">${q.o[oi]}${mine ? ' <span class="mine">your answer</span>' : ""}</div><div class="qz-why">${right ? "✓ " : mine ? "✗ " : ""}${q.x[oi]}</div></div></li>`;
   }).join("")}</ol>`;
 }
-// Show where to watch or read first (Skill Builder), then hands-on, then self-checks.
+// Show where to watch or read first (Skill Builder), then hands-on, then self-checks; within a kind, in the plan's order.
 const REF_ORDER = { watch: 0, prep: 0, play: 1, build: 2, check: 3, setup: 4 };
-const studyRefs = q => q.ref.filter(id => itemIndex[id]).sort((a, b) => REF_ORDER[itemIndex[a].g.t] - REF_ORDER[itemIndex[b].g.t]);
+const byKind = ids => [...new Set(ids)].filter(id => itemIndex[id]).sort((a, b) => REF_ORDER[itemIndex[a].g.t] - REF_ORDER[itemIndex[b].g.t] || ORDER[a] - ORDER[b]);
+// Where to study a topic, and a question: the steps the question names, then the steps that teach its main topic. Three at most.
+const tagRefs = t => byKind(TAG_STEPS[t] || []).slice(0, 3);
+const studyRefs = q => byKind([...q.ref, ...(TAG_STEPS[q.tags[0]] || []), ...(TAG_STEPS[q.tags[0]] ? [] : q.tags.flatMap(t => TAG_STEPS[t] || []))]).slice(0, 3);
 function refHTML(id, extra = "") {
   const { d, g, it } = itemIndex[id];
   const url = linkFor(g.link);
@@ -1251,12 +1283,12 @@ function bookEntries() {
     .sort((x, y) => (x.b.at < y.b.at ? 1 : x.b.at > y.b.at ? -1 : y.b.misses - x.b.misses));
 }
 function notebookHTML() {
-  const all = bookEntries();
+  const all = bookEntries(), weakDay = DAYS.find(d => d.quiz === "weak");
   if (!all.length) return `<p class="muted">Empty for now. Every question you miss in a quiz, review or mock exam lands here, with a line for why you missed it.</p>`;
   const open = all.filter(e => !e.b.fixed), fixed = all.filter(e => e.b.fixed);
   const list = nbFilter === "open" ? open : nbFilter === "fixed" ? fixed : all;
   return `<div class="seg">${[["open", `Open (${open.length})`], ["fixed", `Fixed (${fixed.length})`], ["all", `All (${all.length})`]].map(([k, l]) => `<button type="button" data-nb="${k}" aria-pressed="${nbFilter === k}">${l}</button>`).join("")}<button type="button" class="nb-exp" data-nb-export>Export as Markdown</button></div>` +
-    `<p class="muted">Fixed means you answered it right after missing it. Day 12 and the morning of the exam are for this list.</p>` +
+    `<p class="muted">Fixed means you answered it right after missing it. ${weakDay ? `Day ${weakDay.day} and the` : "The"} morning of the exam ${weakDay ? "are" : "is"} for this list.</p>` +
     `<ol class="qz-missed nb">${list.map(({ q, b }) => `<li class="${b.fixed ? "right" : "wrong"}"><details><summary>${q.q}<span class="nb-m">${q.tags.map(esc).join(", ")}. Missed ${b.misses}×${b.fixed ? ", answered right since" : ""}.</span></summary>` +
       `${answerHTML(q)}<label class="qz-note">Why I missed it<input type="text" maxlength="300" data-note="${q.id}" value="${esc(b.note || "")}"></label>${studyHTML(q)}</details></li>`).join("") || `<li class="muted">Nothing here.</li>`}</ol>`;
 }
@@ -1281,7 +1313,7 @@ function weakHTML() {
   if (dom.some(x => x[1])) h += `<h3 class="sub-h">By exam domain</h3><div class="dom-bars">${dom.map(([a, n], i) => n ? bar(`D${i + 1} ${DOMAINS[i]}`, pct(a, n), `${pct(a, n)}%`) : "").join("")}</div>`;
   if (w.length) h += `<h3 class="sub-h">By topic, weakest first</h3><p class="muted">Share of answers right, counting every attempt. Open a topic to see where to study it.</p>` +
     `<ul class="wk">${w.map(t => `<li><details><summary><span class="wk-t">${esc(t.tag)}</span><span class="tr"><span class="fi${t.acc < 0.7 ? " low" : ""}" style="width:${Math.round(t.acc * 100)}%"></span></span><span class="wk-n">${t.right}/${t.seen}</span></summary>` +
-      `<ul class="qz-refs">${t.refs.filter(id => itemIndex[id]).map(id => refHTML(id)).join("")}</ul></details></li>`).join("")}</ul>`;
+      `<ul class="qz-refs">${tagRefs(t.tag).map(id => refHTML(id)).join("")}</ul></details></li>`).join("")}</ul>`;
   if (shaky.length) h += `<h3 class="sub-h">Self-checks you marked shaky</h3><ul class="qz-refs">${shaky.map(id => refHTML(id)).join("")}</ul>`;
   return h;
 }
@@ -1426,7 +1458,7 @@ function renderSettingsInfo() {
   const sl = document.getElementById("s-slips");
   const moved = S.slips.reduce((a, s) => a + s.n, 0);
   sl.hidden = !moved;
-  document.getElementById("s-slips-t").textContent = moved ? `The schedule has been moved ${plural(moved, "day")} later in total. Day 14 is ${fmtD(dayDate(14))}.` : "";
+  document.getElementById("s-slips-t").textContent = moved ? `The schedule has been moved ${plural(moved, "day")} later in total. Day ${LAST} is ${fmtD(dayDate(LAST))}.` : "";
   document.getElementById("s-sync").textContent = sync.on
     ? `Progress is saved on the server (SQLite, revision ${sync.rev}) and cached in this browser.`
     : "Progress lives in this browser for this address (e.g. localhost:8080). When the site runs from the Docker image it is also saved on the server.";
@@ -1640,6 +1672,7 @@ setInterval(() => { if (todayIdx() !== lastIdx || today() !== lastDate) { lastId
 // Days ticked off before quizzes existed count as done once their quiz is passed.
 DAYS.forEach(markDayDone);
 document.getElementById("places").open = Object.keys(S.ticks).length === 0;
+document.getElementById("tb-sub").textContent = `SAA-C03 in ${DAYS.length} days`;
 restoreScores();
 rebuild();
 route();

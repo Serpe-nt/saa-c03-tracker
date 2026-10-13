@@ -27,7 +27,7 @@ window.QUIZ.push(
     "S3 must be able to call <code>kms:GenerateDataKey</code> and <code>kms:Decrypt</code> on the queue's key, which is possible only with a customer managed key whose key policy allows the Amazon S3 service principal.",
     "Bucket Keys reduce KMS calls for objects stored in the bucket; they have nothing to do with S3 sending encrypted messages to SQS.",
     "The consumer's permissions are not the problem; S3 itself cannot encrypt messages for the queue, so the events never arrive."],
- ref:["d8e4","d4b4"], doc:"kms"},
+ ref:["d8e4"], doc:"kms"},
 
 {id:"q08-003", day:8, dom:1, tags:["KMS & encryption","S3 security"],
  q:"A company's S3 bucket holds 400 million existing objects encrypted with SSE-S3. A new policy requires every object, existing and future, to be encrypted with SSE-KMS using a specific customer managed key so that access can be audited and revoked through the key policy. The company wants the least operational effort and no changes to the applications that upload objects. Which combination of actions meets these requirements? (Choose two.)",
@@ -42,7 +42,7 @@ window.QUIZ.push(
     "Default encryption affects only new objects; a Batch Operations update object encryption job changes existing SSE-S3 objects to SSE-KMS with the chosen key without moving any data and can write a completion report. The older way to do the same thing, which an exam item may still show, is a Batch Operations copy job that writes each object back to the same bucket with the new key.",
     "Lifecycle transitions change the storage class, not the encryption type, so the objects would stay encrypted with SSE-S3.",
     "Enabling versioning only keeps earlier versions when objects are later overwritten or deleted; it does not create new versions or change the encryption of existing objects."],
- ref:["d8e4","d4b4"], doc:"s3"},
+ ref:["d8e4"], doc:"s3"},
 
 {id:"q08-004", day:8, dom:1, tags:["IAM roles & cross-account"],
  q:"A manufacturing company runs scripts on servers in its own data centers that upload production data to Amazon S3. The scripts use IAM user access keys stored in configuration files, and an audit flagged these long-term credentials. The company already runs an internal public key infrastructure that issues an X.509 certificate to every server. The company wants the scripts to use short-lived AWS credentials with the LEAST operational overhead. Which solution meets these requirements?",
@@ -68,7 +68,7 @@ window.QUIZ.push(
     "An SCP at the root applies to every member account, including new ones and their administrators, and a deny on <code>aws:RequestedRegion</code> with exemptions for global services is the standard data residency guardrail.",
     "AWS Config is a detective control; it reports noncompliant resources after they are created instead of preventing them.",
     "Boundaries must be attached to each principal, and administrators could create principals without one, so this is not an organization-wide preventive guardrail."],
- ref:["d8e2","d4c2","d4w1"], doc:"organizations"},
+ ref:["d8e2","d4c2"], doc:"organizations"},
 
 {id:"q08-006", day:8, dom:1, tags:["Organizations & SCPs","IAM policies"],
  q:"In a company's organization, the FullAWSAccess SCP on the Analytics OU has been replaced with an SCP that allows only <code>s3:*</code> and <code>athena:*</code> actions. A developer in a member account under that OU has an identity-based policy that allows <code>dynamodb:*</code> and <code>s3:GetObject</code> on a reporting bucket. The developer reports that DynamoDB calls fail with AccessDenied. Which statement correctly describes the developer's effective permissions?",
@@ -107,7 +107,7 @@ window.QUIZ.push(
     "Rotation keeps older key material available for decryption and does not restrict which service the key is used through.",
     "A bucket policy controls S3 actions on the bucket; it cannot govern KMS API permissions.",
     "The <code>kms:ViaService</code> condition key limits use of the key to requests that the named service makes on the principal's behalf, written as <code>s3.eu-west-1.amazonaws.com</code>, so direct KMS calls by the role are denied."],
- ref:["d8e4","d4c1","d4b4"], doc:"kms"},
+ ref:["d8e4","d4c1"], doc:"kms"},
 
 {id:"q08-009", day:8, dom:1, tags:["S3 security","VPC endpoints & PrivateLink"],
  q:"A financial services company stores regulated reports in an S3 bucket. The applications that read the reports run on EC2 instances in private subnets with no internet access. Compliance requires that traffic to S3 does not traverse the internet and that the bucket rejects any request that does not arrive through the company's VPC, even from users with valid IAM permissions. Which combination of steps meets these requirements? (Choose two.)",
@@ -202,7 +202,7 @@ window.QUIZ.push(
     "GuardDuty analyzes DNS activity and reports findings about malicious domains, but it does not block the queries.",
     "DNS Firewall filters queries that pass through the Route 53 VPC Resolver (formerly Route 53 Resolver), can block every domain in the AWS managed domain lists, which AWS keeps updated, and blocked queries are recorded through Resolver query logging.",
     "A self-managed proxy would work, but the company would have to run, patch, scale, and update it and its blocklists, which is far more overhead."],
- ref:["d8e3","d2w1"], doc:"route53"},
+ ref:["d8e3"], doc:"route53"},
 
 {id:"q08-016", day:8, dom:1, tags:["Governance","Organizations & SCPs"],
  q:"A fast-growing company plans to move from a single AWS account to dozens of accounts. It wants a landing zone with dedicated log archive and audit accounts, organization-wide CloudTrail logging, preventive and detective guardrails, and a self-service way to create new accounts that are compliant from the start. The company has a small cloud team. Which solution meets these requirements with the LEAST operational overhead?",
@@ -215,7 +215,7 @@ window.QUIZ.push(
     "Security Hub CSPM (formerly AWS Security Hub) runs posture checks and aggregates findings, but it does not create accounts, set up log archive and audit accounts, or apply preventive guardrails.",
     "Control Tower automates a multi-account landing zone with dedicated logging and audit accounts (current landing zone versions call them the CloudTrail administrator account and the Config aggregator account), centralized CloudTrail logging, preventive and detective controls, and Account Factory for compliant account vending.",
     "Conformance packs are collections of AWS Config rules and remediation actions, which detect and correct after the fact; they do not create accounts, centralize logging or enforce preventive controls, and copying roles by script is fragile."],
- ref:["d8e2","d6w2","d4c2"], doc:"controltower"},
+ ref:["d8e2","d4c2"], doc:"controltower"},
 
 {id:"q08-017", day:8, dom:1, tags:["IAM roles & cross-account"],
  q:"A developer accidentally pasted temporary credentials for an IAM role into a public forum. Many developers assume the same IAM role through a SAML 2.0 identity provider every day, and the leaked credentials remain valid for several more hours. The security team must immediately make every session of the role that was issued before now unusable, while developers who sign in again can keep working. What should the security team do?",
@@ -243,7 +243,7 @@ window.QUIZ.push(
     "Referencing the application tier's security group admits any instance that carries that group, whatever its IP address, and excludes the batch instances.",
     "IP-based rules break every time the Auto Scaling group replaces an instance, which creates constant maintenance.",
     "The ALB connects to the application tier, not the database, so this would open the database to the wrong tier and still block the application instances."],
- ref:["d8e3","d2c1","d2w1"], doc:"vpc"},
+ ref:["d8e3","d2c1"], doc:"vpc"},
 
 {id:"q08-019", day:8, dom:1, tags:["Security groups & NACLs","WAF, Shield & Firewall Manager"],
  q:"A gaming company runs a UDP game server fleet on EC2 instances in public subnets behind a Network Load Balancer. The operations team has identified a single /24 CIDR range that is sending malicious traffic and must block it immediately for all instances in those subnets while legitimate players stay connected. Which solution meets this requirement?",
@@ -323,7 +323,7 @@ window.QUIZ.push(
     "Flow Logs record information about IP traffic such as addresses, ports, and byte counts; none of the available fields holds packet contents.",
     "GuardDuty is a threat detection service that produces its own findings from sources such as CloudTrail events, VPC flow logs and DNS logs, which carry no packet payloads for the team's appliance to analyze.",
     "A NAT gateway is monitored through CloudWatch metrics such as byte and packet counts, which contain no packet contents, and only internet-bound traffic would pass through one."],
- ref:["d8e3","d2w1"], doc:"vpc"},
+ ref:["d8e3"], doc:"vpc"},
 
 {id:"q08-025", day:8, dom:1, tags:["Threat detection","S3 security"],
  q:"A law firm's web portal lets clients upload documents into an S3 bucket, and an internal workflow processes each new object. The firm must scan every uploaded object for malware before the workflow reads it, and it does not want to run or update antivirus software itself. Which solution meets these requirements with the LEAST operational overhead?",
@@ -403,7 +403,7 @@ window.QUIZ.push(
     "DNS Firewall filters DNS lookups, which helps with domain control, but it cannot inspect traffic for intrusion signatures and does not stop connections made directly to IP addresses.",
     "AWS WAF inspects inbound web requests on resources such as CloudFront, ALB and API Gateway; it cannot be associated with NAT gateways.",
     "Network Firewall is a managed stateful firewall and IPS for VPC traffic; routing egress through its endpoints enables domain allow lists and Suricata-compatible intrusion prevention rules."],
- ref:["d8e3","d2w1"], doc:"network-firewall"},
+ ref:["d8e3"], doc:"network-firewall"},
 
 {id:"q08-031", day:8, dom:1, tags:["CloudFront","S3 security"],
  q:"A company hosts a single-page application in an S3 bucket that is encrypted with SSE-KMS using a customer managed key, and serves it through Amazon CloudFront. The security team requires that the bucket stay private with S3 Block Public Access enabled and that users can reach the content only through the CloudFront distribution. Which solution meets these requirements?",
@@ -470,7 +470,7 @@ window.QUIZ.push(
     "Use of the AWS managed key is logged, but its key policy cannot be edited, so the firm cannot control who uses the key separately from S3 permissions.",
     "SSE-C makes the firm supply its own key with every request and track which key encrypted which object; the keys never go through AWS KMS, so there is no key policy or KMS audit trail, and new buckets block SSE-C until it is enabled.",
     "A customer managed key lets the firm write the key policy, logs every Encrypt, Decrypt and GenerateDataKey call in CloudTrail, and supports automatic yearly rotation."],
- ref:["d8e4","d4b4","d8c3"], doc:"kms"},
+ ref:["d8e4","d8c3"], doc:"kms"},
 
 {id:"q08-036", day:8, dom:1, tags:["KMS & encryption","IAM roles & cross-account"],
  q:"A data platform in Account A stores objects in an S3 bucket encrypted with SSE-KMS using a customer managed key in Account A. A reporting role in Account B must read the objects. The bucket policy already grants the Account B role <code>s3:GetObject</code>, and the role's identity policy allows <code>s3:GetObject</code> on the bucket, but downloads still fail with an access denied error from AWS KMS. Which combination of steps will resolve the issue? (Choose two.)",
@@ -485,7 +485,7 @@ window.QUIZ.push(
     "Bucket Keys reduce KMS request volume and cost, but they do not change who is authorized to use the key.",
     "Account B must also delegate permission to its own principal, so the role's identity policy needs <code>kms:Decrypt</code> on the specific key ARN.",
     "KMS keys cannot be exported from KMS in plain text, so the key material cannot be moved into a key in Account B; sharing the existing key through its key policy is the supported way."],
- ref:["d8e4","d8c2","d4b4"], doc:"kms"},
+ ref:["d8e4","d8c2"], doc:"kms"},
 
 {id:"q08-037", day:8, dom:1, tags:["S3 features","KMS & encryption"],
  q:"A company replicates an S3 bucket in eu-west-1 to a bucket in eu-central-1 with S3 Cross-Region Replication. Objects encrypted with SSE-S3 replicate, but objects encrypted with SSE-KMS using a customer managed key are never replicated. Compliance requires that the replicas be encrypted with a customer managed key in eu-central-1. What should a solutions architect do?",
@@ -498,7 +498,7 @@ window.QUIZ.push(
     "SSE-KMS objects replicate only when the rule explicitly includes them and names a destination KMS key, and the replication role needs <code>kms:Decrypt</code> on the source key and <code>kms:Encrypt</code> on the destination key.",
     "Switching the source to SSE-S3 removes the control that the customer managed key provides and means rewriting every object, which is not what compliance asks for.",
     "Bucket Keys reduce KMS request costs; they do not give the replication role any permission on the source key."],
- ref:["d8e4","d3w1"], doc:"s3"},
+ ref:["d8e4"], doc:"s3"},
 
 {id:"q08-038", day:8, dom:1, tags:["EBS & instance store","KMS & encryption"],
  q:"A company's security policy requires that every new EBS volume and snapshot in its production account be encrypted with a specific customer managed KMS key. Engineers create volumes from the console, the CLI, launch templates and third-party tools, and the security team wants encryption to happen automatically without relying on each engineer. Which solution meets these requirements with the LEAST operational overhead?",
@@ -511,7 +511,7 @@ window.QUIZ.push(
     "Launch templates cover only instances launched from them; volumes created from the console, the CLI or other tools would still be unencrypted.",
     "Data Lifecycle Manager automates snapshot schedules; it does not encrypt the volumes themselves, so data at rest on the volumes stays unencrypted.",
     "Encryption by default is a per-Region account setting that encrypts every new volume, and the snapshots taken from it, with the chosen key, regardless of how the volume is created."],
- ref:["d8e4","d8c3","d4w1"], doc:"ebs"},
+ ref:["d8e4","d8c3"], doc:"ebs"},
 
 {id:"q08-039", day:8, dom:1, tags:["Encryption in transit","CloudFront"],
  q:"A company runs a web application behind an ALB in eu-west-1 with an ACM certificate for www.example.com. To improve global performance, a solutions architect is adding an Amazon CloudFront distribution with the alternate domain name www.example.com and HTTPS for viewers. The existing certificate does not appear in the list of certificates that can be selected for the distribution. What should the solutions architect do?",
@@ -550,7 +550,7 @@ window.QUIZ.push(
     "In compliance mode, no user, including the root user, can delete a locked object version or shorten its retention until the retention period ends.",
     "An administrator can edit or remove the bucket policy, and the root user can still delete versions with MFA, so this is not WORM protection.",
     "Lifecycle rules manage storage class and expiration; they do not prevent anyone from deleting or overwriting objects before the 7 years are up."],
- ref:["d8e4","d3w1"], doc:"object-lock"},
+ ref:["d8e4"], doc:"object-lock"},
 
 {id:"q08-042", day:8, dom:1, tags:["S3 features","S3 security"],
  q:"A media company keeps raw footage in Amazon S3 and wants every new object protected from deletion and overwrite for 90 days after upload, with the protection ending automatically. In rare cases, such as a legal request to remove content, a small group of security administrators must be able to delete a protected object early. Everyone else must be blocked. Which solution meets these requirements?",
@@ -563,7 +563,7 @@ window.QUIZ.push(
     "Legal holds have no expiry; each hold would have to be removed manually, so protection would not end automatically after 90 days.",
     "Governance mode applies the 90-day retention automatically and lets only principals with <code>s3:BypassGovernanceRetention</code>, sending the bypass header, delete or shorten retention early.",
     "MFA delete protects versions only from permanent deletion and depends on the root user; sharing root's MFA device breaks accountability and gives no automatic 90-day window."],
- ref:["d8e4","d3w1"], doc:"object-lock"},
+ ref:["d8e4"], doc:"object-lock"},
 
 {id:"q08-043", day:8, dom:1, tags:["S3 features"],
  q:"Engineers at a design agency have accidentally overwritten and deleted important files in an S3 bucket several times. The agency wants to be able to recover any previous version of an object, and it wants an extra authentication factor to be required before anyone can permanently delete an object version or suspend this protection. Which combination of actions meets these requirements? (Choose two.)",
@@ -578,7 +578,7 @@ window.QUIZ.push(
     "With versioning, an overwrite creates a new version and a delete adds a delete marker, so earlier versions can always be restored.",
     "Moving noncurrent versions to Glacier lowers storage cost but adds no protection against permanent deletion.",
     "MFA delete requires an MFA code to permanently delete a version or change the bucket's versioning state, and only the root user can enable it."],
- ref:["d8e4","d3b1","d3w1"], doc:"s3"},
+ ref:["d8e4"], doc:"s3"},
 
 {id:"q08-044", day:8, dom:1, tags:["KMS & encryption"],
  q:"A payment processor is moving a card-authorization application to AWS. The application performs cryptographic signing through the industry-standard PKCS#11 interface. Regulators require that keys be generated and stored in dedicated, single-tenant hardware security modules under the company's exclusive control, with AWS having no access to the key material. Which solution meets these requirements?",
@@ -591,7 +591,7 @@ window.QUIZ.push(
     "Imported key material still lives in the HSMs that AWS KMS operates, not in single-tenant HSMs under the company's direct control, and the application would have to change from PKCS#11 calls to the KMS Sign API.",
     "Multi-Region keys only make the same KMS key available in several Regions; the key still lives in the HSMs that AWS KMS operates, not in dedicated single-tenant HSMs that the company controls.",
     "The private key would be loaded into application memory and used in software, not kept inside an HSM as the regulators require."],
- ref:["d8e4","d4w1"], doc:"kms"},
+ ref:["d8e4"], doc:"kms"},
 
 {id:"q08-045", day:8, dom:1, tags:["AWS Backup","Organizations & SCPs"],
  q:"A bank must retain backups of its Amazon RDS databases, EBS volumes and DynamoDB tables for 7 years across 40 AWS accounts in its organization. Backup schedules must be managed centrally, and regulators require that no one, including account administrators, can delete the backups or shorten their retention before it ends. Which combination of steps meets these requirements with the LEAST operational overhead? (Choose two.)",
@@ -606,7 +606,7 @@ window.QUIZ.push(
     "Per-account lifecycle policies and scripts are high-maintenance, are not centrally managed and offer no protection against deletion by administrators.",
     "Administrators can change the bucket policy, exporting every snapshot is extra work, and versioning alone does not make the backups immutable.",
     "Vault Lock in compliance mode makes the vault's retention rules immutable after the grace period; no user, including the root user, can delete recovery points early or shorten retention."],
- ref:["d8e4","d3p1"], doc:"backup"},
+ ref:["d8e4"], doc:"backup"},
 
 {id:"q08-046", day:8, dom:1, tags:["Encryption in transit","S3 security"],
  q:"An auditor found that some internal tools upload data to a company's S3 bucket over plain HTTP. The company's data protection standard requires that all access to the bucket be encrypted in transit, regardless of which application or principal makes the request. Which solution meets this requirement?",
@@ -632,7 +632,7 @@ window.QUIZ.push(
     "Envelope encryption uses a KMS-generated data key to encrypt data locally; only the small encrypted data key is stored with the file and sent to KMS for decryption later.",
     "SSE-KMS is server-side encryption that S3 performs after receiving the plaintext, so it does not meet the client-side encryption requirement.",
     "Key material never leaves KMS, whether it was generated by KMS or imported, so the application cannot retrieve the KMS key to use locally."],
- ref:["d8e4","d4w1","d4b4"], doc:"kms"},
+ ref:["d8e4"], doc:"kms"},
 
 {id:"q08-048", day:8, dom:1, tags:["KMS & encryption","DynamoDB"],
  q:"A global payments company encrypts sensitive fields in its application before writing them to a DynamoDB global table that replicates between eu-west-1 and us-east-1. The encryption currently uses a KMS key in eu-west-1. The company wants the application in us-east-1 to decrypt the fields by calling KMS only in us-east-1, so that a Regional outage in eu-west-1 does not stop decryption. What should a solutions architect do?",
@@ -645,7 +645,7 @@ window.QUIZ.push(
     "An alias is only a friendly name; a new key has different key material and cannot decrypt ciphertext produced by the eu-west-1 key.",
     "Multi-Region keys share the same key ID and key material, so ciphertext created in one Region can be decrypted with the replica in the other Region without cross-Region calls.",
     "Rotation creates new key material for the same key in its own Region only; KMS keys are Regional, and rotation does not replicate them."],
- ref:["d8e4","d4b4"], doc:"kms"},
+ ref:["d8e4"], doc:"kms"},
 
 {id:"q08-049", day:8, dom:1, tags:["KMS & encryption","S3 security"],
  q:"An IoT analytics company writes millions of small objects per hour to an S3 bucket that uses SSE-KMS with a customer managed key. KMS request costs have grown sharply, and the application occasionally receives KMS throttling errors during peaks. The security team requires that the objects stay encrypted with the same customer managed key. Which solution meets these requirements with the LEAST effort?",
@@ -658,7 +658,7 @@ window.QUIZ.push(
     "S3 Bucket Keys obtain a short-lived bucket-level key from KMS and use it to create object data keys, cutting KMS requests and cost substantially while still using the customer managed key.",
     "A quota increase may reduce throttling, but costs keep rising with request volume, and it does not address the root cause.",
     "This requires rewriting the application and managing client-side encryption, and reusing one data key indefinitely weakens security; it is far more effort."],
- ref:["d8e4","d4b4"], doc:"s3"},
+ ref:["d8e4"], doc:"s3"},
 
 {id:"q08-050", day:8, dom:1, tags:["Encryption in transit","RDS"],
  q:"A company's application connects to an Amazon RDS for PostgreSQL DB instance that is already encrypted at rest with a KMS key. An audit found that some clients connect without TLS. The company must ensure that the database rejects any connection that is not encrypted in transit, regardless of how each client is configured. What should a solutions architect do?",

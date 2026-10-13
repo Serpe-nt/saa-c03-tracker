@@ -26,7 +26,7 @@ window.QUIZ.push(
     "A load balancer still forwards requests synchronously; when every instance is saturated, requests fail and jobs are lost. Deregistration delay only lets in-flight requests finish on instances that are leaving.",
     "Dividing <code>ApproximateNumberOfMessagesVisible</code> by the number of running instances gives a backlog-per-instance metric; target tracking on it adds instances as work piles up and removes them as the queue drains.",
     "SNS pushes each message to every subscriber, so all instances would receive every job, and HTTP delivery retries are limited, so jobs can still be lost while instances are overwhelmed."],
- ref:["d9e2","d9b1","d5c2"], doc:"sqs"},
+ ref:["d9e2","d5c2"], doc:"sqs"},
 
 {id:"m1-003", day:"mock", dom:3, tags:["EBS & instance store"],
  q:"A company is migrating a clustered Linux application that uses a cluster-aware shared-disk file system, such as GFS2, to Amazon EC2. Three instances in the same Availability Zone must have concurrent read and write access to the same block device with low, consistent latency, and the application cannot be changed to use a network file system. Which storage solution meets these requirements?",
@@ -65,7 +65,7 @@ window.QUIZ.push(
     "Cross-account access needs a resource policy on the secret, a customer managed key whose key policy lets the role decrypt, and an identity policy on the role that allows both actions.",
     "Secrets Manager replication copies a secret to other Regions in the same account, so it does not make the secret available to a different account.",
     "Access keys are long-term credentials, which the security team forbids, and environment variables are a poor place to keep them."],
- ref:["d8e3","d4b5","d8c2"], doc:"secrets"},
+ ref:["d8e3","d8c2"], doc:"secrets"},
 
 {id:"m1-006", day:"mock", dom:2, tags:["Aurora","Disaster recovery"],
  q:"An insurance company runs its policy administration system on Amazon Aurora MySQL in us-east-1. For a full Regional outage, the business requires an RPO measured in seconds and an RTO of only a few minutes. The company also wants underwriters in Europe to run read-only reports against a local copy of the data with low latency. Which solution meets these requirements?",
@@ -130,7 +130,7 @@ window.QUIZ.push(
     "SNS fans each event out to every subscribed queue, and each queue holds its copy until that service is ready, so an offline service catches up alone; new queues can subscribe without touching the publisher.",
     "SNS retries HTTPS deliveries only for a limited time, so a service that is offline for hours would lose events unless extra dead-letter handling were built.",
     "This works for the current three services, but the publisher must change every time a consumer is added, which breaks the decoupling requirement."],
- ref:["d9e2","d9b2"], doc:"sns"},
+ ref:["d9e2"], doc:"sns"},
 
 {id:"m1-011", day:"mock", dom:1, tags:["Infrastructure as code","Organizations & SCPs"],
  q:"A company uses AWS Organizations with all features enabled and has activated trusted access for AWS CloudFormation StackSets. A scanning tool in the security team's dedicated security account must assume a read-only IAM role with the same name and trust policy in every member account, including accounts created in the future. The security team wants to manage this role from the security account instead of signing in to the management account, and new accounts must receive the role automatically with no manual steps. Which combination of actions meets these requirements? (Choose two.)",
@@ -145,7 +145,7 @@ window.QUIZ.push(
     "SCPs only limit the maximum permissions available in member accounts; they cannot create IAM roles or any other resources.",
     "With service-managed permissions, StackSets creates the roles it needs in member accounts, and automatic deployment adds the stack, and so the IAM role, to every account that joins the organization later.",
     "Permission sets create Identity Center-controlled roles for users and groups who sign in through IAM Identity Center; the role names end in a generated suffix and permission sets offer no custom trust policy, so the scanning tool could not assume them."],
- ref:["d8e2","d6w2"], doc:"cloudformation"},
+ ref:["d8e2"], doc:"cloudformation"},
 
 {id:"m1-012", day:"mock", dom:3, tags:["CloudFront"],
  q:"A news website serves readers worldwide from eu-west-1. Images, CSS, and JavaScript are stored in an S3 bucket, and personalized article pages and JSON APIs come from EC2 instances behind an Application Load Balancer. Readers in Asia and the Americas report slow page loads. The company wants lower latency for both the static assets and the personalized responses and less load on the origin, and personalized pages must never be served to the wrong reader. Which combination of actions meets these requirements? (Choose two.)",
@@ -160,7 +160,7 @@ window.QUIZ.push(
     "Edge caching with long TTLs serves static assets from locations near readers and removes most of that traffic from the origin, while OAC keeps the bucket private.",
     "A cache key based only on the path would serve one reader's personalized page to other readers, which violates the requirement.",
     "Dynamic requests still benefit from CloudFront because edge locations connect to the Region over the AWS network backbone and keep persistent connections to the origin, while disabling caching keeps responses per reader."],
- ref:["d10e5","d10b1","d10c1"], doc:"cloudfront"},
+ ref:["d10e5","d10c1"], doc:"cloudfront"},
 
 {id:"m1-013", day:"mock", dom:2, tags:["S3 features","Disaster recovery"],
  q:"A media company stores user uploads in S3 buckets in us-east-1 and us-west-2 that are kept in sync with two-way S3 replication. Applications in several Regions must use a single global endpoint for all S3 reads and writes. Normally all requests must go to us-east-1, and if us-east-1 has a problem the operations team must be able to shift requests to us-west-2 within minutes without changing application configuration or DNS records. Which solution meets these requirements?",
@@ -212,7 +212,7 @@ window.QUIZ.push(
     "A WebSocket API keeps a persistent connection per client; Lambda stores connection IDs when clients connect and calls the @connections management API to push each update as soon as a score changes, with no servers to manage.",
     "Edge caching reduces origin requests, but clients still poll and receive changes only after the cache expires; it is not a push model.",
     "An NLB with EC2 instances can hold connections, but the company would have to manage servers and connection state, which violates the serverless requirement."],
- ref:["d10e3","d10b2"], doc:"apigw"},
+ ref:["d10e3"], doc:"apigw"},
 
 {id:"m1-017", day:"mock", dom:1, tags:["Encryption in transit","Load balancing"],
  q:"A payment company's public API runs behind an Application Load Balancer with an HTTPS listener. A compliance scan reports that the listener still accepts TLS 1.0 and TLS 1.1 connections and weak cipher suites. Auditors require that only TLS 1.2 or later with strong ciphers be negotiated with clients, with no changes to the application or its servers. Which solution meets these requirements?",
@@ -225,7 +225,7 @@ window.QUIZ.push(
     "The certificate's key size does not control which protocol versions and cipher suites the listener negotiates.",
     "An ALB security policy defines the protocols and ciphers that the listener accepts, so choosing a predefined policy for TLS 1.2 and later (or TLS 1.3) removes TLS 1.0, TLS 1.1, and weak ciphers without touching the application.",
     "Terminating TLS on the instances means managing certificates and TLS settings on every server, which changes the servers and adds work."],
- ref:["d8e4","d8c3","d5b3"], doc:"elb"},
+ ref:["d8e4","d8c3"], doc:"elb"},
 
 {id:"m1-018", day:"mock", dom:2, tags:["SQS"],
  q:"A trading platform sends account transactions such as deposits, withdrawals, and trades to a processing service through a message queue. Transactions for the same account must be processed in exactly the order they were submitted, and a transaction must not be processed twice when a producer retries a send after a network timeout. Transactions for different accounts must be processed in parallel so the service keeps up with volume. Which solution meets these requirements with the least custom code?",
@@ -251,7 +251,7 @@ window.QUIZ.push(
     "For smooth, predictable traffic, provisioned capacity that auto scaling raises and lowers around the daily ramps costs less than paying per request, without throttling at the peaks.",
     "Fixed peak capacity avoids throttling but pays for three times the base load around the clock, wasting most of it.",
     "Standard-IA lowers storage cost but raises the price of reads and writes, so it is the wrong lever for a throughput-heavy order table."],
- ref:["d11e4","d3b3"], doc:"dynamodb"},
+ ref:["d11e4"], doc:"dynamodb"},
 
 {id:"m1-020", day:"mock", dom:1, tags:["Encryption in transit","Load balancing"],
  q:"A logistics company exposes an HTTPS API behind an Application Load Balancer to thousands of delivery-vehicle gateways. Each gateway holds an X.509 client certificate issued by the company's own certificate authority. Security requires that the load balancer reject any connection that does not present a valid, unrevoked client certificate from that CA, and that the backend receive the certificate's subject to identify each gateway. The company does not want to handle TLS on the backend instances. Which solution meets these requirements?",
@@ -264,7 +264,7 @@ window.QUIZ.push(
     "A WAF rule only matches the content of request components such as headers; checking that a header is present or well formed does not validate the certificate chain or its revocation status.",
     "The authenticate-cognito action redirects unauthenticated users to an identity provider's sign-in page; that is interactive user sign-in, not validation of the gateways' X.509 client certificates.",
     "In verify mode the ALB validates each client certificate against the CA bundle and revocation list in its trust store, rejects invalid ones during the TLS handshake, and passes certificate details such as the subject to the targets in HTTP headers."],
- ref:["d8e4","d8c3","d5b3"], doc:"elb"},
+ ref:["d8e4","d8c3"], doc:"elb"},
 
 {id:"m1-021", day:"mock", dom:3, tags:["Caching"],
  q:"A gaming company keeps player state in hashes and sorted sets in Amazon ElastiCache for Valkey with cluster mode disabled. The cluster has one primary node of the largest available node type and no replicas. During tournaments the primary node's CPU is saturated by a mix of writes and reads, and its memory is nearly full. The cache must scale beyond a single node for both writes and reads. Which combination of actions will meet these requirements? (Choose two.)",
@@ -331,7 +331,7 @@ window.QUIZ.push(
     "A Multi-AZ DB cluster has a writer and two readable standbys in different Availability Zones, typically fails over in under 35 seconds, and exposes a reader endpoint for read traffic.",
     "A cross-Region replica offloads reads but does nothing to speed up failover of the primary deployment.",
     "Aurora offers fast failover and readable replicas, but it is a different engine, and the company must stay on RDS for PostgreSQL."],
- ref:["d9e3","d3c2","d3p1"], doc:"rds"},
+ ref:["d9e3","d3c2"], doc:"rds"},
 
 {id:"m1-026", day:"mock", dom:3, tags:["Migration & transfer","Analytics"],
  q:"A sales operations team wants to analyze Salesforce opportunity and account data together with order data in its Amazon S3 data lake. The Salesforce data must be copied into S3 every hour, incrementally and encrypted, with no custom code, servers, or connectors to build or maintain. Which solution meets these requirements with the least operational overhead?",
@@ -385,7 +385,7 @@ window.QUIZ.push(
     "Security Hub CSPM (formerly AWS Security Hub) evaluates the company's resources against PCI DSS controls, not AWS's own data centers, so its results are not AWS's attestation.",
     "A support case adds delay for no reason, because AWS publishes its compliance reports for self-service download.",
     "AWS Artifact is the self-service portal for AWS's compliance reports, such as SOC reports and the PCI DSS Attestation of Compliance, available on demand."],
- ref:["d8e4","d6w2"], doc:"artifact"},
+ ref:["d8e4"], doc:"artifact"},
 
 {id:"m1-030", day:"mock", dom:4, tags:["EC2 purchase options","Auto Scaling"],
  q:"A genomics lab runs nightly batch jobs on EC2 instances that each process an independent sample. Jobs write checkpoints to Amazon S3 every few minutes and can resume after an interruption, and results are needed by the next morning. The lab wants to reduce compute cost as much as possible while minimizing the chance that many jobs are interrupted at once because one instance type runs short of capacity. Which combination of actions meets these requirements? (Choose two.)",
@@ -426,7 +426,7 @@ window.QUIZ.push(
     "Auto Scaling launches instances with its service-linked role (AWSServiceRoleForAutoScaling), so the key policy must let that role use the key and create grants; manual launches work because the engineers' own permissions already allow the key.",
     "The AWS managed key would let launches succeed, but it breaks the requirement that every volume use the customer managed key.",
     "Auto Scaling does not act with the permissions of the principal that created the group; launches run under the service-linked role, which still lacks access to the key."],
- ref:["d8e4","d4b4","d5b4"], doc:"kms"},
+ ref:["d8e4"], doc:"kms"},
 
 {id:"m1-033", day:"mock", dom:2, tags:["DynamoDB","Disaster recovery"],
  q:"A ticketing company stores orders in an Amazon DynamoDB table. A faulty deployment ran for 40 minutes before it was rolled back, and during that time it overwrote thousands of items with bad data. The company must be able to recover the table to its exact state at any second before such an incident, going back up to 35 days, without building its own backup jobs. Which solution meets these requirements?",
@@ -452,7 +452,7 @@ window.QUIZ.push(
     "EFS can hold large files for Lambda, but the libraries and model would live outside the deployment artifact and be versioned separately, and the function would need VPC access to the file system.",
     "Downloading gigabytes on every cold start slows initialization, and the dependencies would again live outside the versioned deployment artifact.",
     "Lambda supports container images of up to 10 GB stored in Amazon ECR, so the code, libraries, and model ship as one versioned artifact while the function keeps Lambda's scaling and billing."],
- ref:["d10e3","d1w3"], doc:"lambda"},
+ ref:["d10e3"], doc:"lambda"},
 
 {id:"m1-035", day:"mock", dom:1, tags:["API Gateway","IAM policies"],
  q:"A company exposes a REST API through Amazon API Gateway to partner systems. Partners authenticate with opaque bearer tokens issued by the company's in-house token service, which is not OAuth 2.0 or OpenID Connect compliant and cannot be changed. Each request must be validated with the token service, the API methods a partner may call depend on its subscription, and validation results should be cached briefly to limit calls to the token service. Which solution meets these requirements?",
@@ -465,7 +465,7 @@ window.QUIZ.push(
     "IAM authorization would force partners to switch to SigV4 signing with long-term access keys and abandon the existing tokens.",
     "A Lambda authorizer can run custom validation logic, call the token service, and return an IAM policy that allows only the partner's permitted methods; API Gateway caches the result for a configurable TTL.",
     "A rule that only checks that the header is present does not validate the token with the token service or decide which methods each partner may call."],
- ref:["d8e2","d10b2"], doc:"apigw"},
+ ref:["d8e2"], doc:"apigw"},
 
 {id:"m1-036", day:"mock", dom:4, tags:["API Gateway","Lambda"],
  q:"A startup's mobile back end uses an Amazon API Gateway REST API with Lambda proxy integrations and handles about 2 billion requests per month. Clients call it through a custom domain name, and requests are authorized with JSON Web Tokens from an OpenID Connect provider. The API uses no caching, usage plans, API keys, request validation, or AWS WAF. API Gateway charges are now one of the largest items on the bill. Which change will reduce cost the most with minimal changes to the clients?",
@@ -478,7 +478,7 @@ window.QUIZ.push(
     "API Gateway still bills every request, and the cache adds an hourly charge, so the API Gateway bill goes up rather than down.",
     "A Savings Plan lowers Lambda compute charges, not API Gateway request charges, which are the item the company needs to reduce.",
     "Every request would still be billed as a REST API request, and an added CloudFront distribution brings its own request and data transfer charges."],
- ref:["d11e3","d10b2"], doc:"apigw"},
+ ref:["d11e3"], doc:"apigw"},
 
 {id:"m1-037", day:"mock", dom:2, tags:["Elastic Beanstalk"],
  q:"A company runs its customer portal on AWS Elastic Beanstalk, with an Amazon RDS database that is managed outside the environment. Each release must be tested in a full production-like environment before any user traffic reaches it, the cutover must cause no downtime, and if a problem appears after cutover, users must be sent back to the previous version quickly, so that version must keep running until the release is confirmed. Which combination of steps meets these requirements? (Choose two.)",
@@ -493,7 +493,7 @@ window.QUIZ.push(
     "A separate green environment running the new version can be tested fully while the blue environment keeps serving users, and the database outside the environments is not affected by either one.",
     "Swapping the environments' CNAMEs moves users to the tested environment without downtime, and swapping back returns them to the previous version, which is still running.",
     "Immutable deployments launch new instances inside the same environment and terminate the old ones after success, so users reach the new version without separate testing and no previous environment remains to switch back to."],
- ref:["d9e2","d1w3"], doc:"beanstalk"},
+ ref:["d9e2"], doc:"beanstalk"},
 
 {id:"m1-038", day:"mock", dom:1, tags:["Threat detection"],
  q:"A security team receives Amazon GuardDuty findings that an IAM role made unusual API calls from an unfamiliar IP address. For each finding, analysts must quickly determine the root cause: which other resources and IP addresses the role interacted with, what it did before and after, and how this compares with its normal behavior over recent months. Today analysts search CloudTrail logs and VPC Flow Logs by hand, which takes hours. Which AWS service should they use to speed up these investigations with the least effort?",
@@ -586,7 +586,7 @@ window.QUIZ.push(
     "A key with imported key material uses material that the bank generated and still holds; it works with the S3 and EBS integrations without calling on-premises systems, and the bank can delete the imported material at any time, which makes the key unusable until it is reimported.",
     "An external key store keeps the key material outside AWS, but every encryption and decryption request must reach the bank's key manager, so operations fail when the data center is unreachable.",
     "KMS keys in a CloudHSM key store use key material that KMS generates in the CloudHSM cluster; you cannot import your own key material into them."],
- ref:["d8e4","d4b4"], doc:"kms"},
+ ref:["d8e4"], doc:"kms"},
 
 {id:"m1-045", day:"mock", dom:2, tags:["Lambda"],
  q:"An IoT company invokes a Lambda function asynchronously from Amazon S3 event notifications each time a device uploads a log file. Occasionally a malformed file makes the function fail, and after Lambda's built-in retries are exhausted, the event is discarded and cannot be reprocessed. The team wants every failed event captured automatically, together with the error details, so it can be inspected and replayed later, without changing the function code. Which solution meets these requirements?",
@@ -599,7 +599,7 @@ window.QUIZ.push(
     "More time and capacity do not fix a malformed file; the function would still fail and the events would still be discarded.",
     "Changing retry and age settings only makes events fail sooner; without a destination or dead-letter queue they are still discarded.",
     "Logs may not contain the full event payload, and searching them by hand is not automatic capture for replay."],
- ref:["d9e2","d9b1"], doc:"lambda"},
+ ref:["d9e2"], doc:"lambda"},
 
 {id:"m1-046", day:"mock", dom:1, tags:["IAM policies","Governance"],
  q:"A company has 80 accounts in AWS Organizations. An audit found IAM roles that have not been used for months, IAM users with old access keys, and roles whose policies grant far more services than they ever call. The security team wants continuous, centralized findings across all accounts for unused roles, unused access keys and passwords, and unused permissions, reviewed from its delegated security account. The team does not want to write or run scripts. Which solution meets these requirements?",
@@ -612,7 +612,7 @@ window.QUIZ.push(
     "External access analyzers find resources that are shared with principals outside the zone of trust; they do not report access that is granted but never used.",
     "Policy generation helps right-size one role at a time from its CloudTrail history, but it must be run role by role and does not find unused roles or access keys across accounts.",
     "An unused access analyzer continuously reports unused roles, unused access keys and passwords, and unused services and actions for IAM users and roles in every account, and a delegated administrator can review the findings centrally."],
- ref:["d8e2","d4w1"], doc:"iam"},
+ ref:["d8e2"], doc:"iam"},
 
 {id:"m1-047", day:"mock", dom:4, tags:["EC2 instance types","Containers"],
  q:"A SaaS company runs 200 x86-based m5 EC2 instances for a Java microservices platform. Services are built by a CI/CD pipeline into container images, and none of them depend on x86-specific binaries. The company wants the largest improvement in compute price-performance without rewriting the application or changing how it buys capacity. Which solution meets these requirements?",
@@ -705,7 +705,7 @@ window.QUIZ.push(
     "Each tier matches the access pattern: Standard-IA for rare access in the first year, then Deep Archive, the lowest-cost class, whose standard retrievals finish within 12 hours, with lifecycle expiration deleting documents at 10 years.",
     "Flexible Retrieval also meets the 48-hour need, but it costs noticeably more per GB than Deep Archive across 9 years of archive storage.",
     "Without the opt-in archive tiers, Intelligent-Tiering never goes below its instant-access tiers, adds a per-object monitoring fee, and a custom function replaces a simple lifecycle expiration."],
- ref:["d11e2","d3b2","d3c3"], doc:"s3-classes"},
+ ref:["d11e2","d3c3"], doc:"s3-classes"},
 
 {id:"m1-054", day:"mock", dom:2, tags:["EventBridge"],
  q:"A company has a separate AWS account for each business unit. Each account sends custom application events and AWS service events, such as EC2 instance state changes, to its default Amazon EventBridge event bus. A central operations account must receive selected events from all business unit accounts and route them to several targets, including an SQS queue and a Step Functions state machine. The solution must not use custom forwarding or polling code. Which solution meets these requirements?",
@@ -718,7 +718,7 @@ window.QUIZ.push(
     "An SNS topic receives events from an event bus only if a rule targets it, which this option leaves out, and delivering everything to one queue does not route selected events to the state machine.",
     "EventBridge rules can send events directly to an event bus in another account; the central bus's resource policy allows the organization to put events, and rules on that bus route them to SQS and Step Functions.",
     "CloudTrail delivers API activity to S3 in batches, not custom application events in near real time, and parsing log files is custom code."],
- ref:["d9e2","d9b3"], doc:"eventbridge"},
+ ref:["d9e2"], doc:"eventbridge"},
 
 {id:"m1-055", day:"mock", dom:3, tags:["S3 features"],
  q:"A film production company has crews in Australia, Brazil, and South Africa that upload raw footage files of 20–100 GB each to a single S3 bucket in us-east-1 over the public internet. Uploads are slow and inconsistent because of the long distances. The upload tool already uses multipart upload. The company wants faster uploads with minimal changes to the tool and without deploying or managing resources in other Regions. Which solution meets these requirements?",
@@ -744,7 +744,7 @@ window.QUIZ.push(
     "IPsec tunnels are encrypted, but each tunnel carries at most a few Gbps and adds overhead, so approaching 100 Gbps would mean building and operating many tunnels, and only traffic routed into the tunnels is encrypted.",
     "A LAG aggregates connections for more bandwidth, but aggregation by itself does not encrypt any traffic.",
     "Direct Connect is a private connection, but it does not encrypt traffic by default; encryption has to be added with MACsec or IPsec."],
- ref:["d8e3","d2w1"], doc:"dx"},
+ ref:["d8e3"], doc:"dx"},
 
 {id:"m1-057", day:"mock", dom:2, tags:["Containers","Auto Scaling"],
  q:"A company runs a containerized REST API on Amazon ECS with the Fargate launch type behind an Application Load Balancer. Traffic ranges from a few requests per second at night to several thousand during unannounced marketing campaigns, and an engineer currently changes the service's desired task count by hand. The company wants the task count to adjust automatically to keep latency stable, with no servers or cluster capacity to manage. Which solution meets these requirements?",
@@ -783,7 +783,7 @@ window.QUIZ.push(
     "Public ACLs break the private-bucket requirement, are disabled by default on new buckets, and anyone with the link could download the image during that window.",
     "Creating IAM users for customers is the opposite of what is required and does not scale to a consumer website.",
     "Website endpoints serve only public content, and the download request would come from the customer's browser, not from API Gateway."],
- ref:["d8e3","d3b1"], doc:"s3"},
+ ref:["d8e3"], doc:"s3"},
 
 {id:"m1-060", day:"mock", dom:3, tags:["Aurora"],
  q:"A news aggregation service uses an Amazon Aurora MySQL provisioned cluster with one writer and two Aurora Replicas. When major stories break, read traffic can grow tenfold within 15 minutes, replica CPU reaches 95%, and page loads slow down; writes stay steady. The company wants read capacity to grow and shrink automatically with demand while keeping the provisioned cluster and its current approach of sending reads to the reader endpoint. Which solution meets these requirements?",
@@ -824,7 +824,7 @@ window.QUIZ.push(
     "Tag policies standardize tag keys, their capitalization, and their allowed values across the organization, can block noncompliant tagging on chosen resource types, and provide compliance reports for existing resources.",
     "Anomaly detection alerts on unusual spending; it does not define business units, standardize tags, or allocate shared costs.",
     "Cost categories group costs by rules on accounts, tags, and other dimensions, and split charge rules allocate a shared cost such as the networking account across categories proportionally, evenly, or by fixed percentages."],
- ref:["d11e2","d6w3"], doc:"tag-policies"},
+ ref:["d11e2"], doc:"tag-policies"},
 
 {id:"m1-063", day:"mock", dom:3, tags:["EFS"],
  q:"A media company runs a content management system on Linux EC2 instances that share an Amazon EFS file system in Bursting throughput mode. The file system stores only 200 GB, but nightly batch renders drive throughput far above the baseline, burst credits run out, and jobs slow to a crawl. Throughput needs are spiky and unpredictable, and the company does not want to pay for throughput it does not use. Which solution meets these requirements?",
@@ -837,7 +837,7 @@ window.QUIZ.push(
     "Provisioned throughput removes the credit problem but charges for the peak level around the clock, even though the peak lasts only a few hours.",
     "The bursting baseline grows with the amount stored, so this would raise throughput, but it means paying for storage that holds nothing useful.",
     "Multi-Attach is supported only on Provisioned IOPS (io1 and io2) volumes, and a shared block device is not a shared file system without a cluster-aware file system."],
- ref:["d10e2","d3p3"], doc:"efs"},
+ ref:["d10e2"], doc:"efs"},
 
 {id:"m1-064", day:"mock", dom:2, tags:["SQS","High availability design"],
  q:"A retailer's checkout service writes each order synchronously to an Amazon RDS database. During a maintenance window and a separate unexpected outage, customers received errors and some orders were lost. The company wants checkout to keep accepting orders even when the database is unavailable for up to several hours, and every order must be saved after the database comes back. Order processing does not need to be synchronous with checkout. Which change best meets these requirements?",
@@ -850,7 +850,7 @@ window.QUIZ.push(
     "Read replicas are read-only, so checkout cannot write orders to them.",
     "SQS durably stores orders (for up to 14 days) while the database is unavailable, so checkout keeps succeeding, and the worker writes each order once the database returns.",
     "A cache in front of the database is not a write queue: cached entries can be evicted, and nothing in this design writes the held orders to the database when it returns."],
- ref:["d9e2","d9b1"], doc:"sqs"},
+ ref:["d9e2"], doc:"sqs"},
 
 {id:"m1-065", day:"mock", dom:4, tags:["Cost management tools","EventBridge"],
  q:"A company's development environment consists of EC2 instances and Amazon RDS for MySQL DB instances that developers use only on weekdays from 8 AM to 6 PM, but everything currently runs 24/7. The company wants to cut the cost of this environment with the least operational effort, keeping all data and configuration intact between working days. Which solution meets these requirements?",
@@ -863,5 +863,5 @@ window.QUIZ.push(
     "Rebuilding every day is far more work and risk than stopping and starting, and it is easy to lose data or configuration in the process.",
     "Spot capacity can interrupt developers during the day and does nothing for the RDS instances that keep running overnight.",
     "Scheduler's universal targets call the EC2 and RDS stop and start APIs directly on a cron schedule; stopped instances incur no compute charges (storage still bills), and data and configuration stay intact."],
- ref:["d11e3","d11e4","d9b3"], doc:"scheduler"}
+ ref:["d11e3","d11e4"], doc:"scheduler"}
 );

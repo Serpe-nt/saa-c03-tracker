@@ -8,21 +8,21 @@ window.QUIZ.push(
  o:["Spread the objects across many prefixes so requests are distributed among partitions","Enable S3 Transfer Acceleration on the bucket and use the accelerate endpoint","Upload each object with multipart upload so that the writes run in parallel","Enable S3 Versioning so concurrent writes to the same key do not conflict"],
  a:[0],
  x:["S3 request-rate limits apply per partitioned prefix (at least 3,500 writes and 5,500 reads per second each), so spreading keys across more prefixes multiplies the rate the bucket can sustain.","Transfer Acceleration speeds long-distance transfers through edge locations; it does not raise per-prefix request limits, and the instances are already in the same Region.","Multipart upload helps with large objects; for small JSON files it only adds requests and does nothing for the per-prefix request rate.","Versioning keeps prior versions of objects for recovery; it does not increase request throughput and is not a fix for 503 Slow Down errors."],
- ref:["d10e2","d3w1"], doc:"s3"},
+ ref:["d10e2"], doc:"s3"},
 
 {id:"q10-002", day:10, dom:3, tags:["S3 features"],
  q:"A video-sharing startup collects raw footage from creators on several continents into a single S3 bucket in us-east-1. Files are typically 3–8 GB. Creators report slow uploads, and when a connection drops near the end, the entire file must be sent again. The footage must be written directly to that bucket. Which combination of actions will improve upload speed and reliability? (Choose two.)",
  o:["Have the upload client use parallel byte-range fetches","Enable S3 Transfer Acceleration and upload through its endpoint","Create an S3 gateway VPC endpoint for the bucket","Use multipart upload so parts are sent in parallel and retried individually","Upload to buckets near the creators and replicate them to the central bucket"],
  a:[1,3],
  x:["Byte-range fetches are ranged GET requests that speed up downloads; they do nothing for uploads.","Transfer Acceleration routes uploads to the nearest edge location and then over the AWS backbone to the bucket, which speeds long-distance transfers.","A gateway endpoint gives resources inside a VPC private access to S3; creators upload from the internet, so it does not apply.","Multipart upload sends parts in parallel for higher throughput, and a failed part can be retried alone instead of restarting the whole multi-gigabyte file.","Cross-Region Replication copies objects after they are written elsewhere, so the footage would not be written directly to the central bucket and would arrive there later, not sooner."],
- ref:["d10e2","d3w1"], doc:"s3"},
+ ref:["d10e2"], doc:"s3"},
 
 {id:"q10-003", day:10, dom:3, tags:["S3 features"],
  q:"A genomics research team stores sequencing files of 50–200 GB each in S3. An analysis tool on EC2 instances in the same Region downloads each file over a single stream before processing, and the downloads take too long. The tool can process any segment of a file independently. Which approach will MOST improve download throughput?",
  o:["Enable S3 Transfer Acceleration and download through the accelerate endpoint","Re-upload the files with multipart upload so later downloads are faster","Issue parallel byte-range GET requests for different segments over multiple connections","Move the files to S3 Standard-IA to raise the retrieval throughput"],
  a:[2],
  x:["Transfer Acceleration helps distant clients reach a bucket over the internet through edge locations; instances in the same Region gain no throughput from it, and one stream stays one stream.","Multipart upload speeds up writes; a single-stream download of the object is just as slow afterward unless the client parallelizes its GET requests.","Byte-range fetches let the client download many segments of an object at once over parallel connections, aggregating far more throughput than one stream.","Standard-IA has the same performance as S3 Standard but adds a per-GB retrieval fee; storage class does not change download throughput."],
- ref:["d10e2","d3w1"], doc:"s3"},
+ ref:["d10e2"], doc:"s3"},
 
 {id:"q10-004", day:10, dom:3, tags:["EBS & instance store","EC2 instance types"],
  q:"A database runs on an EC2 instance with an io2 Block Express volume, created empty, that is provisioned for 60,000 IOPS. Monitoring shows the volume never delivers more than about 20,000 IOPS, and I/O latency rises at that point even though the database needs more. The instance's CPU and memory are underused. What should a solutions architect do to get the provisioned performance?",
@@ -49,14 +49,14 @@ window.QUIZ.push(
  o:["Storage optimized instances with local NVMe instance store volumes","Memory optimized instances with io2 Block Express EBS volumes","A shared Amazon EFS file system in the Max I/O performance mode","An S3 Express One Zone directory bucket mounted on each node"],
  a:[0],
  x:["Instance store NVMe disks are physically attached to the host and deliver the highest IOPS and lowest latency; losing a node's data is acceptable because the cluster re-replicates it.","io2 Block Express is fast and durable, but it is network-attached, so its latency is higher than local NVMe, and its durability is redundant because the application already replicates.","EFS is a network file system with higher per-operation latency, and the previous-generation Max I/O mode trades even more latency for parallelism; it is not suited to database data files.","S3 Express One Zone is object storage; it does not provide the block-level random I/O a database engine needs for its data files."],
- ref:["d10e2","d3c1","d1p3"], doc:"ec2"},
+ ref:["d10e2","d3c1"], doc:"ec2"},
 
 {id:"q10-007", day:10, dom:3, tags:["EFS"],
  q:"A marketing agency keeps 200 GB of design assets on Amazon EFS in the Bursting throughput mode. A rendering fleet reads the files in unpredictable bursts that need very high throughput for short periods, then sits idle for hours. Lately, throughput collapses partway through render jobs. The agency wants throughput to scale automatically with the workload and to pay only for the throughput it uses. Which change should a solutions architect make?",
  o:["Switch the file system to Provisioned throughput sized for the peak","Re-create the file system using the Max I/O performance mode","Switch the file system to the Elastic throughput mode","Move the data to a new EFS One Zone file system"],
  a:[2],
  x:["Provisioned throughput removes the burst-credit limit but bills for the peak level around the clock, even while the fleet is idle for hours.","Max I/O is a previous-generation performance mode that allows more parallel operations at higher latency; it does not lift the throughput limit set by depleted burst credits.","Elastic throughput scales up and down automatically with the workload and charges for the throughput actually used, which fits spiky, unpredictable access.","A One Zone file system lowers cost by keeping data in a single AZ; it does not add throughput."],
- ref:["d10e2","d3p3","d3w1"], doc:"efs"},
+ ref:["d10e2"], doc:"efs"},
 
 {id:"q10-008", day:10, dom:3, tags:["S3 storage classes & lifecycle","S3 features"],
  q:"A machine learning team trains models on EC2 GPU instances in one Availability Zone. Each training epoch reads millions of small files from Amazon S3, and request latency to S3 Standard has become the bottleneck that leaves the GPUs idle. The training dataset is a copy that can be re-created from the source bucket at any time. The team needs consistent single-digit millisecond request latency from object storage. Which solution meets these requirements?",
@@ -69,7 +69,7 @@ window.QUIZ.push(
     "Intelligent-Tiering optimizes storage cost by access pattern, and its frequent access tier performs like S3 Standard.",
     "CloudFront caches content for internet viewers; for EC2 instances in the same Region it adds an extra hop and is not designed for this access pattern.",
     "S3 Express One Zone stores data in a single AZ and delivers consistent single-digit millisecond latency, much lower than S3 Standard; colocating it with the GPUs suits training data that can be re-created."],
- ref:["d10e2","d3w1"], doc:"s3-classes"},
+ ref:["d10e2"], doc:"s3-classes"},
 
 {id:"q10-009", day:10, dom:3, tags:["EBS & instance store"],
  q:"A logistics company runs a nightly log-processing job on EC2 that reads and writes multi-terabyte files sequentially in large blocks. The job is limited by throughput, not by IOPS, and the data is not on the boot volume. The company wants the lowest-cost EBS volume type that still delivers high sustained throughput for this access pattern. Which volume type should be used?",
@@ -83,7 +83,7 @@ window.QUIZ.push(
  o:["An Amazon EFS file system mounted through the task definition","An EBS io2 volume with Multi-Attach shared by all of the tasks","An Amazon FSx for Lustre scratch file system shared by the tasks","An S3 bucket mounted in each container with Mountpoint for Amazon S3"],
  a:[0],
  x:["EFS is a regional, elastic NFS file system that Fargate tasks can mount natively; it grows and shrinks automatically and serves concurrent readers and writers in all AZs.","Multi-Attach works only for EC2 instances in a single AZ and needs a cluster-aware file system; it cannot be shared by Fargate tasks across three AZs.","The Amazon ECS volume options do not include FSx for Lustre, and a scratch file system does not replicate its data and grows only when someone requests more capacity.","Mountpoint for S3 does not provide full file-system semantics, such as editing existing files in place or file locking, so concurrent read-write file workloads do not fit."],
- ref:["d10e2","d3p3","d1w3"], doc:"efs"},
+ ref:["d10e2"], doc:"efs"},
 
 // ---- Task 3.2: high-performing and elastic compute ----
 
@@ -92,28 +92,28 @@ window.QUIZ.push(
  o:["Launch the instances in a spread placement group","Launch the instances in a cluster placement group in one Availability Zone","Attach an Elastic Fabric Adapter to each instance on a supported instance type","Distribute the instances evenly across three Availability Zones","Launch the instances in a partition placement group across multiple Availability Zones"],
  a:[1,2],
  x:["A spread placement group puts each instance on distinct hardware for fault isolation and allows only seven running instances per AZ, so it cannot pack 64 nodes close together.","A cluster placement group packs instances close together inside one AZ, giving the lowest latency and highest per-flow throughput between them.","EFA adds OS-bypass networking for MPI and similar libraries, cutting inter-node latency well below what standard TCP networking provides.","Spreading nodes over AZs improves resilience but adds inter-AZ latency, the exact bottleneck this job suffers from.","Partition placement groups isolate groups of instances on separate racks for large distributed systems such as HDFS; they are about failure isolation, not minimum latency."],
- ref:["d10e3","d1w2"], doc:"placement"},
+ ref:["d10e3"], doc:"placement"},
 
 {id:"q10-012", day:10, dom:3, tags:["EC2 instance types","High availability design"],
  q:"A data platform team is deploying a 90-node Hadoop HDFS cluster on EC2 in one Availability Zone. HDFS places block replicas on different racks, so the team needs to know which nodes share underlying hardware and to make sure a single rack failure affects only a subset of the nodes. Which EC2 feature meets these requirements?",
  o:["A cluster placement group","A spread placement group","A partition placement group","Dedicated Hosts with host affinity"],
  a:[2],
  x:["A cluster placement group places instances close together in one Availability Zone for low latency and high throughput; it is not designed to split the nodes into separate rack-level failure groups that HDFS could use.","A spread placement group is limited to seven running instances per AZ, far too few for a 90-node cluster.","A partition placement group gives each partition its own set of racks and shows which instances are in which partition, so HDFS can place replicas in different failure domains.","Dedicated Hosts address licensing and compliance needs, and host affinity only makes an instance restart on the same host; rack-separated partitions are what a partition placement group provides."],
- ref:["d10e3","d1w2"], doc:"placement"},
+ ref:["d10e3"], doc:"placement"},
 
 {id:"q10-013", day:10, dom:3, tags:["EC2 instance types"],
  q:"A fintech startup runs stateless microservices written in Go and Python as containers on EC2 instances from the M6i (x86) family. Its build pipeline already publishes multi-architecture container images for x86 and Arm. Leadership asks for the best price performance for these general-purpose workloads with minimal application changes. What should a solutions architect recommend?",
  o:["Move to compute optimized C6i instances one size larger","Run the same instance types as Dedicated Instances","Move to burstable T3 instances with unlimited mode enabled","Move to Graviton-based general purpose instances such as M8g"],
  a:[3],
  x:["A larger x86 compute optimized instance costs more and gives up memory per vCPU; it raises cost rather than improving price performance.","Dedicated Instances provide single-tenant hardware for compliance; they cost more and deliver no extra performance.","Burstable instances suit low average CPU use; in unlimited mode, load that stays above the CPU baseline incurs charges for surplus credits.","AWS Graviton (Arm) instances deliver better price performance than comparable x86 instances, and the existing multi-architecture images run on them without code changes."],
- ref:["d10e3","d1p3","d1w2"], doc:"ec2"},
+ ref:["d10e3"], doc:"ec2"},
 
 {id:"q10-014", day:10, dom:3, tags:["EC2 instance types"],
  q:"A retail company runs an in-memory analytics engine on c6i.4xlarge instances. Under load, the engine starts paging to disk and queries slow down sharply, while CPU utilization stays around 25%. The vendor confirms that performance depends on keeping the entire working set in RAM. Which change will MOST improve performance?",
  o:["Move to memory optimized R-family instances with similar vCPUs and much more RAM","Move to larger compute optimized C-family instances to gain more memory","Move to storage optimized I-family instances so paging hits local NVMe disks","Place the existing instances in a cluster placement group"],
  a:[0],
  x:["Memory optimized instances offer far more RAM per vCPU, so the working set fits in memory without paying for CPU the engine does not use.","Compute optimized instances have the least memory per vCPU; getting enough RAM this way means paying for many idle vCPUs.","Faster paging to local NVMe is still far slower than RAM; it treats the symptom instead of the memory shortage.","A cluster placement group lowers network latency between instances; it does not add memory."],
- ref:["d10e3","d1p3","d1w2"], doc:"ec2"},
+ ref:["d10e3"], doc:"ec2"},
 
 {id:"q10-015", day:10, dom:3, tags:["Step Functions","Lambda"],
  q:"Every night about 2 million images land under an S3 prefix. Today a single Lambda function lists the objects and processes them one after another, and it reaches the 15-minute timeout long before it finishes. The company wants to process each image with an existing Lambda function at high parallelism, retry failed items, record which items failed, and run a summary step only after all images are done, with minimal orchestration code. Which solution meets these requirements?",
@@ -141,42 +141,42 @@ window.QUIZ.push(
     "The timeout limits how long an invocation may run; it does not make initialization faster.",
     "Reserved concurrency guarantees and caps the function's concurrency; it does not pre-initialize environments or shorten startup.",
     "SnapStart applies only to published function versions and aliases that point to them; invocations of $LATEST do not use the snapshot, so API Gateway must call a version or an alias."],
- ref:["d10e3","d10b2","d1w3"], doc:"lambda"},
+ ref:["d10e3"], doc:"lambda"},
 
 {id:"q10-017", day:10, dom:3, tags:["Lambda"],
  q:"An image-processing Lambda function resizes photos uploaded to S3. It is configured with 512 MB of memory, uses about 180 MB, and takes around 40 seconds per image because the resizing is CPU-intensive. The team wants each invocation to finish faster without changing the code. What should a solutions architect do?",
  o:["Increase the function's timeout setting","Increase the function's memory setting","Configure provisioned concurrency for the function","Configure reserved concurrency for the function"],
  a:[1],
  x:["A longer timeout only lets the function run longer before it is stopped; each invocation stays just as slow.","Lambda allocates CPU in proportion to configured memory, so raising memory gives a CPU-bound function more compute and shortens its duration even if it does not need the RAM.","Provisioned concurrency removes cold-start initialization delay; it does not make the handler's CPU work run faster.","Reserved concurrency guarantees and caps how many instances of the function can run at once; it does not change per-invocation speed."],
- ref:["d10e3","d1w3","d9b1"], doc:"lambda"},
+ ref:["d10e3"], doc:"lambda"},
 
 {id:"q10-018", day:10, dom:3, tags:["Lambda"],
  q:"A travel booking company exposes a Lambda-backed API through Amazon API Gateway. The function loads large libraries and creates SDK clients during initialization, so requests that land on new execution environments take several seconds. Responses are unique to each user. The company requires consistently low latency during business hours, when traffic is steady and predictable. Which solution meets this requirement?",
  o:["Provisioned concurrency on an alias, scheduled with Application Auto Scaling","Reserved concurrency set to the expected business-hours peak load","Raise the function timeout to its 15-minute maximum value","API Gateway caching on all methods with a long TTL"],
  a:[0],
  x:["Provisioned concurrency keeps the requested number of environments initialized ahead of time, removing cold starts; scheduling it covers business hours without paying for it overnight.","Reserved concurrency sets aside capacity but does not pre-initialize environments, so cold starts still occur as the function scales.","The timeout limits how long an invocation may run; it has no effect on initialization latency.","Responses are unique per user, so cached responses would rarely be reused, and requests that miss the cache still hit cold execution environments."],
- ref:["d10e3","d1w3","d10b2"], doc:"lambda"},
+ ref:["d10e3"], doc:"lambda"},
 
 {id:"q10-019", day:10, dom:3, tags:["Lambda"],
  q:"A company runs dozens of Lambda functions in one account. During a marketing campaign, a batch-import function scaled out and consumed most of the account's concurrency, so the payment-authorization function was throttled. The payment function must always be able to scale to 300 concurrent executions, its measured peak. Occasional cold starts are acceptable, and the company does not want to pay for idle pre-initialized environments. Which solution meets these requirements?",
  o:["Increase the payment function's memory so each request completes faster","Place an SQS queue in front of the payment function to buffer requests","Configure provisioned concurrency of 300 on the payment function","Configure reserved concurrency of 300 on the payment function"],
  a:[3],
  x:["Faster invocations free capacity sooner but give no guarantee; the batch function could still take the whole concurrency pool.","Payment authorization is a synchronous request, and a queue only delays the work; it does not set aside concurrency for the function.","Provisioned concurrency would also secure capacity, but it bills for initialized environments even when they are idle, which the company wants to avoid.","Reserved concurrency sets aside 300 executions that no other function can use, at no extra charge; it also caps the function at 300, which matches its peak, and normal cold starts still occur."],
- ref:["d10e3","d1w3"], doc:"lambda"},
+ ref:["d10e3"], doc:"lambda"},
 
 {id:"q10-020", day:10, dom:3, tags:["Containers"],
  q:"A startup is containerizing several REST services to run on Amazon ECS. The team has no operations staff and does not want to patch hosts, choose instance types, or manage cluster capacity. Traffic varies widely during the day, and each service must scale its tasks independently. Which approach meets these requirements with the LEAST operational overhead?",
  o:["Amazon EKS with self-managed node groups and the Cluster Autoscaler","AWS Elastic Beanstalk with the Docker platform on EC2 instances","ECS with the Fargate launch type and ECS Service Auto Scaling","ECS with the EC2 launch type and an Auto Scaling group capacity provider"],
  a:[2],
  x:["Self-managed nodes mean managing EC2 instances, AMIs, and upgrades, plus Kubernetes itself; this is the most operational work of the options.","Elastic Beanstalk's Docker platforms run the containers on EC2 instances whose types and capacity the team must choose, and in an ECS managed Docker environment every instance runs the same set of containers, so the services do not scale separately.","Fargate runs each task on AWS-managed compute, so there are no hosts to patch or size, and Service Auto Scaling scales each service's task count on its own metrics.","The EC2 launch type leaves the team responsible for the container instances' AMIs, patching, and instance-type choices, even with a capacity provider."],
- ref:["d10e3","d1c8","d1w3"], doc:"fargate"},
+ ref:["d10e3","d1c8"], doc:"fargate"},
 
 {id:"q10-021", day:10, dom:3, tags:["Containers","EC2 purchase options"],
  q:"A pharmaceutical company must run thousands of containerized molecular-docking jobs every night. Each job runs for 1–3 hours, some jobs can start only after others finish, and the company wants to use Spot capacity wherever possible. The team does not want to build or operate its own job scheduler or compute cluster. Which service should a solutions architect recommend?",
  o:["AWS Batch with managed compute environments and job queues","AWS Lambda functions invoked from an Amazon SQS queue","Amazon EMR clusters using instance fleets","An EC2 Auto Scaling group running a custom cron-based job runner"],
  a:[0],
  x:["AWS Batch queues and schedules containerized jobs, supports job dependencies, and provisions and scales On-Demand or Spot capacity in managed compute environments.","A Lambda invocation can run for at most 15 minutes (90 minutes for queue-driven invocations on Lambda Managed Instances), which cannot cover jobs of up to 3 hours.","EMR is designed for big data frameworks such as Spark and Hadoop, not for scheduling generic containerized jobs with dependencies.","A custom cron runner is exactly the scheduler the team does not want to build and operate."],
- ref:["d10e3","d1w3","d1c7"], doc:"batch"},
+ ref:["d10e3","d1c7"], doc:"batch"},
 
 // ---- Task 3.3: high-performing databases ----
 
@@ -185,14 +185,14 @@ window.QUIZ.push(
  o:["Switch the cluster's storage configuration to Aurora I/O-Optimized","Add Aurora Replicas and send read queries to the cluster's reader endpoint","Turn on the Advanced mode of CloudWatch Database Insights","Route the application's connections through Amazon RDS Proxy","Cache product lookups in Amazon ElastiCache using a cache-aside pattern"],
  a:[1,4],
  x:["I/O-Optimized changes how storage I/O is priced; it does not take repeated read queries off the writer's CPU.","Aurora Replicas share the cluster volume and serve reads; the reader endpoint load-balances read connections across them, offloading the writer.","CloudWatch Database Insights (which replaced Performance Insights) shows which waits and SQL statements make up the load, but it does not reduce that load.","RDS Proxy pools and reuses database connections; every query it forwards still runs on a DB instance, here the writer, so the repeated reads keep using its CPU.","Serving popular product data from an in-memory cache answers repeated reads in microseconds without touching the database."],
- ref:["d10e4","d10c2","d3w2"], doc:"aurora"},
+ ref:["d10e4","d10c2"], doc:"aurora"},
 
 {id:"q10-023", day:10, dom:3, tags:["Aurora"],
  q:"A SaaS company is launching a new multi-tenant application on Aurora PostgreSQL. Load is hard to predict: it is near idle overnight but can jump tenfold within minutes when a large tenant runs month-end reports. The company wants compute capacity to adjust automatically in fine-grained increments within seconds, without failovers or dropped connections, and without moving off PostgreSQL. Which solution meets these requirements?",
  o:["A provisioned Aurora cluster with a scheduled function that changes its instance class","Amazon RDS for PostgreSQL with storage autoscaling enabled","Aurora serverless instances in the Aurora PostgreSQL cluster","Amazon DynamoDB tables in on-demand capacity mode"],
  a:[2],
  x:["Changing a DB instance class causes an outage for that instance, and a schedule cannot follow unpredictable spikes.","Storage autoscaling grows disk space only; it does nothing for compute capacity.","Aurora serverless (formerly Aurora Serverless v2) scales compute up and down in increments as small as 0.5 ACU, typically with no pause in processing, which matches unpredictable load.","DynamoDB scales seamlessly, but it is a NoSQL database, so the application would have to be redesigned away from PostgreSQL."],
- ref:["d10e4","d3w2"], doc:"aurora"},
+ ref:["d10e4"], doc:"aurora"},
 
 {id:"q10-024", day:10, dom:3, tags:["RDS","Lambda"],
  q:"A ticketing company's API runs on Lambda and writes to an Amazon RDS for MySQL database. During ticket releases, thousands of concurrent invocations each open a new database connection; the database hits its maximum connection limit and spends CPU on connection churn. The company wants to fix this with minimal code changes and without reducing the API's concurrency. Which solution meets these requirements?",
@@ -212,14 +212,14 @@ window.QUIZ.push(
     "An Aurora custom endpoint load-balances connections across a chosen set of instances, so reports run only on the large replicas and stop slowing down the small ones.",
     "New replicas would simply join the reader endpoint, so reports could still land on the small replicas.",
     "Instance endpoints work, but they push load balancing and failover handling into application code, which is more effort and more fragile."],
- ref:["d10e4","d3w2"], doc:"aurora"},
+ ref:["d10e4"], doc:"aurora"},
 
 {id:"q10-026", day:10, dom:3, tags:["DynamoDB"],
  q:"A food-delivery platform stores orders in a production DynamoDB table with customerId as the partition key and orderId as the sort key. A new operations dashboard must quickly list every order for a given restaurant within a time range. The table holds hundreds of millions of items, and the dashboard's queries must not read the whole table. Which solution meets these requirements?",
  o:["Add a local secondary index that uses restaurantId as the sort key","Run a Scan with a filter expression on restaurantId and order time","Create a global secondary index keyed on restaurantId and order time","Enable DynamoDB Streams and read the stream for each restaurant"],
  a:[2],
  x:["A local secondary index keeps the base table's partition key (customerId) and can only be created with the table, so it cannot serve restaurant queries on this existing table.","A Scan reads every item and filters afterward, consuming huge read capacity and taking far too long for a dashboard.","A GSI with restaurantId as the partition key and order time as the sort key supports an efficient Query for one restaurant over a time range, and it can be added to an existing table.","Streams expose a 24-hour log of item changes for event processing; they are not a queryable index of all orders."],
- ref:["d10e4","d3p2","d3b3"], doc:"dynamodb"},
+ ref:["d10e4"], doc:"dynamodb"},
 
 {id:"q10-027", day:10, dom:3, tags:["Caching"],
  q:"A media company is launching a live quiz app whose traffic varies widely and unpredictably, from almost nothing between shows to very high request rates during live shows that are scheduled at irregular times. The app needs a Valkey-compatible cache in front of its Aurora database. The team does not want to choose node types, size shards, or plan cache capacity. Which solution meets these requirements?",
@@ -239,7 +239,7 @@ window.QUIZ.push(
  o:["Provisioned capacity with DynamoDB auto scaling","On-demand capacity mode","Provisioned capacity with reserved capacity purchased","Provisioned capacity with a DAX cluster in front"],
  a:[1],
  x:["Auto scaling adjusts provisioned capacity only after utilization changes, so sudden bursts can be throttled, and the team still pays for the minimum capacity while the table is idle.","On-demand mode needs no capacity planning, instantly accommodates traffic up to double its previous peak, and bills per request, so idle days cost nothing for throughput.","Reserved capacity is a commitment to a steady baseline; it suits predictable traffic and is charged even when the table is idle.","DAX is a cache that offloads repeated reads, and AWS says it is not ideal for write-intensive applications; the voting writes would still need capacity planning on the table."],
- ref:["d10e4","d3b3"], doc:"dynamodb"},
+ ref:["d10e4"], doc:"dynamodb"},
 
 {id:"q10-029", day:10, dom:3, tags:["Caching"],
  q:"A gaming company needs a real-time global leaderboard that ranks millions of players by score and returns the top 100 players, or any player's current rank, in under a millisecond. The data store must replicate across Availability Zones and fail over automatically so the leaderboard survives a node failure. Which solution best meets these requirements?",
@@ -260,14 +260,14 @@ window.QUIZ.push(
  o:["Amazon DocumentDB (with MongoDB compatibility)","Amazon Neptune","Amazon Keyspaces (for Apache Cassandra)","Amazon Aurora PostgreSQL with recursive SQL queries"],
  a:[1],
  x:["DocumentDB stores JSON documents; following multi-hop relationships would require many lookups or joins in the application.","Neptune is a managed graph database that stores relationships natively and traverses them quickly with Gremlin, openCypher, or SPARQL.","Keyspaces is a Cassandra-compatible wide-column store; relationships several hops deep would have to be followed with repeated lookups in application code.","Recursive joins work for shallow hierarchies but slow down sharply as hop depth and data volume grow."],
- ref:["d10e4","d3w2"], doc:"neptune"},
+ ref:["d10e4"], doc:"neptune"},
 
 {id:"q10-032", day:10, dom:3, tags:["Purpose-built databases"],
  q:"An online marketplace keeps its product catalog in DynamoDB. Shoppers need a search box that tolerates typos, ranks results by relevance, and shows faceted filters such as brand and price range, with results in well under a second across millions of products. The company wants a managed service that stays in sync with the catalog without custom pipelines. Which solution should a solutions architect recommend?",
  o:["A DynamoDB global secondary index on product name queried with begins_with","An Aurora MySQL replica of the catalog queried with LIKE '%term%' filters","Amazon OpenSearch Service, kept in sync from DynamoDB through a zero-ETL integration","Amazon Keyspaces (for Apache Cassandra) with a table keyed on product name"],
  a:[2],
  x:["begins_with matches only exact prefixes; it cannot handle typos, relevance ranking, or facets.","Leading-wildcard LIKE queries cannot use indexes and scan the table, and they offer no typo tolerance or relevance ranking.","OpenSearch Service provides full-text search with fuzzy matching, relevance scoring, and aggregations for facets, and the DynamoDB zero-ETL integration keeps the index updated.","Keyspaces is a Cassandra-compatible wide-column store queried by key with CQL; it is not a search engine with relevance ranking or facets."],
- ref:["d10e4","d3w2"], doc:"opensearch"},
+ ref:["d10e4"], doc:"opensearch"},
 
 // ---- Task 3.4: high-performing and scalable networks ----
 
@@ -276,21 +276,21 @@ window.QUIZ.push(
  o:["Put AWS Global Accelerator in front of the origin servers","Set the distribution's minimum and default TTLs to 0 seconds","Use a cache policy that removes unused headers, cookies, and query strings from the cache key","Move the origin servers to larger instance types","Enable CloudFront Origin Shield in the Region closest to the origin"],
  a:[2,4],
  x:["Global Accelerator improves the network path by proxying packets at the edge to the application; caching content is what CloudFront does, so every request would still reach the origin.","Zero TTLs let objects expire immediately unless the origin sends caching headers, sending more requests to the origin, not fewer.","With fewer values in the cache key, identical objects share one cache entry instead of thousands of variants, so far more requests are served from the edge.","Bigger servers add capacity to absorb the load but do not reduce the number of requests reaching the origin.","Origin Shield adds a central caching layer in front of the origin, so cache misses from all edge locations and regional caches are consolidated before they reach it."],
- ref:["d10e5","d1w4","d10b1"], doc:"cloudfront"},
+ ref:["d10e5"], doc:"cloudfront"},
 
 {id:"q10-034", day:10, dom:3, tags:["CloudFront"],
  q:"A retail website is served through Amazon CloudFront. On every viewer request, the company needs to normalize the Accept-Language header to a few supported values to improve the cache hit ratio, and to redirect legacy URLs to new paths. The logic is simple, must add minimal latency at very high request volumes, and should be as inexpensive as possible. It needs no network calls and no access to the request body. Which solution should a solutions architect use?",
  o:["Lambda@Edge functions on the origin request event","An AWS WAF protection pack (web ACL) with custom rules on the distribution","CloudFront Functions on the viewer request event","Listener rules on the Application Load Balancer at the origin"],
  a:[2],
  x:["Lambda@Edge suits heavier logic that needs network access or longer run times, at higher cost and latency; origin request triggers run only on cache misses, after the cache key is already chosen.","AWS WAF allows, blocks, or counts requests; it can insert custom headers but cannot modify or replace any part of the original request, so it cannot normalize Accept-Language.","CloudFront Functions run lightweight JavaScript at every edge location in under a millisecond, at a fraction of Lambda@Edge's cost, and are made for header normalization and redirects on viewer requests.","ALB rules act at the origin after the edge cache, so they cannot improve the cache hit ratio, and every redirect would travel all the way to the origin."],
- ref:["d10e5","d10b1"], doc:"cloudfront"},
+ ref:["d10e5"], doc:"cloudfront"},
 
 {id:"q10-035", day:10, dom:3, tags:["CloudFront"],
  q:"A company hosts a single-page web application whose static assets are in a private S3 bucket and whose API runs on EC2 instances behind an Application Load Balancer. Users around the world report slow page loads. The company wants one domain name, edge caching of static assets, and faster delivery of the uncacheable API over the AWS global network, while keeping the bucket private. Which solution meets these requirements?",
  o:["Two Global Accelerator accelerators, one with the S3 bucket and one with the ALB as its endpoint","One CloudFront distribution with the bucket as default origin (via OAC) and an <code>/api/*</code> behavior to the ALB","S3 static website hosting with public read access, plus Route 53 latency-based routing for the ALB","S3 Transfer Acceleration on the bucket for the assets, plus copies of the ALB stack in more Regions"],
  a:[1],
  x:["Global Accelerator proxies packets to its endpoints instead of caching content, and its endpoints can only be load balancers, EC2 instances, or Elastic IP addresses, not an S3 bucket.","CloudFront caches the assets at edge locations, origin access control keeps the bucket private, and the API cache behavior proxies calls to the ALB over the AWS network with caching disabled, all under one domain.","Website hosting requires a public bucket, which violates the requirement, and nothing would cache the assets at the edge.","Transfer Acceleration speeds transfers to and from the bucket but does not cache assets for viewers, and extra Regions add cost without providing one domain."],
- ref:["d10e5","d10b1","d10c1"], doc:"cloudfront"},
+ ref:["d10e5","d10c1"], doc:"cloudfront"},
 
 {id:"q10-036", day:10, dom:3, tags:["API Gateway"],
  q:"A company exposes an Amazon API Gateway REST API in eu-west-1 with the default edge-optimized endpoint type. Almost all callers are backend services running on EC2 instances in eu-west-1, plus a few partners on the internet who also call it from Europe. Each request is a unique write, so responses cannot be cached. Latency is higher than the team expects for callers in the same Region. Which change will reduce latency the MOST for these callers?",
@@ -303,7 +303,7 @@ window.QUIZ.push(
     "An edge-optimized endpoint routes requests through CloudFront edge locations, which adds a detour for callers in the same Region; a Regional endpoint serves them directly.",
     "Global Accelerator endpoints are load balancers, EC2 instances, and Elastic IP addresses, so it cannot front an API Gateway endpoint directly, and it would not remove the edge detour.",
     "A private API cannot be reached by the partners on the internet, which the company still needs."],
- ref:["d10e5","d10b2"], doc:"apigw"},
+ ref:["d10e5"], doc:"apigw"},
 
 {id:"q10-037", day:10, dom:3, tags:["Load balancing"],
  q:"A financial data provider streams market quotes to clients over a custom TCP-based protocol. The front end must handle millions of requests per second with ultra-low latency, pass the clients' source IP addresses through to the back-end servers, and expose one static IP address per Availability Zone that clients can add to their firewall allow lists. Which load balancing solution meets these requirements?",
@@ -317,7 +317,7 @@ window.QUIZ.push(
  o:["Add a second Site-to-Site VPN and use ECMP on a transit gateway","Enable S3 Transfer Acceleration for the footage uploads","Set up an AWS Direct Connect dedicated connection","Move the footage with AWS DataSync over the existing VPN"],
  a:[2],
  x:["ECMP across VPN tunnels can raise aggregate bandwidth, but the traffic still crosses the public internet, so performance stays inconsistent.","Transfer Acceleration improves long-distance transfers to S3 but still depends on the public internet between the data center and the edge, so it is not predictable.","Direct Connect provides a private, dedicated link between the data center and AWS with consistent bandwidth and latency; the weeks of lead time are acceptable here.","DataSync speeds up and automates transfers with parallel streams, but it would still run over the same internet VPN, so bandwidth and latency stay unpredictable."],
- ref:["d10e5","d2w1"], doc:"dx"},
+ ref:["d10e5"], doc:"dx"},
 
 {id:"q10-039", day:10, dom:3, tags:["Streaming","Analytics"],
  q:"A multi-tenant SaaS company streams JSON events from all of its customers through Amazon Data Firehose into one S3 bucket, where objects are written under prefixes based only on arrival time. Analysts query one customer at a time with Athena, and every query scans all customers' data. The company wants new data stored under customer_id and event-date prefixes as it arrives, without writing or running any transformation code. Which solution meets these requirements?",
@@ -337,7 +337,7 @@ window.QUIZ.push(
  o:["Order AWS Direct Connect connections for every store","Replace each VPN with a VPC peering connection to the store","Put a CloudFront distribution in front of the transit gateway","Re-create the store VPNs as accelerated Site-to-Site VPN connections"],
  a:[3],
  x:["Direct Connect needs physical circuits at each location, which takes weeks or months and is costly for 40 stores.","VPC peering connects two VPCs; it cannot connect on-premises store networks.","CloudFront delivers content that is sent over HTTP or WebSocket from origins such as S3 buckets and load balancers; it is not a network path for IPsec tunnels to a transit gateway.","Accelerated Site-to-Site VPN uses AWS Global Accelerator to bring each tunnel onto the AWS global network at the nearest edge location, cutting latency and jitter while keeping IPsec; it works with transit gateway attachments and can be enabled only when a connection is created."],
- ref:["d10e5","d2w1","d10c1"], doc:"vpn"},
+ ref:["d10e5","d10c1"], doc:"vpn"},
 
 // ---- Task 3.5: data ingestion and transformation ----
 
@@ -353,7 +353,7 @@ window.QUIZ.push(
  o:["Kinesis Data Streams with a consumer application on EC2 that writes Parquet to S3","Amazon Data Firehose with Lambda transformation and Parquet conversion to S3","Amazon MSK with Kafka Connect workers that write the events to S3","Amazon SQS with a Lambda consumer that writes each message to S3"],
  a:[1],
  x:["This works but requires building, running, and scaling a consumer application on servers, which the firm wants to avoid.","Firehose is fully managed, buffers records for near-real-time delivery, invokes Lambda to transform them, converts JSON to Parquet using a Glue table schema, and can partition the output in S3.","This adds a Kafka cluster plus Kafka Connect workers and an S3 connector to configure and operate, far more than simple delivery to S3 needs.","Writing one object per message creates millions of tiny JSON files with no Parquet conversion, which makes Athena queries slow."],
- ref:["d10e6","d6c3","d6w1"], doc:"firehose"},
+ ref:["d10e6","d6c3"], doc:"firehose"},
 
 {id:"q10-043", day:10, dom:3, tags:["Streaming"],
  q:"A stock trading platform publishes trade events that three independent applications must process: fraud detection, a real-time dashboard, and an audit archiver. Each application must read every event, in order for a given account, within about a second of it being produced. The fraud team must also be able to reprocess the last 3 days of events after a model change. Which service should be used to ingest the events?",
@@ -374,7 +374,7 @@ window.QUIZ.push(
  o:["Load the files into Amazon Redshift with COPY commands and query there","Run Hive queries on an Amazon EMR cluster with a Hive metastore","Index the files in Amazon OpenSearch Service and query with its SQL plugin","Schedule AWS Glue crawlers to update the Data Catalog, and query with Athena"],
  a:[3],
  x:["Redshift COPY loads data into the warehouse, which the analysts want to avoid, and schema changes would need manual table updates.","EMR means running and managing a cluster, and the Hive table definitions would need to be maintained by hand.","OpenSearch requires ingesting and indexing the data into a domain first and is designed for search and log analytics, not ad hoc SQL over S3 files.","Glue crawlers infer schemas and update tables in the Data Catalog on a schedule, and Athena runs serverless SQL directly on the S3 data using those tables."],
- ref:["d10e6","d10c3","d6w1"], doc:"glue"},
+ ref:["d10e6","d10c3"], doc:"glue"},
 
 {id:"q10-046", day:10, dom:3, tags:["Migration & transfer","S3 features"],
  q:"A healthcare clearinghouse receives claim files from 200 partner organizations. The partners use existing SFTP clients and scripts that cannot be changed. The files must land in Amazon S3, and a validation process must start automatically within seconds of each file's arrival. The company wants no servers to manage. Which combination of actions meets these requirements? (Choose two.)",
@@ -396,14 +396,14 @@ window.QUIZ.push(
  o:["AWS Glue ETL jobs using the Spark runtime","Amazon EMR with Spot Instances for task nodes","Amazon Athena with federated query connectors","Amazon Redshift with concurrency scaling enabled"],
  a:[1],
  x:["AWS Glue is serverless, with no infrastructure to manage; AWS's own comparison says Amazon EMR is the service that gives direct, lower-level access to the Hadoop environment and to tools beyond Spark, which HBase, bootstrap actions, and Spot nodes require.","EMR runs Spark, Hive, HBase, and other Hadoop tools on clusters you configure, supports bootstrap actions and specific release versions, and can use Spot Instances for task nodes.","Athena runs serverless SQL queries; it is not a platform for existing Spark, Hive, and HBase pipelines with custom libraries.","Redshift is a data warehouse; concurrency scaling adds query capacity but does not run Hadoop ecosystem pipelines."],
- ref:["d10e6","d10c3","d6w1"], doc:"emr"},
+ ref:["d10e6","d10c3"], doc:"emr"},
 
 {id:"q10-048", day:10, dom:3, tags:["Redshift","Analytics"],
  q:"A retail company keeps the last 13 months of sales data in an Amazon Redshift cluster and 10 years of older history as Parquet files in S3. Analysts occasionally need single queries that join the current Redshift tables with the historical data. The company does not want to load the history into the cluster or resize the cluster to hold it. Which solution meets these requirements?",
  o:["Load the history with the COPY command before each analysis","Enable concurrency scaling on the Redshift cluster","Query the S3 data through Redshift Spectrum external tables","Query the history with Athena and import the results into Redshift"],
  a:[2],
  x:["COPY loads data into cluster storage, which the company wants to avoid, and reloading for each analysis is slow.","Concurrency scaling adds temporary capacity for bursts of concurrent queries; it does not make S3 data queryable.","Redshift Spectrum queries data in S3 through external tables, so one SQL statement can join it with local tables without loading it or resizing the cluster.","This is a manual two-step process, and the imported results still consume cluster storage instead of being joined in place in one query."],
- ref:["d10e6","d10c3","d3w2"], doc:"redshift"},
+ ref:["d10e6","d10c3"], doc:"redshift"},
 
 {id:"q10-049", day:10, dom:3, tags:["Analytics"],
  q:"A financial services company has built an S3 data lake that analysts query with Athena, Redshift Spectrum, and Amazon EMR. Different teams must see only specific databases, tables, columns, and rows; for example, analysts must never see the account-number column. The company wants to manage these permissions centrally in one place instead of maintaining complex S3 bucket and IAM policies. Which solution meets these requirements?",

@@ -24,7 +24,7 @@ window.QUIZ.push(
     "Long polling reduces empty ReceiveMessage responses and cost; it does not stop a message from becoming visible again while a worker is still processing it.",
     "FIFO deduplication only drops duplicate sends within a 5-minute window. A message whose visibility timeout expires is still redelivered, so the root cause remains.",
     "A delivery delay only hides a message when it is first sent. Once it is received, the 30-second visibility timeout still expires mid-job and causes repeat processing."],
- ref:["d9e2","d9c1","d9b1"], doc:"sqs"},
+ ref:["d9e2","d9c1"], doc:"sqs"},
 
 {id:"q09-003", day:9, dom:2, tags:["SQS"],
  q:"A payments platform processes transactions from an SQS Standard queue with a fleet of containers. Occasionally a malformed message makes the consumer fail; the message returns to the queue and is retried over and over until it expires after 4 days, wasting capacity and flooding the logs. The team wants such messages set aside automatically after three failed attempts so they can be inspected and replayed later, without changing the consumer code. What should a solutions architect do?",
@@ -37,7 +37,7 @@ window.QUIZ.push(
     "A longer visibility timeout slows the retry loop but never ends it, and it also delays legitimate retries after transient failures.",
     "This works but requires changing the consumer code, which the team wants to avoid; a redrive policy moves the messages without any code.",
     "After a message has been received three times without being deleted, SQS moves it to the dead-letter queue. The team can inspect it there and use DLQ redrive to send it back to the source queue after a fix."],
- ref:["d9e2","d9b1","d9c1"], doc:"sqs"},
+ ref:["d9e2","d9c1"], doc:"sqs"},
 
 {id:"q09-004", day:9, dom:2, tags:["SQS"],
  q:"A logistics company's tracking workers poll an SQS queue in a tight loop. Traffic is bursty, and the queue is often empty for long periods. The SQS bill and worker CPU usage are higher than expected because most ReceiveMessage calls return no messages. Which change reduces empty responses and cost with the least effort?",
@@ -65,7 +65,7 @@ window.QUIZ.push(
     "Arrivals are unpredictable, so fixed schedules would either leave jobs waiting during unexpected bursts or keep idle instances running.",
     "The acceptable backlog per instance is 20 messages per minute × 5 minutes = 100. Target tracking adds or removes instances to hold each instance's backlog near that value.",
     "The workers pull from SQS and are not behind a load balancer, so there are no ALB requests to scale on."],
- ref:["d9e2","d5c2","d5b4"], doc:"autoscaling"},
+ ref:["d9e2","d5c2"], doc:"autoscaling"},
 
 {id:"q09-006", day:9, dom:2, tags:["SNS","SQS"],
  q:"A retail company's order service must notify three downstream systems (inventory, billing, and analytics) every time an order is placed. Each system is owned by a different team, consumes at its own pace, and must not miss events even if it is offline for several hours of maintenance. The order service should not need to know which consumers exist. Which combination of steps meets these requirements? (Choose two.)",
@@ -80,7 +80,7 @@ window.QUIZ.push(
     "Each queue receives its own copy of every event and holds it durably (retention up to 14 days), so a system that is offline for hours catches up when it returns.",
     "SNS retries HTTPS deliveries only for a limited time, so an endpoint that is down for hours can lose events, and there is no buffer to consume at its own pace.",
     "The producer would have to know and maintain the list of consumer queues, which is exactly the tight coupling the company wants to avoid."],
- ref:["d9e2","d9b2","d6b1"], doc:"sns"},
+ ref:["d9e2"], doc:"sns"},
 
 {id:"q09-007", day:9, dom:2, tags:["SNS"],
  q:"A ride-sharing company publishes all trip events (requested, started, completed, cancelled) to a single SNS topic that fans out to several SQS queues. The fraud team's consumer needs only cancelled trips with a fare above a set amount, and today it discards more than 95% of the messages it receives. The company wants to stop delivering unneeded messages to the fraud queue without changing the publisher or adding topics. What should a solutions architect do?",
@@ -93,7 +93,7 @@ window.QUIZ.push(
     "This works but adds a function to build, run, and pay for, when SNS can filter natively at the subscription.",
     "SNS subscription filter policies can match message attributes or the message body, including numeric ranges, so only cancelled trips above the threshold reach the fraud queue. Other subscriptions are unaffected.",
     "This changes the publisher and adds a topic, both of which the company wants to avoid."],
- ref:["d9e2","d9b2"], doc:"sns"},
+ ref:["d9e2"], doc:"sns"},
 
 {id:"q09-008", day:9, dom:2, tags:["EventBridge"],
  q:"A customer-support company uses a third-party SaaS helpdesk that is an Amazon EventBridge partner. Each new high-priority ticket must start an AWS Step Functions workflow and also be archived to Amazon S3 through Amazon Data Firehose. The company wants no polling code and no servers to manage. Which solution meets these requirements?",
@@ -106,7 +106,7 @@ window.QUIZ.push(
     "Once the partner event source is associated with its event bus, one rule with an event pattern on priority can send each matching event to several targets, including a Step Functions state machine and a Firehose stream, with no code.",
     "This is polling code that the company wants to avoid, and it adds up to a minute of delay and depends on the helpdesk API's limits.",
     "A state machine is not among the SNS subscription protocols (HTTP/S, email, SMS, SQS, Lambda, Firehose, mobile push), and a webhook cannot publish to SNS without signed AWS requests, which means writing and hosting custom code."],
- ref:["d9e2","d9b3"], doc:"eventbridge"},
+ ref:["d9e2"], doc:"eventbridge"},
 
 {id:"q09-009", day:9, dom:2, tags:["EventBridge","Lambda"],
  q:"A SaaS company runs 40 hourly and nightly maintenance jobs as cron entries on a single EC2 instance. Each job calls an internal API and finishes in under 2 minutes. When the instance failed last month, several billing jobs silently did not run. The company wants a highly available, serverless replacement with minimal operational overhead and automatic retries for failed runs. Which solution should a solutions architect recommend?",
@@ -119,7 +119,7 @@ window.QUIZ.push(
     "Auto Scaling replaces a failed instance, but jobs scheduled during the replacement are missed, and there is still a server to manage.",
     "Express workflows run for at most 5 minutes, so they cannot wait for hourly or nightly schedules.",
     "EventBridge Scheduler is a serverless, managed scheduler with cron and rate expressions, configurable retry policies, and a dead-letter queue for runs that still fail, so the company has no scheduling server to fail or patch. Lambda runs each short job without servers. (EventBridge scheduled rules also run on a schedule, but AWS labels them legacy and recommends Scheduler.)"],
- ref:["d9e2","d9b3"], doc:"scheduler"},
+ ref:["d9e2"], doc:"scheduler"},
 
 {id:"q09-010", day:9, dom:2, tags:["EventBridge"],
  q:"A company uses AWS Organizations with 60 member accounts. The security team wants security group changes and root user sign-in events from every account delivered in near real time to a central security account, where one set of EventBridge rules routes them to an incident-response workflow. Member account teams must not be able to read events from other accounts. Which design meets these requirements with the least operational overhead?",
@@ -132,7 +132,7 @@ window.QUIZ.push(
     "A rule matches only events that arrive on its own event bus; it cannot read events from buses in other accounts, so each member account must send its events to the central bus.",
     "Managing 60 topics and subscriptions is heavy, and the routing logic would be scattered instead of living in one set of EventBridge rules.",
     "Polling every 5 minutes is not near real time, and maintaining cross-account roles and query code adds operational overhead."],
- ref:["d9e2","d9b3"], doc:"eventbridge"},
+ ref:["d9e2"], doc:"eventbridge"},
 
 {id:"q09-011", day:9, dom:2, tags:["Step Functions"],
  q:"An insurance company is replacing a monolithic claims process with microservices. Each claim must call a fraud-check service, a payment service, and a notification service in sequence. The fraud-check service is sometimes throttled and should be retried with increasing delays. If the payment step fails permanently, a refund-and-notify compensation step must run. The company wants this flow defined and visible outside the application code. Which combination of actions meets these requirements? (Choose two.)",
@@ -173,7 +173,7 @@ window.QUIZ.push(
     "More retries and a longer event age only delay the failure; events that still fail are discarded without any record.",
     "A function dead-letter queue receives only the event payload with brief error attributes; it lacks the invocation context and full response that the team needs.",
     "An on-failure destination receives an invocation record with the request payload, the request context (including the attempt count and failure condition), and the response payload with the error details, with no code changes."],
- ref:["d9e2","d9b1"], doc:"lambda"},
+ ref:["d9e2"], doc:"lambda"},
 
 {id:"q09-014", day:9, dom:2, tags:["Lambda"],
  q:"A gaming company runs dozens of Lambda functions in one AWS account. During a marketing event, a batch analytics function scaled out sharply and used almost all of the account's concurrency, so the player-login function, invoked through API Gateway, was throttled. The login function never needs more than 500 concurrent executions, but those 500 must always be available regardless of what other functions do. Which solution meets this requirement most cost-effectively?",
@@ -186,7 +186,7 @@ window.QUIZ.push(
     "A higher quota adds total concurrency, but nothing stops the analytics function from consuming it again, so the login function is still unprotected.",
     "Reserved concurrency sets aside 500 executions from the account pool for the login function alone, so no other function can take them. It has no additional charge.",
     "Throttling the login API limits the login function itself; it does nothing to stop the analytics function from exhausting account concurrency."],
- ref:["d9e2","d1w3"], doc:"lambda"},
+ ref:["d9e2"], doc:"lambda"},
 
 {id:"q09-015", day:9, dom:2, tags:["API Gateway"],
  q:"A weather data company exposes a REST API through Amazon API Gateway, backed by Lambda functions, to hundreds of business customers. Last week one customer's misconfigured client flooded the API and degraded service for everyone. The company sells subscription tiers, each with its own request-rate limit and monthly request quota per customer. Which solution meets these requirements?",
@@ -227,7 +227,7 @@ window.QUIZ.push(
     "Network Load Balancers work at layer 4 and cannot route requests by URL path.",
     "ALB listener rules route requests by path to separate target groups, so all four services share one hostname while scaling independently.",
     "EC2 container instances must be patched and managed, which the startup has no staff to do; Fargate is lower overhead."],
- ref:["d9e2","d1w3","d1c8"], doc:"ecs"},
+ ref:["d9e2","d1c8"], doc:"ecs"},
 
 {id:"q09-018", day:9, dom:2, tags:["SQS"],
  q:"An online grocery service lets customers cancel an order within 10 minutes of placing it. Each new order is sent to an Amazon SQS standard queue, and a fulfillment worker starts picking the items as soon as it receives the message, so cancelled orders are often already picked. The company wants every order message to become available to the worker only after 10 minutes, with the least change to the producer and the worker. Which solution meets these requirements?",
@@ -253,7 +253,7 @@ window.QUIZ.push(
     "Breaking news cannot be predicted from history, so a forecast will not add capacity before an unexpected surge.",
     "CloudFront serves cached copies from edge locations, so the vast majority of these identical requests never reach the origin, and the ALB and instances see only a small fraction of the spike.",
     "Caching database results helps the data tier, but every page request still hits the overloaded web instances."],
- ref:["d9e2","d1w4"], doc:"cloudfront"},
+ ref:["d9e2"], doc:"cloudfront"},
 
 {id:"q09-020", day:9, dom:2, tags:["RDS"],
  q:"A SaaS company runs Amazon RDS for MySQL in a Multi-AZ DB instance deployment. During the day, business analysts run long, heavy reporting queries that slow down customer transactions. The reports can tolerate data that is a few minutes old. Which solution resolves the performance problem with the least impact on the application?",
@@ -266,7 +266,7 @@ window.QUIZ.push(
     "In a Multi-AZ DB instance deployment the standby cannot serve reads; it exists only for failover.",
     "RDS Proxy pools and reuses connections, but the heavy queries still run on the primary and consume its CPU and memory.",
     "More IOPS may help some I/O-bound queries, but reports still compete with transactions for CPU and memory on the same instance."],
- ref:["d9e2","d3p1","d3c2"], doc:"rds"},
+ ref:["d9e2","d3c2"], doc:"rds"},
 
 {id:"q09-021", day:9, dom:2, tags:["Aurora","Auto Scaling"],
  q:"A social media analytics company uses Amazon Aurora PostgreSQL. Read traffic swings from very low overnight to about 15 times higher during business hours in unpredictable bursts, while write traffic stays steady. The application already sends all read queries to the cluster's reader endpoint. The company wants read capacity to follow demand automatically while keeping costs low. What should a solutions architect do?",
@@ -279,7 +279,7 @@ window.QUIZ.push(
     "A secondary Region is for cross-Region disaster recovery and local reads in another geography; it adds cost and does not scale capacity behind the existing reader endpoint.",
     "That RDS deployment option has one writer and a fixed pair of reader DB instances, so read capacity would not grow or shrink with demand, and it means leaving Aurora.",
     "Aurora Auto Scaling adds replicas when a metric such as average reader CPU or connections rises and removes them when demand drops. New replicas join the reader endpoint automatically, so the application needs no change."],
- ref:["d9e2","d3w2"], doc:"aurora"},
+ ref:["d9e2"], doc:"aurora"},
 
 {id:"q09-022", day:9, dom:2, tags:["SQS","DynamoDB"],
  q:"A payments company accepts charge requests through an API and queues them in an SQS Standard queue for worker containers. Occasionally a customer is charged twice: SQS can deliver a message more than once, and mobile clients sometimes resend the same charge request hours later after a network timeout. Every request carries a unique client-generated request ID. Which solution prevents duplicate charges?",
@@ -292,7 +292,7 @@ window.QUIZ.push(
     "An idempotent consumer is the reliable fix: a conditional put (attribute_not_exists) on the request ID succeeds only once, so any later delivery or resend of the same ID is detected and skipped, however late it arrives.",
     "A longer visibility timeout reduces redeliveries during processing but cannot rule out at-least-once duplicates, and it does nothing about client resends.",
     "Long polling reduces empty and false-empty responses; it does not change the at-least-once delivery of Standard queues."],
- ref:["d9e2","d9c1","d3p2"], doc:"sqs"},
+ ref:["d9e2","d9c1"], doc:"sqs"},
 
 {id:"q09-023", day:9, dom:2, tags:["Streaming"],
  q:"A gaming company collects player telemetry events at a high, steady rate. Three independent applications (a real-time leaderboard, a cheat-detection service, and an archival job) must each read every event, in order for each player. After deploying a new model, the cheat-detection team must be able to reprocess the last 24 hours of events. Which service should the company place between the producers and these consumers?",
@@ -305,7 +305,7 @@ window.QUIZ.push(
     "Standard queues lack per-player ordering, each message goes to only one consumer, and deleted messages cannot be reprocessed.",
     "Records with the same partition key land on the same shard in order; several applications read the stream independently (optionally with enhanced fan-out), and a retention period above the 24-hour default (up to 365 days) lets a consumer re-read the last day from an earlier position.",
     "Firehose buffers incoming data and delivers it to destinations such as S3; an archive in S3 is not a stream that three applications can each read in order in real time and replay, so it cannot drive a live leaderboard."],
- ref:["d9e2","d6c3","d6w1"], doc:"kinesis"},
+ ref:["d9e2","d6c3"], doc:"kinesis"},
 
 {id:"q09-024", day:9, dom:2, tags:["API Gateway","SQS"],
  q:"A ticketing company's purchase API uses Amazon API Gateway to invoke a Lambda function that writes each order directly to a legacy order database. During on-sale events, bursts exceed what the database can absorb and requests fail with timeouts. Customers can receive their order confirmation by email a few minutes later. The company wants to accept every request during bursts and protect the database, with minimal custom code. Which solution meets these requirements?",
@@ -318,7 +318,7 @@ window.QUIZ.push(
     "Longer timeouts keep more concurrent connections open against an already saturated database, making the overload worse.",
     "Purchases are unique writes, not repeatable reads, so caching them would return wrong results instead of reducing load.",
     "More warm concurrency sends even more simultaneous writes to the database, increasing the pressure instead of smoothing it."],
- ref:["d9e2","d9b1"], doc:"apigw"},
+ ref:["d9e2"], doc:"apigw"},
 
 {id:"q09-025", day:9, dom:2, tags:["Lambda","SQS"],
  q:"A retail analytics company uses an SQS queue as the event source for a Lambda function with a batch size of 10. When one message in a batch fails validation, the function throws an error, all 10 messages return to the queue, and the successful ones are processed again, causing duplicate downstream writes. The company wants only failed messages retried while keeping the current batch size. What should a solutions architect do?",
@@ -331,7 +331,7 @@ window.QUIZ.push(
     "A failed batch would send all 10 messages, including the valid ones, to the DLQ after one attempt, so good messages would go unprocessed.",
     "Six times the function timeout is the recommended visibility timeout for an SQS event source, but it does not change the fact that a failed batch returns every message.",
     "With partial batch responses, the function returns batchItemFailures listing only the failed message IDs; Lambda deletes the successful messages, and only the failed ones become visible again."],
- ref:["d9e2","d9b1"], doc:"lambda"},
+ ref:["d9e2"], doc:"lambda"},
 
 {id:"q09-026", day:9, dom:2, tags:["High availability design","Auto Scaling"],
  q:"A company's customer portal runs on two EC2 instances in a single Availability Zone behind an Application Load Balancer, with an Amazon RDS for PostgreSQL Single-AZ DB instance in the same AZ. An outage in that AZ recently took the portal offline for several hours. The portal must now survive the loss of an Availability Zone with automatic recovery and no manual intervention. Which combination of actions meets these requirements? (Choose two.)",
@@ -346,7 +346,7 @@ window.QUIZ.push(
     "Multi-AZ keeps a synchronous standby in another AZ and fails over automatically by updating the endpoint's DNS record, without data loss or manual steps.",
     "Promoting a read replica is a manual action and replication is asynchronous, so it does not give automatic failover.",
     "Daily cross-Region snapshots help disaster recovery but need a manual restore and can lose up to a day of data; they do not provide automatic AZ failover."],
- ref:["d9e3","d5p2","d3p1"], doc:"autoscaling"},
+ ref:["d9e3"], doc:"autoscaling"},
 
 {id:"q09-027", day:9, dom:2, tags:["EC2 instance types","High availability design"],
  q:"A company runs a legacy clustered trading engine on four large EC2 instances in a single Availability Zone, because the vendor supports only one AZ. The cluster tolerates the loss of one node but not two at the same time. The company wants to reduce the risk that a single hardware failure, such as a rack power or network fault, takes down more than one node. What should a solutions architect do?",
@@ -359,7 +359,7 @@ window.QUIZ.push(
     "Instances in the same partition share racks, so a single rack failure could take down all of them.",
     "A spread placement group places each instance on a distinct rack with its own network and power source, so one hardware failure affects at most one node; it suits small groups of critical instances.",
     "Dedicated Instances isolate the hardware from other customers but do not spread the company's own instances across separate racks."],
- ref:["d9e3","d1w2"], doc:"placement"},
+ ref:["d9e3"], doc:"placement"},
 
 {id:"q09-028", day:9, dom:2, tags:["RDS","High availability design"],
  q:"A fintech company runs Amazon RDS for PostgreSQL in a Multi-AZ DB instance deployment. Failovers during maintenance take one to two minutes, which is too long for its trading application. The company also wants to offload some read-only queries without creating and managing separate read replicas, and it wants to stay on RDS for PostgreSQL. Which solution meets these requirements?",
@@ -372,7 +372,7 @@ window.QUIZ.push(
     "Read replicas are the separate replicas the company does not want to manage, and they do not shorten Multi-AZ failover time.",
     "RDS Proxy can soften the impact of failover on application connections, but it adds no readable capacity for the read-only queries.",
     "Aurora would provide fast failover and readers, but it means migrating to a different database engine, which the company wants to avoid."],
- ref:["d9e3","d3p1","d3c2"], doc:"rds"},
+ ref:["d9e3","d3c2"], doc:"rds"},
 
 {id:"q09-029", day:9, dom:2, tags:["SNS","SQS"],
  q:"An Amazon SNS standard topic sends order events to several SQS queues and to a partner's HTTPS endpoint. The partner can receive events only as HTTPS pushes. During a partner outage that lasted several hours, SNS exhausted its delivery retries and the partner's events were lost. The company wants undeliverable partner events to be kept so that they can be delivered after an outage, with the least custom work. What should a solutions architect do?",
@@ -385,7 +385,7 @@ window.QUIZ.push(
     "A subscription dead-letter queue captures messages that SNS cannot deliver after its retries, so the partner's events are kept in SQS and can be sent again once the partner recovers.",
     "Delivery status logs record whether deliveries succeeded; they do not keep the messages for redelivery.",
     "Custom forwarding code with its own failure storage and redelivery logic is much more work than the built-in subscription dead-letter queue."],
- ref:["d9e2","d9b2","d9c1"], doc:"sns"},
+ ref:["d9e2","d9c1"], doc:"sns"},
 
 {id:"q09-030", day:9, dom:2, tags:["Aurora","High availability design"],
  q:"A media company runs an Aurora MySQL DB cluster that has only a writer instance. Although the cluster storage is replicated across three Availability Zones, when the writer instance failed last month the database was unavailable for roughly 10 minutes while Aurora created a replacement instance. The company wants future instance failures to be handled by a fast failover instead. What should a solutions architect do?",
@@ -398,7 +398,7 @@ window.QUIZ.push(
     "A secondary Region protects against Regional outages, but the primary cluster would still have no in-Region replica, so an instance failure would still wait for a new instance.",
     "Longer backup retention extends point-in-time recovery; it does nothing to speed up recovery from an instance failure.",
     "With an Aurora Replica, Aurora promotes the replica to writer and repoints the cluster endpoint, which is much faster than creating a new instance; placing it in another AZ also covers an AZ failure."],
- ref:["d9e3","d3w2"], doc:"aurora"},
+ ref:["d9e3"], doc:"aurora"},
 
 {id:"q09-031", day:9, dom:2, tags:["Aurora","Disaster recovery"],
  q:"A global e-commerce company runs Aurora PostgreSQL in eu-west-1. It needs disaster recovery in us-east-1 with an RPO of about 1 second and an RTO of about 1 minute for a Regional outage. During normal operations, it also wants customers in North America to get low-latency reads from us-east-1. Which solution meets these requirements?",
@@ -439,7 +439,7 @@ window.QUIZ.push(
     "A scheduled copy job has no replication SLA or per-object tracking, and an object written just after a run would wait up to 15 minutes plus copy time.",
     "Same-Region Replication keeps the copy in the same Region, which fails the second-Region requirement.",
     "Replication Time Control is designed to replicate 99.99% of new objects within 15 minutes (its SLA commits to 99.9%), and it turns on replication metrics and event notifications for objects that miss the threshold."],
- ref:["d9e3","d3b1","d3w1"], doc:"s3"},
+ ref:["d9e3"], doc:"s3"},
 
 {id:"q09-034", day:9, dom:2, tags:["S3 features"],
  q:"A media company set up Cross-Region Replication on a bucket that already held 200 TB of video assets. A week later, an audit finds that only objects uploaded after the rule was created exist in the destination bucket, and some recent objects show a replication status of FAILED. The company needs the existing and failed objects replicated with the least operational effort. What should a solutions architect do?",
@@ -452,7 +452,7 @@ window.QUIZ.push(
     "Live replication applies only to new objects. S3 Batch Replication is the managed way to replicate existing objects and objects whose earlier replication failed, using the existing rule.",
     "A sync script must be run, monitored, and retried by the company, and it copies only current versions as new objects instead of replicating versions and metadata.",
     "Replication needs versioning to stay enabled, and toggling it off and on does not cause existing or failed objects to be replicated."],
- ref:["d9e3","d3w1"], doc:"s3"},
+ ref:["d9e3"], doc:"s3"},
 
 {id:"q09-035", day:9, dom:2, tags:["Disaster recovery","AWS Backup"],
  q:"A small accounting firm runs an internal document management system on two EC2 instances with EBS volumes and an Amazon RDS for MySQL database. The system is not customer facing: the firm can tolerate losing up to 24 hours of data and taking up to 48 hours to recover in another Region after a Regional disaster. The firm wants the lowest-cost disaster recovery strategy, with centrally managed, policy-based backups. What should a solutions architect recommend?",
@@ -519,7 +519,7 @@ window.QUIZ.push(
     "This depends on DNS health checks and caching rather than per-request failover, and an S3 website endpoint answers only for a host name that matches its bucket name, so one record cannot front both buckets.",
     "Switching distributions requires a manual DNS change, which the requirement rules out.",
     "Transfer Acceleration speeds up long-distance transfers to a bucket; it provides no automatic failover between origins."],
- ref:["d9e3","d1w4"], doc:"cloudfront"},
+ ref:["d9e3"], doc:"cloudfront"},
 
 {id:"q09-040", day:9, dom:2, tags:["Route 53"],
  q:"A video streaming company has deployed version 2 of its API on a separate Application Load Balancer and Auto Scaling group in the same Region as version 1. It wants Route 53 to send 5% of all requests to version 2 regardless of where users are, watch error rates, and then raise the share step by step to 100%, with the option to shift traffic back quickly. Which routing policy should the company use?",
@@ -584,7 +584,7 @@ window.QUIZ.push(
     "A calculated health check only combines other health checks; the child checks would still need to reach the private service.",
     "This exposes the internal service publicly and lets health checkers in, which the security team prohibits.",
     "A Route 53 health check can take its status from a CloudWatch alarm, so a metric published from inside the VPC (for example, a healthy host count) drives failover without any inbound access."],
- ref:["d9e3","d9c3","d6b2"], doc:"route53"},
+ ref:["d9e3","d9c3"], doc:"route53"},
 
 {id:"q09-045", day:9, dom:2, tags:["AWS Backup","Disaster recovery"],
  q:"A healthcare company uses AWS Organizations. After a ransomware attack at a peer company, it wants backups of its production EC2 instances, EBS volumes, and Amazon EFS file systems to survive a compromise of the production account or the loss of the primary Region. Backup copies must be kept in an account that production administrators cannot access, and must not be deletable by anyone, including the root user, before their 1-year retention ends. Which combination of actions meets these requirements? (Choose two.)",
@@ -625,7 +625,7 @@ window.QUIZ.push(
     "Extra IP addresses add source addresses for connections, but the gateway still lives in the first AZ and fails with it.",
     "A route to the internet gateway makes the subnets public; the servers would need public IP addresses and would be exposed, which defeats the purpose of private subnets.",
     "A NAT instance in the same AZ is still a single-AZ dependency and adds patching and scaling work."],
- ref:["d9e3","d2b1","d2w1"], doc:"nat"},
+ ref:["d9e3","d2b1"], doc:"nat"},
 
 {id:"q09-048", day:9, dom:2, tags:["EFS","Disaster recovery"],
  q:"A company's document processing application runs on EC2 instances in us-east-1 and keeps its working files on an Amazon EFS file system. The disaster recovery plan requires a copy of the file system in us-west-2 with an RPO of 1 hour, and the operations team wants no scripts or servers to maintain for the copy. Which solution meets these requirements?",
@@ -638,7 +638,7 @@ window.QUIZ.push(
     "Daily backups give an RPO of up to 24 hours, which misses the 1-hour target.",
     "EFS replication keeps a read-only replica file system in another Region in sync and maintains an RPO of 15 minutes for most file systems, with no infrastructure to manage; deleting the replication configuration makes the replica writable for failover.",
     "A One Zone file system stores its data in a single Availability Zone and can have only one mount target, in that same zone, so this adds no copy of the data in us-west-2 and lowers resilience."],
- ref:["d9e3","d9c2","d3p3"], doc:"efs"},
+ ref:["d9e3","d9c2"], doc:"efs"},
 
 {id:"q09-049", day:9, dom:2, tags:["Lambda","High availability design"],
  q:"A Lambda function that is connected to a VPC writes orders to an Amazon RDS Multi-AZ DB instance. The function was configured with a single private subnet in one Availability Zone. During an impairment of that AZ, the database failed over to its standby in another AZ, but every invocation of the function failed until the AZ recovered. How should a solutions architect make the function resilient to the loss of an AZ?",
@@ -651,7 +651,7 @@ window.QUIZ.push(
     "RDS Proxy is highly available and shortens database failover, but the function itself can still run only in the impaired AZ.",
     "Reserved concurrency guarantees how much concurrency the function can use, not where it runs; it still has only one AZ.",
     "Lambda runs a VPC-connected function in the subnets configured for it, so choosing subnets in several AZs lets it keep running when one AZ is impaired."],
- ref:["d9e3","d1w3"], doc:"lambda"},
+ ref:["d9e3"], doc:"lambda"},
 
 {id:"q09-050", day:9, dom:2, tags:["Global Accelerator","High availability design"],
  q:"A multiplayer gaming company runs game servers behind Network Load Balancers in us-east-1 and eu-west-1. Some player devices and ISPs cache DNS answers far longer than their TTL, so DNS-based failover between Regions has taken many minutes in past incidents. Corporate partners also need a small, fixed set of IP addresses to allowlist. The company needs Regional failover within seconds for TCP and UDP traffic. Which solution meets these requirements?",

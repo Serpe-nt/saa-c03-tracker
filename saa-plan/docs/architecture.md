@@ -4,14 +4,14 @@ A single-user study tracker. The browser does all the work; the server only stor
 
 ```
 browser ─ index.html loads, in order:
-          plan.js → quiz/meta.js → quiz/d01…d11.js, mock1–2.js → extras.js → keys/d01…d14.js → qcore.js → fx.js → app.js
+          plan.js → quiz/meta.js → quiz/d01…d15.js, mock1–2.js → extras.js → keys/*.js → qcore.js → fx.js → app.js
           app.js: state S (localStorage "saa-plan-v2") ── GET/PUT /api/state ──► Go server ── SQLite (/data/saa.db)
 ```
 
 ## Files and responsibilities
 
 - **Data files** (`plan.js`, `quiz/*.js`, `extras.js`, `keys/*.js`) hold no logic. They assign or push onto `window.*` globals.
-- **`qcore.js`** holds the quiz logic with no DOM: picking, shuffling, grading, spaced repetition, weak-spot aggregation and mock scoring. Constants: `DAILY` 30, `PASS` 0.9, `MOCK` {65 questions, 130 min, split [20,17,15,13]}, `MIX` [9,8,7,6], `SRS_DAYS` [1,2,4], `STEP` 3. Node tests load it through `tests/load.mjs`, a vm sandbox with a fake `window`.
+- **`qcore.js`** holds the quiz logic with no DOM: picking, shuffling, grading, spaced repetition, weak-spot aggregation, mock scoring, and which topics each day of the plan teaches (`topics`). Constants: `DAILY` 30, `PASS` 0.9, `MOCK` {65 questions, 130 min, split [20,17,15,13]}, `MIX` [9,8,7,6], `SRS_DAYS` [1,2,4], `STEP` 3, `FOUNDATION` 6 (question pools 1–6 are foundation level, the later ones exam level). Node tests load it through `tests/load.mjs`, a vm sandbox with a fake `window`.
 - **`app.js`** is one IIFE that owns the state and all UI. Its sections, in order: state and validation, indexes, dates, dialog queue, glossary, views (overview / day flow), overview tiles, refresh/status, slip guard, the overview's Start/Continue card, day flow (one card at a time), completing steps and celebrations, scores, practice panel, quizzes (shared, day/review/warm-up/step practice, mock, drill), quiz dialog events, sheets (notebook, weak spots, cues, day notes), cleanup dialog, day-flow events, header, settings, focus timer, server sync, boot.
 - **`server/`** is a Go module (stdlib plus `modernc.org/sqlite`, pure Go, no cgo). It serves `site/` and the API.
 
@@ -22,6 +22,7 @@ browser ─ index.html loads, in order:
 | `ticks` | `{itemId: true}` | completed plan steps |
 | `notes`, `scores` | `{dayId: text}`, `{key: value}` | day notes; 📊 Scores inputs |
 | `inotes` | `{itemId: text}` | your own note on a single step (at most 2,000 characters) |
+| `planV` | number | the plan the day-keyed entries were saved under (`PLAN_V`; see "Changing the plan") |
 | `dayDone` | `{dayId: "YYYY-MM-DD"}` | date a day became complete (drives the streak) |
 | `quiz` | `{dayId: {best, passed, tries:[{at,score,n}]}}` | day quiz results; `passed` is a date or "" |
 | `qs` | `{qid: {seen, right, last, at}}` | per-question answer stats (weak spots, selection tiers) |
@@ -42,20 +43,34 @@ browser ─ index.html loads, in order:
 
 Ids are permanent keys: plan item ids key `ticks`, `conf`, `inotes` and the key points; day ids key `notes`; question ids key `qs`, `srs` and `book`. Unknown ids are ignored (`QBY` lookups) and pruned from runs (`pruneRun`).
 
+## The plan is data
+
+Nothing in `app.js` or `qcore.js` knows how many days there are or what a given day holds. `plan.js` decides:
+
+- **Days:** every `PLAN` entry with an `id` (`d1`, `d2`, …, numbered from 1 without gaps). `LAST` is the last day's number: the exam date, the "Day N of M" label and the slip guard use it.
+- **Weeks:** a `{week: "…"}` entry starts a new week. `WEEK[dayId]` is the week's index, and the week celebration fires when every day between two markers is done.
+- **Quizzes:** a day's `quiz` field. `"tags"` = the topics of the day's steps, `"review"` = everything taught so far, `"dom:1,2"` = those exam domains, `"weak"` = your weakest topics, `"exam"` = weighted like the exam. No field: no quiz that day (Day 1, which is setup, and exam day).
+- **Topics:** `STEP_TAGS` maps a step id to the `QTAGS` it teaches. `QZ.topics(PLAN, STEP_TAGS)` turns that into, per day, `own` (that day's topics) and `sofar` (that day and all before). Everything that links questions and steps goes through topics: the day quizzes, step practice, a card's docs and exam topics, and "where to study" after a wrong answer.
+- **Mock exam:** `MOCK_AFTER` is the last day of new material; the mock opens when Days 1 to `MOCK_AFTER` are done.
+
+### Changing the plan
+
+Step ids never change, so moving a step to another day keeps its tick, notes and key points. Entries keyed by a *day* (`quiz`, `dayDone`) are only meaningful for the plan they were saved under. `PLAN_V` in `app.js` names the current plan; `clean()` drops `quiz` and `dayDone` (and a day quiz in progress) from any copy saved under another value, on every entry point, so an old server copy or an import cannot bring them back. Bump `PLAN_V` only when days change meaning, not when a step is added.
+
 Not in the state: which card is on screen (the URL hash) and which helper lists on a card are folded open (`saa-plan-v2-ui` in localStorage, per browser, never synced).
 
 ## Views: overview and day flow
 
 Two containers share the page and exactly one is visible: `#home` (the overview) and `#flow` (one day, one card at a time). The owner asked for this because a list of tasks to tick discouraged them, while a single task on screen keeps them on it.
 
-- **`view = {day, at}`.** `day` is `""` for the overview. `at` is a step id, `"quiz"`, or `"done"` (the day's summary, valid only once the day is complete). `stepIds(d)` is the card order: every item, then `"quiz"` on Days 1–13.
+- **`view = {day, at}`.** `day` is `""` for the overview. `at` is a step id, `"quiz"`, or `"done"` (the day's summary, valid only once the day is complete). `stepIds(d)` is the card order: every item, then `"quiz"` on a day that has one.
 - **`setView(day, at, push)`** is the only way a view changes. It validates `at` (`validAt`, falling back to `landing(d)`: first open step, else the quiz, else the summary), writes the hash (`#d3/d3w2`), toggles the containers and renders. `push` makes a history entry, so the browser's Back returns to the overview; moves inside a day replace the entry. `route()` reads the hash at boot and on `hashchange`, which is how the day tiles and the Start/Continue button work: they are plain links to `#d3`.
 - **`refresh()`** recomputes the overview (status line, Start/Continue card, numbers, tiles, scores, practice) and then calls `setView` with the current view, so a state change from anywhere (a tick, the server, another tab) redraws the card and corrects a card that is no longer valid.
 - **Overview:** the Start/Continue card targets `nextStep()` (the earliest open step or pending quiz) and reads "Start Day N", "Continue Day N" or "Take the Day N quiz". Days are not locked: any tile opens, and working ahead only shows a pill.
 
 **The card (`renderFlow`)** has a header (day, date, tools: day notes, cleanup check, notebook, weak spots), a strip with one dot per card grouped like the day's blocks, the card itself, and a fixed bar with Back, the card's main action and Next.
 
-- **Step card (`stepCardHTML`):** block tag and position, the step text and note, where to do it with its Open link, then whatever applies: the 📊 Scores field for that step (`SCORE_AT`, cloned from the Scores panel so both stay in step), the go/no-go verdict (`decision`), the model answer (`CARDS`, self-checks), key points (`KEYS`), AWS docs and exam topics with your accuracy (derived from the quiz questions whose `ref` names the step, via `QREF`), glossary terms found in the text, exam wording for the step's topics (`CUE_TAGS`), a notes box (`inotes`) and a "try 3 now" practice round.
+- **Step card (`stepCardHTML`):** block tag and position, the step text and note, where to do it with its Open link, then whatever applies: the 📊 Scores field for that step (`SCORE_AT`, cloned from the Scores panel so both stay in step), the go/no-go verdict (`decision`), the model answer (`CARDS`, self-checks), key points (`KEYS`), AWS docs and exam topics with your accuracy (the topics are the step's `STEP_TAGS`; the docs come from the quiz questions on those topics, via `QREF`), glossary terms found in the text, exam wording for the step's topics (`CUE_TAGS`), a notes box (`inotes`) and a "try 3 now" practice round.
 - **Quiz card:** locked while steps are open (it lists them as links), then Start/Resume/Retake, then "passed".
 - **Summary card:** steps, quiz result, focus time, date, and a button for the next day.
 - **Mark complete** ticks the step and moves to the next *open* step after it (wrapping round), then to the quiz card, then to the summary. **Next** and **Back** move strictly in order and never tick, so a step can be skipped and found again as a hollow dot. A completed step shows "Completed" with Undo, and Next becomes the main action.
@@ -64,15 +79,15 @@ Two containers share the page and exactly one is visible: `#home` (the overview)
 
 ## Day completion
 
-`dayDone(d) = all items complete && quizOk(d)`. `quizOk` is true for days without a quiz (Day 14) or when `quiz[d].passed` is set (27 of 30). `markDayDone` keeps `S.dayDone` in step and runs at boot, on ticks, after quizzes and after state replacement. Progress percentages count each day's quiz as one step.
+`dayDone(d) = all items complete && quizOk(d)`. `quizOk` is true for days without a quiz or when `quiz[d].passed` is set (27 of 30). `markDayDone` keeps `S.dayDone` in step and runs at boot, on ticks, after quizzes and after state replacement. Progress percentages count each day's quiz as one step.
 
 ## Quiz lifecycle
 
 1. **Prompt.** Completing the last open step of a day moves to the day's quiz card, whose main action is Start quiz (Enter works). There is no pop-up: the card is the prompt. A pending quiz can also be started from the overview's Start/Continue card. The mock exam still uses an intro screen (`intro` object) in the quiz dialog.
 2. **Start.** `startRun(kind, of)` picks questions (`QZ.pickDay` / `pickMock` / `pickWarmup` / `pickReview` / `pickStep`) and stores an option order per question. `of` is the day id for a day quiz and the step id for step practice. It saves `S.run = {kind, day, item, ids, ord, ans, flag, i, t0, end, done, view, seen, only, score, mins, cel, mockNew, res}`. Only one run exists at a time; starting another asks to drop the unfinished one.
-3. **Answer** (day/review/warm-up/step practice). Selecting options fills `sel`; "Check" records `run.ans[id]` and calls `learn()`, which updates `qs`, `srs` and `book`. The feedback view shows every option's explanation and the study refs (`studyRefs` sorts Skill Builder steps first). Progress persists after each answer, so closing or reloading resumes.
+3. **Answer** (day/review/warm-up/step practice). Selecting options fills `sel`; "Check" records `run.ans[id]` and calls `learn()`, which updates `qs`, `srs` and `book`. The feedback view shows every option's explanation and up to three study refs (`studyRefs`: the steps the question names, then the steps that teach its main topic; lectures first, then labs, builds and self-checks, in the plan's order). Progress persists after each answer, so closing or reloading resumes.
 4. **Mock.** Selections save immediately with no feedback. The page offers a flag/review grid and a 130-minute clock (`run.end`). A 1-second ticker submits when time is up (`finishMock(true)`), even with the dialog closed or after a reload.
-5. **Finish.** `finishRun` / `finishMock` compute the score. A day quiz records the try, sets `passed` at 27 or more, and works out which celebration is due (`cel`: day/week/all). It also sets `mockNew` when Day 13's pass unlocks the mock. The run stays in `S.run` with `done: true`.
+5. **Finish.** `finishRun` / `finishMock` compute the score. A day quiz records the try, sets `passed` at 27 or more, and works out which celebration is due (`cel`: day/week/all). It also sets `mockNew` when that pass unlocks the mock. The run stays in `S.run` with `done: true`.
 6. **Results.** Rendering results sets `run.seen = true`. Closing the dialog calls `finishResults()`, which clears the run and then celebrates; that order matters because the canvas sits below the modal. If the pass completed the day on screen, it then moves to the day's summary card. If a finished run was never on screen (time ran out behind the drill, or a reload), the close handler and boot reopen it first, so results are never lost.
 
 The drill keeps its state in memory only (`drill`), runs in the same dialog, and must not close the dialog when restarting: a late `close` event would stop the new drill. The close handler starts with `if (qzDlg.open) return`.
@@ -84,18 +99,18 @@ The drill keeps its state in memory only (`drill`), runs in the same dialog, and
 ## Selection rules (qcore.js)
 
 - **Tiers:** never seen → wrong last time → seen longest ago, shuffled inside each tier (`rank`).
-- **Day 1–6 and 8–11 quizzes:** 30 from that day's pool, by tier.
-- **Day 7:** 5 each from Days 1–6.
-- **Day 13:** split 9/8/7/6 by domain, from Days 1–11.
-- **Day 12:** questions scored by tag weakness plus a bonus for misses, at most 6 per tag.
+- **A day of new material (`quiz: "tags"`):** 30 questions that are about one of the day's topics and about nothing taught later (`dayPool`: any tag in `own`, every tag in `sofar`), never from the mock pool. Order: questions you have not seen, the foundation-level pools before the exam-level ones; then the usual tiers. A day with fewer than 30 of its own is filled from earlier topics.
+- **Review day (`"review"`):** 30 by tier from every question whose topics have all been taught.
+- **Exam-domain day (`"dom:1,2"`):** split evenly between the named domains, from all study questions. **Exam-weighted day (`"exam"`):** split 9/8/7/6 by domain.
+- **Weak-topics day (`"weak"`):** questions scored by tag weakness plus a bonus for misses, at most 6 per tag.
 - **Mock:** per domain [20,17,15,13]. Unseen mock questions come first, then unseen study questions, then misses, then the oldest seen.
 - **Spaced repetition:** a miss is due again in 1 day. A correct answer counts only once the question is due, and moves it on to 2 days, then 4, then retires it. Another miss resets it to step 0.
 - **Warm-up:** up to 5 questions, due reviews first, then misses from yesterday. Offered once a day from Day 2 on. **Review:** up to 15 due questions.
-- **Step practice:** up to 3 questions whose `ref` names the step. The step's own day comes first, then later days, then the mock pool, each in the usual tier order, so a Day 3 step doesn't open with Day 9 material. Answers count like any other: stats, review queue and notebook.
+- **Step practice:** up to 3 questions for one step (`forStep`): those that name it in `ref`, then those with one of its topics as their main topic, then as a side topic; the mock pool last, so practice does not use up the mock exam. Inside each group the usual tier order. Answers count like any other: stats, review queue and notebook.
 
 ## Dates and slip guard
 
-`dayDate(n) = start + (n-1) + Σ slips where n ≥ from`. `todayIdx()` finds the last day whose date is on or before today (0 or less before the start, over 14 after the end). Dates use local midnight, and `setDate` handles DST. When the earliest unfinished day's date has passed, a banner offers to push it and all later days by the number of days missed. Settings can undo all moves. If Day 14 lands after `settings.exam`, a warning pill appears.
+`dayDate(n) = start + (n-1) + Σ slips where n ≥ from`. `todayIdx()` finds the last day whose date is on or before today (0 or less before the start, more than the last day's number after the end). Dates use local midnight, and `setDate` handles DST. When the earliest unfinished day's date has passed, a banner offers to push it and all later days by the number of days missed. Settings can undo all moves. If the last day lands after `settings.exam`, a warning pill appears.
 
 ## Sync protocol
 
@@ -142,15 +157,18 @@ The build has two stages: `golang:1.27-alpine` builds a static binary (`CGO_ENAB
 ## Decisions and why
 
 - **The quiz gates day completion at 90%:** the owner asked for it. It turns ticking into demonstrated recall.
-- **Day 14 has no quiz:** it's exam day, and the plan says light review only. **The mock unlocks after Days 1–13:** the owner asked for "a mock after I finish all".
+- **The last day has no quiz:** it's exam day, and the plan says light review only. **Day 1 has none either:** it is account setup and half a lecture, too little to ask 30 questions about. **The mock unlocks after the lectures and labs (Day 16):** the bank holds two full mock exams, and the exam-prep days are when they are useful.
 - **Feedback after every answer in day quizzes, none until the end in the mock:** the first is for learning, the second mirrors the exam.
-- **50 questions per study day:** retakes draw different questions (owner request) while missed ones still come back.
-- **One step per card, no checklist:** the owner gets discouraged by a list of tasks and focuses when only one is on screen. The 14 days stay visible as tiles on the overview, but a day's steps are only ever shown one at a time (plus the dot strip for orientation).
-- **Mark complete goes to the next open step, Next goes to the next card:** completing should always land on work that is left; Next exists to skip a step you can't do yet (a locked Cloud Quest assignment) without marking it.
+- **A quiz follows the day's topics, not a fixed pool:** the plan was rebuilt on AWS's own Solutions Architect learning plan (lectures, then their labs), and it should be possible to move a course to another day without rewriting questions. So questions carry topics, steps name the topics they teach, and the engine joins the two. The rule "nothing taught later" keeps the 90% gate fair.
+- **Foundation-level questions before exam-level ones on a day of new material:** the first time a topic comes up, the simpler questions teach more; the exam-level ones are met in the reviews and the exam-prep days at the latest.
+- **One step per card, no checklist:** the owner gets discouraged by a list of tasks and focuses when only one is on screen. The days stay visible as tiles on the overview, but a day's steps are only ever shown one at a time (plus the dot strip for orientation).
+- **Mark complete goes to the next open step, Next goes to the next card:** completing should always land on work that is left; Next exists to skip a step you can't do yet (a lab that will not start, say) without marking it.
 - **The plan's AWS account stays on the Free plan, with an IAM admin user:** enabling IAM Identity Center for account access creates an AWS Organization, and AWS upgrades a Free plan account to pay-as-you-go when that happens. The owner chose free labs over practising Identity Center hands-on, so it is a reading block and the CLI signs in with `aws login`.
 - **Days are not locked:** the plan already supports working ahead and catching up, and a locked tile would block both.
 - **The card on screen lives in the URL hash, not in the state:** a reload or a shared link reopens the same card, the browser's Back works, and two devices can sit on different cards without fighting over a synced field.
-- **Docs, topics, terms and exam wording on a card are derived, not authored:** they come from the quiz questions that reference the step, so they stay right when questions change. Only the key points are written per step (`docs/keypoints.md`).
+- **Docs, topics, terms and exam wording on a card are derived, not authored:** they come from the step's topics and the quiz questions on them, so they stay right when questions change. Only the key points and the step's topics are written per step (`docs/keypoints.md`).
+- **Lectures first, then their labs, in AWS's order:** the owner asked for the regular lectures followed by the lab version of the same training. A course is never split from its labs by another course.
+- **A reading block for in-scope services no lecture covers (`r1a`–`r1d`):** an audit of the exam guide's in-scope list against the plan found the machine learning services and several management, migration and database services untaught. One paragraph each on the AWS overview whitepaper is the proportionate fix.
 - **A Go server replaces nginx:** one container and one process. The owner prefers Go, and SQLite needs no separate database service. Static hosting (`python3 -m http.server`, or S3/CloudFront later) still works in browser-only mode.
 - **The quiz engine is split into `qcore.js`:** pure logic, so Node can test selection, grading and spaced repetition without a browser.
 - **The mock score is shown as a percentage, not a scaled score:** AWS doesn't publish its raw-to-scaled mapping. 80% is a rule of thumb, stated as such in the UI.

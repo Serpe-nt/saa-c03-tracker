@@ -50,45 +50,6 @@ Object.assign(window.KEYS, {
       "For each card, name the failure it protects against (instance, AZ, Region, poison message, traffic burst) before you reveal the answer. A service you cannot tie to a failure type goes into your notes for a second pass tonight."
     ]
   },
-  d9b1: {
-    k: [
-      "Lambda polls the queue through an event source mapping and deletes a batch when the function succeeds. After an error the whole batch becomes visible again, unless <code>ReportBatchItemFailures</code> is on and the function returns the failed message IDs.",
-      "The dead-letter queue belongs to the source queue: its redrive policy moves a message after <code>maxReceiveCount</code> receives (at least 5 is recommended). For asynchronous invocations use an on-failure destination, which also records the error response.",
-      "Set the queue's visibility timeout to at least six times the function timeout; Lambda refuses a mapping whose function timeout exceeds it. A timeout shorter than the processing time shows up as the same message handled twice.",
-      "<code>provided.al2023</code> is an OS-only runtime: build for Linux (amd64 or arm64) and name the executable <code>bootstrap</code>. The execution role needs permission to read from the queue, which <code>AWSLambdaSQSQueueExecutionRole</code> provides."
-    ],
-    docs: [
-      ["Using Lambda with Amazon SQS", "https://docs.aws.amazon.com/lambda/latest/dg/with-sqs.html"],
-      ["Handling errors for an SQS event source in Lambda", "https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html"],
-      ["Deploy Go Lambda functions with .zip file archives", "https://docs.aws.amazon.com/lambda/latest/dg/golang-package.html"]
-    ]
-  },
-  d9b2: {
-    k: [
-      "Each queue needs an access policy that lets the topic call <code>sqs:SendMessage</code>, limited with <code>aws:SourceArn</code> to that topic. Without it the subscription exists but nothing arrives in the queue.",
-      "Every subscribed queue receives its own copy of each message and holds it until its consumer is ready, so a slow or offline consumer misses nothing and the publisher never needs to know who subscribes.",
-      "By default the queue receives a JSON envelope with SNS metadata around your message; raw message delivery on the subscription passes the message as published. A filter policy on a subscription lets only matching messages through to that queue.",
-      "A dead-letter queue for failed deliveries is attached to the subscription, not the topic. Without one, SNS discards a message once its delivery retries are used up, which is how an HTTPS endpoint that is down for hours loses events."
-    ],
-    docs: [
-      ["Fanout Amazon SNS notifications to Amazon SQS queues", "https://docs.aws.amazon.com/sns/latest/dg/sns-sqs-as-subscriber.html"],
-      ["Subscribing an Amazon SQS queue to an Amazon SNS topic", "https://docs.aws.amazon.com/sns/latest/dg/subscribe-sqs-queue-to-sns-topic.html"],
-      ["Amazon SNS dead-letter queues", "https://docs.aws.amazon.com/sns/latest/dg/sns-dead-letter-queues.html"]
-    ]
-  },
-  d9b3: {
-    k: [
-      "A scheduled rule can exist only on the default event bus and runs its cron or rate expression in UTC. AWS now labels scheduled rules legacy and recommends EventBridge Scheduler, which adds one-time schedules, time zones, retry limits and a dead-letter queue.",
-      "EventBridge may invoke the function only if the function's resource-based policy allows <code>events.amazonaws.com</code> to call <code>lambda:InvokeFunction</code> or the target has an execution role. Without either, the rule matches and nothing runs.",
-      "A rule sees only events on its own bus. Partner SaaS events arrive on a partner event bus, and another account can send to your bus only after the bus policy allows it, with a rule in the sending account that targets your bus.",
-      "When a target fails, EventBridge retries for up to 24 hours and 185 attempts by default. Attach an SQS dead-letter queue to the target to keep events that still fail; errors caused by missing permissions are not retried."
-    ],
-    docs: [
-      ["Creating a scheduled rule (legacy) in Amazon EventBridge", "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-create-rule-schedule.html"],
-      ["What is Amazon EventBridge Scheduler?", "https://docs.aws.amazon.com/scheduler/latest/UserGuide/what-is-scheduler.html"],
-      ["Using resource-based policies for Amazon EventBridge", "https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-use-resource-based.html"]
-    ]
-  },
   d9c1: {
     trap: "Four timers get swapped: delivery delay hides a new message before its first receive (15 minutes at most), visibility timeout hides it after a receive, long polling waits up to 20 seconds for a message, retention deletes it. FIFO deduplication lasts 5 minutes.",
     docs: [

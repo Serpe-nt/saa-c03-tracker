@@ -11,7 +11,7 @@ window.QUIZ.push(
     "Weighted records split traffic randomly by DNS weight, not by URL path, so requests would reach the wrong service; three ALBs also add cost and management.",
     "An ALB is a layer 7 load balancer: listener rules match the path and forward to a separate target group for each fleet, all behind one hostname and certificate.",
     "A Gateway Load Balancer distributes IP packets to third-party virtual appliances such as firewalls; it does not route HTTP requests by path."],
- ref:["d5c1","d5b3"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-002", day:5, dom:4, tags:["Load balancing","Encryption in transit"],
  q:"A SaaS startup runs two customer-facing web applications, app.example.com and portal.example.net, each behind its own Application Load Balancer. Each domain has its own TLS certificate in AWS Certificate Manager (ACM). To reduce cost, the team wants to serve both domains from a single load balancer while keeping HTTPS for both. What should a solutions architect do?",
@@ -24,7 +24,7 @@ window.QUIZ.push(
     "An ALB listener can hold multiple certificates and uses SNI to present the right one; host-header rules then send each domain to its own target group, so one ALB replaces two.",
     "A load balancer cannot have two listeners on the same port; multiple certificates are attached to one listener and selected with SNI.",
     "This works, but it keeps two load balancers running, which does not meet the goal of reducing cost by consolidating onto one."],
- ref:["d5c1","d5b3"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-003", day:5, dom:3, tags:["Load balancing","Lambda"],
  q:"A media company serves its website from EC2 instances behind an Application Load Balancer. It wants a new, rarely used /preview/* endpoint to be handled by an AWS Lambda function instead of the instances. Clients must keep using only the ALB's hostname, and no extra load balancer should be added. Which solution meets these requirements?",
@@ -37,7 +37,7 @@ window.QUIZ.push(
     "An NLB target group takes instances, IP addresses or an ALB as targets, not Lambda functions, and the requirement says no extra load balancer should be added.",
     "This runs the code on the instances rather than in Lambda, which defeats the goal of moving a rarely used endpoint to a serverless function.",
     "ALBs support Lambda functions as targets: the ALB invokes the function with the HTTP request as the event, so a path rule can send /preview/* to it behind the same hostname."],
- ref:["d5c1","d1w3"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-004", day:5, dom:1, tags:["Load balancing","IAM Identity Center & federation"],
  q:"A company hosts an internal expense application on EC2 instances behind an internet-facing Application Load Balancer so that remote employees can reach it without a VPN. The application has no login of its own. Security requires that every request be authenticated against the company's OpenID Connect (OIDC) identity provider before it reaches the instances, without changing the application code. Which solution meets these requirements?",
@@ -50,7 +50,7 @@ window.QUIZ.push(
     "A WAF rule can match on whether a header is present, but such a rule does not verify the user's identity with the IdP, so a forged header would pass.",
     "Stickiness keeps a user's requests on the same target; it does not authenticate anyone.",
     "This prevents bypassing the ALB but authenticates no one, so any internet user could still reach the application through the ALB."],
- ref:["d5c1","d5b3"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-005", day:5, dom:3, tags:["Load balancing"],
  q:"A financial services company exposes a TCP-based pricing feed on port 9000 to external partners. Partner firewalls allow outbound connections only to a short list of fixed IP addresses, and the feed must stay available if one Availability Zone fails. The service runs in an Auto Scaling group across two Availability Zones. Which solution meets these requirements?",
@@ -115,7 +115,7 @@ window.QUIZ.push(
     "Stickiness pins users to instances but does not detect broken ones; users pinned to a broken instance would keep failing.",
     "Detailed monitoring changes how often EC2 sends metrics to CloudWatch; the ALB does not use these metrics to decide where to route.",
     "Target group health checks decide where the ALB sends traffic. A deep health check that tests the database fails on broken instances, so the ALB marks them unhealthy and stops routing to them."],
- ref:["d5b3","d5c3"], doc:"elb"},
+ ref:["d5c3"], doc:"elb"},
 
 {id:"q05-010", day:5, dom:3, tags:["Load balancing"],
  q:"A Network Load Balancer spans two Availability Zones. Because of a capacity shortage, AZ A has 2 registered targets and AZ B has 6. Monitoring shows the two targets in AZ A running near 100% CPU while the targets in AZ B are mostly idle. Which change spreads traffic evenly across all eight targets?",
@@ -141,7 +141,7 @@ window.QUIZ.push(
     "Duration-based stickiness makes the ALB set a cookie that sends a user's requests to the same instance, so in-memory carts stay available without code changes.",
     "Cross-zone load balancing is already on by default for an ALB; an even spread is the cause of the problem, because each request may land on an instance that does not hold the cart.",
     "Deregistration delay only affects draining when a target is removed; it does not keep a user's requests on the same instance."],
- ref:["d5c1","d5p2"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-012", day:5, dom:2, tags:["Load balancing","Auto Scaling"],
  q:"A reporting application behind an Application Load Balancer streams large CSV exports that can take up to 2 minutes to download. Whenever the Auto Scaling group scales in, some users' downloads fail partway through. The target group's deregistration delay is set to 10 seconds. Which change prevents these failures?",
@@ -154,7 +154,7 @@ window.QUIZ.push(
     "Cooldown controls how soon another scaling activity can start; it does not protect in-flight requests on instances being terminated.",
     "The instances being removed are healthy; health check thresholds play no part in scale-in, so this changes nothing.",
     "Deregistration delay keeps in-flight requests running after the ALB stops sending new ones to a target, and Auto Scaling waits for draining before terminating, so a value above 2 minutes lets downloads finish."],
- ref:["d5c1","d5b4"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-013", day:5, dom:3, tags:["Auto Scaling","EC2 user data & AMIs"],
  q:"An operations team must roll out a patched AMI to an Auto Scaling group that still uses a launch configuration. They want versioned configurations they can roll back to, support for mixing instance types and purchase options, and a controlled replacement of the running instances. What should they do?",
@@ -167,7 +167,7 @@ window.QUIZ.push(
     "Launch templates support versions (easy rollback), mixed instance types, and On-Demand/Spot mixes; an instance refresh replaces instances in batches while keeping a minimum healthy percentage.",
     "Dropping to zero causes a full outage, and the AMI is set in the launch template or configuration, not registered on the group.",
     "Launch configurations have no versions, no mixed instances policies, and no instance types released since 2023; accounts created since October 2024 cannot create them at all."],
- ref:["d5b2","d5b4"], doc:"autoscaling"},
+ ref:[], doc:"autoscaling"},
 
 {id:"q05-014", day:5, dom:2, tags:["Load balancing","High availability design"],
  q:"A company's Auto Scaling group originally used two Availability Zones behind an internet-facing Application Load Balancer. To improve resilience, the team added a subnet in a third AZ to the Auto Scaling group. The new instances in that AZ launch, register with the target group, and run normally, but they never receive requests, and the target group shows them as unused. What should a solutions architect do?",
@@ -180,7 +180,7 @@ window.QUIZ.push(
     "Deregistration delay controls how long in-flight requests drain when targets leave; it does not affect routing to newly registered targets.",
     "An ALB routes only to targets in Availability Zones that are enabled for it; adding a subnet from the third AZ enables that AZ, so its targets start receiving traffic.",
     "A second load balancer adds cost and complexity, and an ALB needs subnets in at least two AZs anyway; enabling the AZ on the existing ALB is the simple fix."],
- ref:["d5p2","d5b3","d5c1"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-015", day:5, dom:2, tags:["Auto Scaling"],
  q:"An Auto Scaling group with a desired capacity of 6 spans two Availability Zones. During an outage in AZ A, the group launched replacements in AZ B, so all 6 instances now run in AZ B. AZ A has now recovered. What will Amazon EC2 Auto Scaling do by default?",
@@ -193,7 +193,7 @@ window.QUIZ.push(
     "Auto Scaling rebalances across its enabled AZs automatically, launching new instances before terminating old ones so capacity and availability are not reduced.",
     "Terminating first would drop capacity below the desired level; Auto Scaling launches first and may briefly exceed desired capacity while it rebalances.",
     "Rebalancing does not move running instances: Auto Scaling launches new instances in the zones that have the fewest and terminates instances elsewhere."],
- ref:["d5p1","d5b4"], doc:"autoscaling"},
+ ref:[], doc:"autoscaling"},
 
 {id:"q05-016", day:5, dom:3, tags:["Auto Scaling"],
  q:"A content site's EC2 instances run behind an Application Load Balancer in an Auto Scaling group. Load testing shows each instance performs well up to about 1,000 requests per minute, but CPU stays low even when instances are overloaded because the work is I/O-bound. The team wants the group to add and remove instances automatically to hold that per-instance load. Which scaling policy should they use?",
@@ -206,7 +206,7 @@ window.QUIZ.push(
     "Total request count ignores how many instances share the load, and simple scaling makes fixed adjustments and waits for a cooldown between them.",
     "Scheduled actions repeat past patterns and cannot react to actual traffic; they also need manual upkeep.",
     "Target tracking on ALBRequestCountPerTarget adds or removes instances to keep average requests per target near 1,000, matching the measured per-instance limit."],
- ref:["d5c2","d5b4"], doc:"autoscaling"},
+ ref:["d5c2"], doc:"autoscaling"},
 
 {id:"q05-017", day:5, dom:3, tags:["Auto Scaling"],
  q:"An analytics company wants its Auto Scaling group to react in proportion to how far CPU utilization exceeds its threshold: add 1 instance between 60% and 75%, 3 instances between 75% and 90%, and 5 instances above 90%. The group must keep responding to alarm changes even while a previous scaling activity is in progress. Which policy type meets these requirements?",
@@ -258,7 +258,7 @@ window.QUIZ.push(
     "The grace period only delays health check–based replacement; it does not stop a new instance's CPU from counting in scaling decisions.",
     "A lower target makes the group scale out earlier and more often, which adds to the overshoot.",
     "ELB health checks decide whether an instance is replaced; they do not exclude new instances from the metric that drives target tracking."],
- ref:["d5c2","d5p1"], doc:"autoscaling"},
+ ref:["d5c2"], doc:"autoscaling"},
 
 {id:"q05-021", day:5, dom:3, tags:["Auto Scaling"],
  q:"An Auto Scaling group uses a simple scaling policy that adds 2 instances when a CloudWatch CPU alarm enters the ALARM state. After the first scale-out, the alarm stays in ALARM, but no more instances launch for several minutes even though the group is well below its maximum capacity. What explains this behavior?",
@@ -284,7 +284,7 @@ window.QUIZ.push(
     "A launch lifecycle hook holds the instance in Pending:Wait; it is registered and put in service only after the script signals CONTINUE with complete-lifecycle-action.",
     "User data runs at boot, but the cooldown only delays further scaling activities; it does not keep the instance out of service.",
     "Scheduled actions cannot cover unplanned scale-outs or replacements, and they do not stop an instance from entering service before the script is done."],
- ref:["d5p1","d5b4"], doc:"autoscaling"},
+ ref:[], doc:"autoscaling"},
 
 {id:"q05-023", day:5, dom:2, tags:["Auto Scaling"],
  q:"An application writes audit logs to local disk on each instance in an Auto Scaling group, and the team cannot change how the application logs. When the group scales in, the logs on terminated instances are lost. Every log file must be copied to an S3 bucket before an instance is terminated. Which solution meets this requirement?",
@@ -297,7 +297,7 @@ window.QUIZ.push(
     "Deregistration delay only lets in-flight requests finish; it runs no script and does not guarantee the logs are copied.",
     "The termination policy only chooses which instance is removed; the chosen instance's logs are still lost.",
     "A termination lifecycle hook holds the instance in Terminating:Wait, giving a script (for example started through EventBridge and Systems Manager) time to copy the logs before termination continues."],
- ref:["d5p1"], doc:"autoscaling"},
+ ref:[], doc:"autoscaling"},
 
 {id:"q05-024", day:5, dom:2, tags:["Auto Scaling","Load balancing"],
  q:"An Auto Scaling group behind an Application Load Balancer uses the default health check settings. Sometimes the application process hangs: the ALB marks the target unhealthy and stops sending it traffic, but the instance keeps running and is never replaced, so the group runs with less capacity. What should a solutions architect do?",
@@ -310,7 +310,7 @@ window.QUIZ.push(
     "Detailed monitoring increases metric frequency but does not change how the group decides an instance is unhealthy.",
     "The instance passes its EC2 status checks because only the application has hung, so this alarm would never fire.",
     "A longer grace period only delays health checks further; the group still would not use the ALB's view of target health."],
- ref:["d5c3","d5b5"], doc:"autoscaling"},
+ ref:["d5c3"], doc:"autoscaling"},
 
 {id:"q05-025", day:5, dom:2, tags:["Auto Scaling","SQS"],
  q:"A media company renders videos on EC2 instances in an Auto Scaling group that scales on the length of an SQS queue. A render job can take up to 90 minutes. When the queue drains, scale-in sometimes terminates instances that are in the middle of a job, wasting the work, while idle instances keep running. The company wants scale-in to remove only idle instances. What should a solutions architect do?",
@@ -323,7 +323,7 @@ window.QUIZ.push(
     "A lifecycle hook delays the termination of the instance the group chose, but the group can still choose a busy instance while idle ones keep running, so scale-in is held up instead of removing idle capacity.",
     "Protected instances are never selected for scale-in, so the group terminates only unprotected, idle instances, and each worker removes the protection as soon as its job finishes.",
     "Suspending Terminate stops all scale-in, so the group never shrinks and the company pays for idle instances."],
- ref:["d5p1","d5c2"], doc:"autoscaling"},
+ ref:["d5c2"], doc:"autoscaling"},
 
 {id:"q05-026", day:5, dom:2, tags:["DynamoDB","High availability design"],
  q:"A startup is making its web tier stateless and needs a place to keep user sessions. The store must be durable, serverless with no capacity planning, and highly available across Availability Zones, and it must expire sessions automatically 24 hours after their last update at no extra cost. Which solution meets these requirements with the least operational overhead?",
@@ -336,7 +336,7 @@ window.QUIZ.push(
     "DynamoDB is serverless and replicates across AZs, and on-demand mode needs no capacity planning. TTL deletes items past the expiry time the app sets without consuming write throughput; deletion can lag by a few days, so reads filter on the expiry attribute.",
     "EFS is shared and durable, but session cleanup needs a cron job you must run and maintain, which adds overhead.",
     "Stickiness leaves sessions in instance memory; they are not durable and are lost when the instance is terminated."],
- ref:["d3w2","d3p2","d3b3"], doc:"dynamodb"},
+ ref:[], doc:"dynamodb"},
 
 {id:"q05-027", day:5, dom:2, tags:["RDS","High availability design"],
  q:"A company's web tier runs in an Auto Scaling group across two Availability Zones behind an Application Load Balancer, but its Amazon RDS for PostgreSQL database is a Single-AZ DB instance. An architecture review flags the database as a single point of failure. The company needs automatic failover with no connection-string changes and no loss of committed transactions. What should a solutions architect do?",
@@ -349,7 +349,7 @@ window.QUIZ.push(
     "Restoring from a backup takes time, loses changes since the latest restorable point, and creates a new endpoint the application must be pointed to.",
     "Multi-AZ replicates synchronously to a standby in another AZ and fails over automatically; the DNS endpoint stays the same, so the application only needs to reconnect.",
     "ALBs route HTTP traffic and do not replicate data; two independent databases would diverge, and the ALB cannot fail over database connections."],
- ref:["d3c2","d3p1"], doc:"rds"},
+ ref:["d3c2"], doc:"rds"},
 
 {id:"q05-028", day:5, dom:3, tags:["Auto Scaling","SQS"],
  q:"Video-transcoding workers in an Auto Scaling group pull jobs from an Amazon SQS queue. Each worker runs near 100% CPU whenever it has work, whether the queue holds 10 messages or 10,000, so the current CPU-based policy does not keep up during peaks. The company wants the fleet sized to clear the queue within an acceptable time. Which scaling approach should a solutions architect use?",
@@ -375,7 +375,7 @@ window.QUIZ.push(
     "For private resources, Route 53 can base a health check on a CloudWatch alarm; an alarm on HealthyHostCount dropping below 1 marks the primary unhealthy so the failover records answer with the secondary.",
     "Opening security groups does not help: the health checkers have no network path to private IP addresses in the VPC.",
     "Calculated health checks combine other Route 53 health checks; target group health checks are not Route 53 health checks and cannot be children."],
- ref:["d2w1","d5p2"], doc:"route53"},
+ ref:[], doc:"route53"},
 
 {id:"q05-030", day:5, dom:3, tags:["Load balancing"],
  q:"A mobile gaming company is releasing version 2 of its backend API. Updated mobile clients send the HTTP header X-Client-Version: 2 and use the same hostname and URL paths as older clients. Requests with that header must go to a new fleet of instances, while all other requests stay on the existing fleet. Which solution meets these requirements?",
@@ -401,7 +401,7 @@ window.QUIZ.push(
     "ALB listeners support redirect actions, so HTTP requests are redirected to HTTPS at the load balancer; ACM renews the certificates it issues automatically when they use DNS validation, with no server changes.",
     "This changes every web server and leaves certificate renewal as a manual task on each instance.",
     "An NLB listener only forwards connections to target groups and has no HTTP redirect action, and without a port 80 listener HTTP visitors simply fail to connect."],
- ref:["d5c1","d4w1"], doc:"acm"},
+ ref:["d5c1"], doc:"acm"},
 
 {id:"q05-032", day:5, dom:1, tags:["Security groups & NACLs","Load balancing"],
  q:"A web application's EC2 instances run in private subnets behind an internet-facing Application Load Balancer. The instances must accept HTTP traffic only from the ALB, and the ALB's node IP addresses can change as it scales. Which solution meets these requirements with the least maintenance?",
@@ -414,7 +414,7 @@ window.QUIZ.push(
     "ALB node IPs change as the load balancer scales or is maintained, so the rule would need constant updates and would break.",
     "Allowing the whole VPC CIDR lets any resource in the VPC reach the instances, not only the ALB, and stateless NACL rules add maintenance.",
     "Private subnets block direct internet access, but this rule still lets any resource in the VPC or connected networks reach the instances, which breaks the ALB-only requirement."],
- ref:["d2c1","d5b3"], doc:"vpc"},
+ ref:["d2c1"], doc:"vpc"},
 
 {id:"q05-033", day:5, dom:1, tags:["Load balancing"],
  q:"A security team needs the original client IP address of every request recorded in the application logs of web servers that sit behind an Application Load Balancer. Currently the logs show only the private IP addresses of the ALB nodes. What should a solutions architect do?",
@@ -440,7 +440,7 @@ window.QUIZ.push(
     "Paying for 20 reserved instances wastes money during the long periods when only the 4 baseline instances are needed.",
     "A mixed instances policy keeps the baseline On-Demand and fills burst capacity with Spot; several instance types with the price-capacity-optimized strategy lower the chance of interruption.",
     "Two groups and two load balancers add cost and complexity and break the single-group requirement."],
- ref:["d1c7","d5b4","d1w2"], doc:"autoscaling"},
+ ref:["d1c7"], doc:"autoscaling"},
 
 {id:"q05-035", day:5, dom:2, tags:["Load balancing"],
  q:"A fintech company wants to release a new version of its web application by sending 10% of requests to a new (green) fleet and 90% to the current (blue) fleet, both behind the same Application Load Balancer. If errors rise, the team must be able to send all traffic back to blue immediately, without waiting for DNS caches to expire. Which solution meets these requirements?",
@@ -453,7 +453,7 @@ window.QUIZ.push(
     "Slow start ramps a new target's share up gradually over a set period and then gives it a normal share; it cannot hold a fixed 10% split.",
     "Stickiness keeps returning users on the same target but does not set what share of traffic each version receives.",
     "ALB forward actions support weighted target groups, so the split lives on the listener; setting the weights to 100 and 0 moves traffic back to blue at once."],
- ref:["d5c1","d5b3"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-036", day:5, dom:2, tags:["Auto Scaling"],
  q:"After turning on ELB health checks for an Auto Scaling group, a team sees new instances terminated and replaced in a loop shortly after launch. The application takes about 4 minutes to start, and the health check grace period is set to 60 seconds. What should the team do to stop the loop while keeping ELB health checks?",
@@ -466,7 +466,7 @@ window.QUIZ.push(
     "Deregistration delay applies when targets are removed; it does not stop the group from treating starting instances as unhealthy.",
     "A lower unhealthy threshold marks targets unhealthy even sooner, which makes the loop worse.",
     "Faster replacements only speed up the loop; new instances would still be marked unhealthy before they finish starting."],
- ref:["d5c3","d5b4"], doc:"autoscaling"},
+ ref:["d5c3"], doc:"autoscaling"},
 
 {id:"q05-037", day:5, dom:2, tags:["Auto Scaling"],
  q:"An engineer needs to troubleshoot an EC2 instance that belongs to an Auto Scaling group behind an Application Load Balancer. While the engineer works on it, the instance must stop receiving traffic, must not be terminated because of health checks, and must be able to return to the group afterward. What should the engineer do?",
@@ -479,7 +479,7 @@ window.QUIZ.push(
     "Suspending Launch stops new instances from starting; the instance still receives traffic and can be marked unhealthy and terminated.",
     "Auto Scaling treats any instance that is not in the running state as unhealthy, so a stopped instance is terminated and replaced.",
     "Standby keeps the instance in the group but deregisters it from the load balancer and stops health checks against it; it can be moved back to InService when the work is done."],
- ref:["d5p1"], doc:"autoscaling"},
+ ref:[], doc:"autoscaling"},
 
 {id:"q05-038", day:5, dom:2, tags:["Auto Scaling","Load balancing"],
  q:"A team creates an Application Load Balancer, a target group, and an Auto Scaling group from a launch template. The instances launch and pass EC2 status checks, but browsing to the ALB's DNS name returns HTTP 503, and the target group shows no registered targets. What is the most likely fix?",
@@ -492,7 +492,7 @@ window.QUIZ.push(
     "Cross-zone load balancing affects how traffic is spread among registered targets; with no targets registered, there is nowhere to send traffic.",
     "The ALB reaches targets on their private IPs inside the VPC, so Elastic IPs are not needed and would not register anything.",
     "Stickiness needs registered, healthy targets to work; it does not register instances."],
- ref:["d5b4","d5b3","d5b5"], doc:"elb"},
+ ref:[], doc:"elb"},
 
 {id:"q05-039", day:5, dom:3, tags:["Load balancing"],
  q:"A B2B company's web application uses an Application Load Balancer with path-based routing to several target groups. A large customer now requires fixed IP addresses for its firewall allowlist. The company wants to keep the existing path-based routing and avoid rewriting listener rules. Which solution meets these requirements?",
@@ -518,7 +518,7 @@ window.QUIZ.push(
     "Deregistration delay only affects targets being removed; it does nothing for new targets.",
     "Stickiness keeps existing users where they are, but new users would still be sent to cold instances at a full share.",
     "The cache fills only as the instance serves requests, so delaying the first request does not warm it; the instance would still get a full share at once."],
- ref:["d5c1","d5b3"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-041", day:5, dom:3, tags:["RDS"],
  q:"An application uses an Amazon RDS for MySQL Multi-AZ DB instance deployment. Heavy reporting queries are slowing down the primary, and a developer suggests pointing the reports at the Multi-AZ standby because it is otherwise idle. What should a solutions architect recommend?",
@@ -531,7 +531,7 @@ window.QUIZ.push(
     "Turning off Multi-AZ removes automatic failover and adds no read capacity to the primary.",
     "ALBs balance HTTP traffic, not database connections, and the standby cannot accept queries anyway.",
     "A read replica serves read-only queries from asynchronously replicated data, offloading reports from the primary while Multi-AZ keeps providing availability."],
- ref:["d3c2","d3p1"], doc:"rds"},
+ ref:["d3c2"], doc:"rds"},
 
 {id:"q05-042", day:5, dom:4, tags:["Auto Scaling"],
  q:"During a cost review, an engineer wants to permanently reduce an Auto Scaling group from 4 running instances to 3. The group is set to minimum 4, desired 4, and maximum 8. The engineer terminated one instance in the EC2 console, but a new one launched a few minutes later. What should the engineer do?",
@@ -544,7 +544,7 @@ window.QUIZ.push(
     "The maximum cannot be lower than the minimum, so a maximum of 3 is rejected while the minimum is still 4; the minimum has to come down before the group can shrink.",
     "An Auto Scaling group always works to maintain its desired capacity; lowering desired, and the minimum that would otherwise block it, to 3 makes the reduction permanent.",
     "Suspending processes is meant for short troubleshooting; the desired capacity stays at 4, so the group returns to 4 instances when processes resume."],
- ref:["d5b4","d5b5"], doc:"autoscaling"},
+ ref:[], doc:"autoscaling"},
 
 {id:"q05-043", day:5, dom:1, tags:["Load balancing","VPC & subnets"],
  q:"A three-tier application has a web tier behind an internet-facing Application Load Balancer. The application tier, which the web tier calls over HTTP, also needs load balancing across Availability Zones but must not be reachable from the internet. Which solution meets these requirements?",
@@ -557,7 +557,7 @@ window.QUIZ.push(
     "This would expose the application tier through the public load balancer, which breaks the requirement.",
     "An internal ALB has only private IP addresses, so it load balances across AZs while staying unreachable from the internet.",
     "A static IP list breaks as Auto Scaling replaces instances and gives no health-checked load balancing."],
- ref:["d5c1","d2w1"], doc:"elb"},
+ ref:["d5c1"], doc:"elb"},
 
 {id:"q05-044", day:5, dom:2, tags:["High availability design","Auto Scaling"],
  q:"A startup runs its web application on a single EC2 instance with an Elastic IP address in one public subnet. The founders want the application to keep serving users if an instance or an entire Availability Zone fails, and failed instances must be replaced automatically. Which combination of steps should a solutions architect take? (Choose two.)",
@@ -572,7 +572,7 @@ window.QUIZ.push(
     "Cluster placement groups keep instances in a single AZ for low latency, which reduces availability instead of improving it.",
     "An ALB spanning both AZs gives users one stable DNS name, health-checks the instances, and routes only to healthy ones in either AZ.",
     "A custom failover script is fragile, slow, and needs maintenance; a load balancer with Auto Scaling handles this as a managed service."],
- ref:["d5p2","d5b4","d5b3"], doc:"autoscaling"},
+ ref:[], doc:"autoscaling"},
 
 {id:"q05-045", day:5, dom:2, tags:["High availability design","Caching"],
  q:"A photo-sharing application keeps user sessions in each web server's memory and saves uploaded photos to each server's EBS volume. The company wants to run the web tier in an Auto Scaling group behind an Application Load Balancer so that any instance can serve any request and instances can be terminated at any time without losing data. Which combination of changes is required? (Choose two.)",
@@ -587,7 +587,7 @@ window.QUIZ.push(
     "Multi-Attach works only for io1/io2 volumes within a single AZ and needs a cluster-aware file system; it cannot be shared across AZs.",
     "Snapshots run on a schedule, so photos uploaded since the last one are lost, and other instances still cannot see them.",
     "S3 gives every instance the same durable photo storage, so terminating an instance loses nothing."],
- ref:["d5p2","d3w2","d3w1"], doc:"elasticache"},
+ ref:[], doc:"elasticache"},
 
 {id:"q05-046", day:5, dom:3, tags:["Load balancing"],
  q:"A solutions architect is choosing between an Application Load Balancer and a Network Load Balancer for a new workload. Which capabilities does a Network Load Balancer provide that an Application Load Balancer does not? (Choose two.)",
@@ -617,7 +617,7 @@ window.QUIZ.push(
     "Multi-AZ adds a synchronous standby in another AZ with automatic failover, so the database survives an instance or AZ failure.",
     "A replica in the same AZ fails along with that AZ, uses asynchronous replication, and needs manual promotion, so it does not remove the single point of failure.",
     "A single NAT instance is still in one AZ and adds patching and failover work, so it is no more available than one NAT gateway."],
- ref:["d3c2","d2b1","d5p2"], doc:"rds"},
+ ref:["d3c2","d2b1"], doc:"rds"},
 
 {id:"q05-048", day:5, dom:3, tags:["Auto Scaling","EC2 user data & AMIs"],
  q:"A video platform's Auto Scaling group needs about 12 minutes to bring a new instance into service because the user data script downloads and compiles dependencies at every boot. Traffic spikes are sudden and unpredictable, so capacity arrives too late. Which combination of actions will most reduce the time it takes to add serving capacity? (Choose two.)",
@@ -632,7 +632,7 @@ window.QUIZ.push(
     "A warm pool keeps already-initialized instances stopped, so you pay mainly for their EBS storage, and they can be started and put in service much faster than new launches.",
     "Simple scaling with a longer cooldown reacts more slowly, which makes the late-capacity problem worse.",
     "The spikes are unpredictable, so a fixed morning schedule would not line up with them."],
- ref:["d5p1","d5b2"], doc:"autoscaling"},
+ ref:[], doc:"autoscaling"},
 
 {id:"q05-049", day:5, dom:4, tags:["Auto Scaling","EC2 purchase options"],
  q:"A company's internal HR portal runs on 8 On-Demand instances in an Auto Scaling group across two Availability Zones, 24 hours a day. It is busy only from 07:00 to 19:00 on weekdays, but it must stay available in two AZs at all times and cannot tolerate interruptions. The portal will run for at least three more years. Which combination of actions is most cost-effective? (Choose two.)",
@@ -662,5 +662,5 @@ window.QUIZ.push(
     "A simple alias record can point to only one AWS resource, and simple routing does no health checking, so it cannot answer with the ALB normally and switch to the bucket only when the ALB fails.",
     "A 50% weight sends half of all visitors to the maintenance page even while the application is healthy.",
     "The secondary failover record is returned only when the primary is unhealthy, sending visitors to the S3 maintenance page; the bucket must be named www.example.com for the alias to work."],
- ref:["d2w1","d5p2"], doc:"route53"}
+ ref:[], doc:"route53"}
 );

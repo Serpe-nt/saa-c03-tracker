@@ -8,7 +8,7 @@ window.QUIZ.push(
     "This overlaps the existing VPC, and a VPC peering connection cannot be created between VPCs with overlapping CIDR blocks.",
     "A /16 is the largest IPv4 block a VPC accepts, and this range overlaps neither the on-premises network nor the peer VPC, so both connections work.",
     "A VPC's IPv4 CIDR block must be between /16 and /28, so a /8 is not allowed, and this range would also overlap both other networks."],
- ref:["d2w1","d2p1"], doc:"vpc"},
+ ref:[], doc:"vpc"},
 
 {id:"q02-002", day:2, dom:3, tags:["VPC & subnets"],
  q:"A startup's VPC uses <code>10.20.0.0/24</code> and has almost no free addresses left for new subnets. Existing instances must keep their current IP addresses, and the team wants the least disruptive fix. What should a solutions architect do?",
@@ -18,7 +18,7 @@ window.QUIZ.push(
     "You can associate additional IPv4 CIDR blocks with an existing VPC and create new subnets from them without touching existing subnets or instance addresses.",
     "A subnet's IPv4 CIDR block is set when the subnet is created, and the API for modifying a subnet has no CIDR setting; you would have to delete and recreate the subnet, which disrupts the instances inside it.",
     "Migration works but changes every instance's IP address and takes far more effort than adding a secondary CIDR block."],
- ref:["d2w1","d2p1"], doc:"vpc"},
+ ref:[], doc:"vpc"},
 
 {id:"q02-003", day:2, dom:3, tags:["VPC & subnets"],
  q:"An architect created a <code>/27</code> subnet for a batch fleet of 30 EC2 instances, each with one network interface. Launches start failing once 27 instances are running, although no account quotas have been reached. What explains this?",
@@ -28,7 +28,7 @@ window.QUIZ.push(
     "An internet gateway is attached to the VPC as a whole and does not take IP addresses from your subnets.",
     "There is no fixed per-subnet instance limit; capacity depends on the number of usable IP addresses in the subnet's CIDR block.",
     "Network ACLs only filter traffic with allow and deny rules; they have no setting that limits how many interfaces a subnet can hold."],
- ref:["d2w1","d2p1"], doc:"vpc"},
+ ref:[], doc:"vpc"},
 
 {id:"q02-004", day:2, dom:2, tags:["VPC & subnets","High availability design"],
  q:"A company runs an internal HR application on EC2 instances in a VPC that has one public subnet and one private subnet, both in us-east-1a. Leadership now requires the application to keep running if a single Availability Zone fails. What should a solutions architect do?",
@@ -38,7 +38,7 @@ window.QUIZ.push(
     "A spread placement group places each instance on distinct hardware, but here they all stay in the same subnet and therefore in the same AZ.",
     "A second Region goes beyond the requirement and adds cost and complexity; multiple AZs in the same Region already protect against an AZ failure.",
     "Because each subnet belongs to a single AZ, surviving an AZ failure requires subnets in at least two AZs with instances spread across them."],
- ref:["d2w1","d2b1","d1c6"], doc:"vpc"},
+ ref:["d2b1","d1c6"], doc:"vpc"},
 
 {id:"q02-005", day:2, dom:4, tags:["Regions & AZs","Data transfer costs"],
  q:"An application VPC in account A sends heavy traffic over VPC peering to a shared service VPC in account B, both in us-east-1. Both accounts were created several years ago. To avoid inter-AZ data transfer charges, both teams placed their subnets in the Availability Zone named us-east-1a, yet the bill still shows inter-AZ data transfer. What should the teams do to remove this charge without adding other charges?",
@@ -48,7 +48,7 @@ window.QUIZ.push(
     "A subnet always belongs to exactly one AZ, so a subnet that spans all AZs is not possible.",
     "Traffic that crosses AZs through a transit gateway carries no inter-AZ data transfer charge, but the gateway bills for every attachment-hour and every GB it processes, so this swaps one charge for others.",
     "Flow Logs only record metadata about traffic; they have no influence on how traffic is routed."],
- ref:["d1c6","d1w4","d2w1"], doc:"regions"},
+ ref:["d1c6"], doc:"regions"},
 
 {id:"q02-006", day:2, dom:3, tags:["VPC & subnets","Internet & NAT gateways"],
  q:"A junior engineer asks what actually makes a subnet a public subnet in Amazon VPC. Which answer is correct?",
@@ -58,7 +58,7 @@ window.QUIZ.push(
     "A subnet is public when its route table has a route to an internet gateway; without that route nothing in it can reach the internet directly.",
     "The default network ACL also allows all inbound traffic in private subnets; NACL rules filter traffic but do not provide a path to the internet.",
     "An internet gateway attaches to the whole VPC, not to an Availability Zone, so AZ placement has nothing to do with it."],
- ref:["d2p1","d2w1","d2b1"], doc:"vpc"},
+ ref:["d2b1"], doc:"vpc"},
 
 {id:"q02-007", day:2, dom:3, tags:["Internet & NAT gateways","VPC & subnets"],
  q:"A developer launched a web server in a subnet of a custom VPC. An internet gateway is attached to the VPC, and the instance's security group allows inbound HTTPS from <code>0.0.0.0/0</code>. The subnet's route table contains only the local route, and the instance has only a private IPv4 address. Which two actions will allow internet users to reach the website? (Choose two.)",
@@ -69,7 +69,7 @@ window.QUIZ.push(
     "Security groups are stateful, so responses to allowed inbound requests are permitted automatically; an outbound rule is not needed.",
     "An internet gateway only serves instances that have a public IPv4 address, so the instance needs an Elastic IP (or another public IP) to be reachable.",
     "A VPC can have only one internet gateway attached, and the existing one already serves every subnet that routes to it."],
- ref:["d2p1","d2w1","d2b1"], doc:"vpc"},
+ ref:["d2b1"], doc:"vpc"},
 
 {id:"q02-008", day:2, dom:2, tags:["Internet & NAT gateways","High availability design"],
  q:"During a design review for a multi-AZ web application, a stakeholder worries that the VPC's internet gateway is a single point of failure and asks for a standby. What should the solutions architect tell them?",
@@ -79,7 +79,7 @@ window.QUIZ.push(
     "Internet gateways are not zonal resources; one gateway attaches to the whole VPC and serves every AZ.",
     "Load balancers forward traffic to targets such as instances or IP addresses; an internet gateway cannot be a load balancer target.",
     "An internet gateway is a horizontally scaled, redundant and highly available VPC component, so it is not a single point of failure."],
- ref:["d2w1","d2p1"], doc:"vpc"},
+ ref:[], doc:"vpc"},
 
 {id:"q02-009", day:2, dom:1, tags:["VPC & subnets","Internet & NAT gateways"],
  q:"A healthcare company's application servers in private subnets download updates through a NAT gateway. Its database instances must have no network path to the internet at all, in either direction, while still accepting connections from the application servers. Which design meets these requirements?",
@@ -89,7 +89,7 @@ window.QUIZ.push(
     "The subnet still routes to the NAT gateway, so a network path to the internet remains, and any later security group change would open it again.",
     "Public subnets route to the internet gateway, so an Elastic IP added later would expose the databases directly to the internet.",
     "Blocking one port leaves the route to the NAT gateway in place, so traffic on other ports and protocols can still reach the internet."],
- ref:["d2w1","d2b1"], doc:"vpc"},
+ ref:["d2b1"], doc:"vpc"},
 
 {id:"q02-010", day:2, dom:1, tags:["VPC & subnets","Internet & NAT gateways"],
  q:"A security review finds that a newly created subnet meant for internal databases has a route to the internet gateway, even though nobody edited its routes. The subnet was never explicitly associated with a route table. What should a solutions architect do to fix this and prevent it from happening again?",
@@ -99,7 +99,7 @@ window.QUIZ.push(
     "A deny for <code>0.0.0.0/0</code> matches all traffic, including traffic inside the VPC, and must be remembered for every new subnet; it treats the symptom, not the cause.",
     "Subnets without an explicit association use the main route table; keeping it local-only and explicitly associating public subnets makes new subnets private by default.",
     "Flow Logs record traffic after the fact; they do not change routing or prevent the misconfiguration."],
- ref:["d2p1","d2b1"], doc:"vpc"},
+ ref:["d2b1"], doc:"vpc"},
 
 {id:"q02-011", day:2, dom:3, tags:["VPC & subnets","VPC peering & Transit Gateway"],
  q:"A private subnet's route table contains three routes: <code>10.0.0.0/16</code> → local, <code>10.50.0.0/16</code> → a VPC peering connection, and <code>0.0.0.0/0</code> → a NAT gateway. An instance in the subnet sends a packet to <code>10.50.3.7</code>. How is the packet routed?",
@@ -109,7 +109,7 @@ window.QUIZ.push(
     "Route tables use longest prefix match: <code>10.50.0.0/16</code> matches the destination and is more specific than <code>0.0.0.0/0</code>, while the local route does not match it.",
     "Private destinations outside the VPC are routable when a matching route exists, as it does here through the peering connection.",
     "The local route covers only the VPC's own CIDR block, <code>10.0.0.0/16</code>, which does not include <code>10.50.3.7</code>."],
- ref:["d2p1","d2w1","d2p2"], doc:"vpc"},
+ ref:[], doc:"vpc"},
 
 {id:"q02-012", day:2, dom:3, tags:["Internet & NAT gateways"],
  q:"Instances in a private subnet cannot download operating system patches. An engineer created a NAT gateway in that same private subnet, gave it an Elastic IP address, and pointed the private route table's <code>0.0.0.0/0</code> route at it. What should be changed?",
@@ -119,7 +119,7 @@ window.QUIZ.push(
     "Instances behind a NAT gateway need only private addresses; the NAT gateway's Elastic IP is used as the source for their outbound traffic.",
     "A NAT gateway created in a subnet is zonal, and a zonal public NAT gateway must sit in a public subnet that routes to the internet gateway; in a private subnet its traffic has no path out. (The regional NAT gateway mode added in November 2025 is created at VPC level and needs no public subnet.)",
     "Instances without public IPs cannot use an internet gateway directly, and this would turn the private subnet into a public one."],
- ref:["d2b1","d2w1"], doc:"nat"},
+ ref:["d2b1"], doc:"nat"},
 
 {id:"q02-013", day:2, dom:2, tags:["Internet & NAT gateways","High availability design"],
  q:"A company has private subnets in two Availability Zones. A single NAT gateway runs in the public subnet of AZ A, and both private subnets share one route table that sends <code>0.0.0.0/0</code> to it. During an AZ A outage, instances in AZ B lost outbound internet access. The team wants to keep using zonal NAT gateways. Which two actions will let outbound access survive the loss of one AZ with the least operational overhead? (Choose two.)",
@@ -130,7 +130,7 @@ window.QUIZ.push(
     "NAT instances need patching, scaling and failover scripting, which is more operational overhead than managed NAT gateways.",
     "The instances have no public IPs, so a direct route to the internet gateway would not work and would make the subnet public.",
     "Each AZ's private subnets need a route table that points to the NAT gateway in the same AZ; otherwise AZ B keeps depending on AZ A."],
- ref:["d2b1","d2w1"], doc:"nat"},
+ ref:["d2b1"], doc:"nat"},
 
 {id:"q02-014", day:2, dom:3, tags:["Internet & NAT gateways"],
  q:"A small analytics company runs a self-managed NAT instance for its private subnets. During nightly data pulls the instance becomes a bandwidth bottleneck, and the team spends time patching it and scripting failover. The company wants a managed option that scales bandwidth automatically. What should a solutions architect recommend?",
@@ -140,7 +140,7 @@ window.QUIZ.push(
     "An egress-only internet gateway carries outbound IPv6 traffic only; it cannot provide outbound access for IPv4 instances.",
     "Internet gateways attach to a VPC, not to subnets, and instances without public IPs cannot use one directly.",
     "A NAT gateway is fully managed by AWS, scales its bandwidth automatically and has built-in redundancy (within its AZ, or across AZs in regional mode), removing the patching and failover work."],
- ref:["d2w1","d2b1"], doc:"nat"},
+ ref:["d2b1"], doc:"nat"},
 
 {id:"q02-015", day:2, dom:1, tags:["Internet & NAT gateways","Load balancing"],
  q:"An application runs on EC2 instances in a private subnet and reaches the internet through a NAT gateway. A payment partner now needs to send HTTPS webhook calls to the application. The instances must not receive public IP addresses. Which solution meets these requirements?",
@@ -150,7 +150,7 @@ window.QUIZ.push(
     "NAT gateways do not support port forwarding; they only translate outbound connections started by instances.",
     "An internet-facing load balancer in public subnets receives the partner's requests and forwards them to the private instances, which keep only private addresses.",
     "The NAT gateway's address is used only as the source of outbound traffic; inbound connection attempts to it are dropped."],
- ref:["d2w1","d2b1"], doc:"nat"},
+ ref:["d2b1"], doc:"nat"},
 
 {id:"q02-016", day:2, dom:3, tags:["Internet & NAT gateways","VPC & subnets"],
  q:"A dual-stack VPC has private subnets whose instances have private IPv4 addresses and IPv6 addresses. The instances must start outbound connections to the internet over both IPv4 and IPv6, but must not accept connections initiated from the internet. Which two routes should the private subnets' route table contain? (Choose two.)",
@@ -161,7 +161,7 @@ window.QUIZ.push(
     "A public NAT gateway gives private IPv4 instances outbound internet access and drops connections initiated from the internet.",
     "The egress-only internet gateway is the IPv6 counterpart of NAT: outbound connections and their replies are allowed, inbound connections are blocked.",
     "IPv6 addresses are publicly routable, so with an internet gateway route the instances become reachable from the internet, limited only by security groups and NACLs."],
- ref:["d2w1","d2p1","d2b1"], doc:"vpc"},
+ ref:["d2b1"], doc:"vpc"},
 
 {id:"q02-017", day:2, dom:2, tags:["Internet & NAT gateways"],
  q:"A partner allow-lists a single IP address for a company's SFTP server, which runs on one EC2 instance in a public subnet. Each time the instance is stopped and started, or replaced after a failure, its public IP address changes. Which solution gives the server a fixed public address that can move to a replacement instance?",
@@ -171,7 +171,7 @@ window.QUIZ.push(
     "Auto-assigned public IPs come from Amazon's pool and change whenever the instance is stopped and started or replaced.",
     "The partner allow-lists an IP address, not a DNS name, and an alias record cannot target an EC2 instance directly.",
     "An ALB's public addresses are assigned and released by the service, so there is no single fixed address to give the partner, and an ALB load-balances HTTP and HTTPS, not SFTP."],
- ref:["d2w1","d2b5"], doc:"eip"},
+ ref:["d2b5"], doc:"eip"},
 
 {id:"q02-018", day:2, dom:4, tags:["Internet & NAT gateways"],
  q:"A cost review shows growing charges for public IPv4 addresses. A company runs 30 application servers in public subnets, each with an auto-assigned public IP, behind an internet-facing Application Load Balancer that receives all user traffic. It also holds five Elastic IP addresses that are not associated with any resource. Which two actions will reduce these charges while keeping the application available? (Choose two.)",
@@ -182,7 +182,7 @@ window.QUIZ.push(
     "Users reach the application through the ALB, so the servers do not need public IPs; moving them to private subnets removes those addresses and their charges.",
     "Adding IPv6 does not remove any IPv4 addresses, so the IPv4 charges stay the same.",
     "This adds more public IPv4 addresses and a second load balancer, which increases cost instead of reducing it."],
- ref:["d2b5","d2w1"], doc:"eip"},
+ ref:["d2b5"], doc:"eip"},
 
 {id:"q02-019", day:2, dom:1, tags:["Security groups & NACLs"],
  q:"A web server's security group allows inbound TCP 443 from <code>0.0.0.0/0</code>. An engineer deleted all of the group's outbound rules, yet clients can still load the website over HTTPS. The subnet uses the default network ACL. Why does the site still work?",
@@ -192,7 +192,7 @@ window.QUIZ.push(
     "A security group tracks connections, so reply traffic for an allowed inbound request is allowed regardless of the outbound rules.",
     "NACLs and security groups are evaluated separately and traffic must pass both; a NACL never overrides a security group.",
     "The internet gateway only routes traffic and translates addresses; the responses are still sent by the instance."],
- ref:["d2c1","d2w1","d2b4"], doc:"vpc"},
+ ref:["d2c1","d2b4"], doc:"vpc"},
 
 {id:"q02-020", day:2, dom:1, tags:["Security groups & NACLs"],
  q:"An e-commerce application's web tier runs in an Auto Scaling group, so instance IP addresses change constantly. The MySQL database must accept connections only from the web tier instances. Which approach meets this requirement with the least operational effort?",
@@ -202,7 +202,7 @@ window.QUIZ.push(
     "This works but adds custom code to build and maintain, which is far more effort than referencing a security group.",
     "NACLs work on subnet CIDR ranges and cannot identify specific instances; being stateless, they also need extra rules for return traffic.",
     "Using a security group as the source allows traffic from any instance that has that group attached, so scaling events need no rule changes."],
- ref:["d2c1","d2w1"], doc:"vpc"},
+ ref:["d2c1"], doc:"vpc"},
 
 {id:"q02-021", day:2, dom:1, tags:["Security groups & NACLs"],
  q:"A news website's public subnet uses a custom network ACL whose rule 100 allows inbound HTTPS from <code>0.0.0.0/0</code>. The team must block a handful of abusive IP addresses at the subnet level today, without adding new services. What should a solutions architect do?",
@@ -212,7 +212,7 @@ window.QUIZ.push(
     "Security groups support only allow rules, so they cannot deny specific addresses.",
     "Deny rules numbered below 100 are evaluated first, so traffic from those addresses is blocked before the allow rule matches.",
     "Each NACL rule takes a single CIDR range, so one rule cannot express 'everything except these addresses'."],
- ref:["d2c1","d2w1"], doc:"vpc"},
+ ref:["d2c1"], doc:"vpc"},
 
 {id:"q02-022", day:2, dom:1, tags:["Security groups & NACLs"],
  q:"A public subnet hosts web servers that serve HTTPS to clients on the internet. The team replaces the default network ACL with a new custom network ACL, which denies all traffic until rules are added. Which two rules must be added so that clients can use the website? (Choose two.)",
@@ -233,7 +233,7 @@ window.QUIZ.push(
     "A narrower source range reduces exposure, but inbound SSH stays open, keys still need managing, and sessions are not recorded.",
     "Rotating keys improves hygiene, but inbound SSH remains open and session activity is still not recorded.",
     "Session Manager needs no inbound ports or SSH keys, authorizes users through IAM, and can log session activity to Amazon S3 or CloudWatch Logs."],
- ref:["d2b3","d2b2","d2w1"], doc:"session-manager"},
+ ref:["d2b3","d2b2"], doc:"session-manager"},
 
 {id:"q02-024", day:2, dom:1, tags:["Instance access","VPC endpoints & PrivateLink"],
  q:"A company launches EC2 instances from an Amazon Linux 2023 AMI, which includes the SSM Agent, into private subnets. The VPC has no NAT gateway and no internet gateway, and Default Host Management Configuration is not enabled in the account. Administrators must connect to the instances with Session Manager. Which two actions should a solutions architect take? (Choose two.)",
@@ -264,7 +264,7 @@ window.QUIZ.push(
     "Gateway endpoints for S3 and DynamoDB have no hourly or data processing charge and take this traffic off the NAT gateways through route table entries.",
     "This breaks the requirement to stay private and adds a public IPv4 charge for every instance.",
     "Transfer Acceleration speeds long-distance uploads through edge locations and DAX caches reads; neither removes the NAT gateway from the path."],
- ref:["d2c3","d2w1"], doc:"vpc"},
+ ref:["d2c3"], doc:"vpc"},
 
 {id:"q02-027", day:2, dom:4, tags:["VPC endpoints & PrivateLink"],
  q:"A media company's video workers run in private subnets. They read source files from Amazon S3 and poll an Amazon SQS queue for jobs. Security requires both services to be reached privately without the NAT gateway, and the company wants the lowest cost. Which two actions should a solutions architect take? (Choose two.)",
@@ -275,7 +275,7 @@ window.QUIZ.push(
     "S3 supports gateway endpoints, which keep traffic private at no additional charge, so they are the cheapest private option for use inside the VPC.",
     "A VPC peering connection links two VPCs; private access to an AWS service such as SQS is provided by a VPC endpoint.",
     "SQS is reached privately through an interface endpoint (AWS PrivateLink), because it does not offer a gateway endpoint."],
- ref:["d2c3","d2w1"], doc:"endpoints"},
+ ref:["d2c3"], doc:"endpoints"},
 
 {id:"q02-028", day:2, dom:1, tags:["VPC endpoints & PrivateLink","Hybrid connectivity"],
  q:"A company's data center connects to a VPC through AWS Direct Connect. On-premises servers must upload files to Amazon S3 over this private connection instead of the public internet. The VPC already has an S3 gateway endpoint, but on-premises traffic cannot use it. What should a solutions architect do?",
@@ -285,7 +285,7 @@ window.QUIZ.push(
     "An endpoint policy controls what the endpoint allows, but it does not change the fact that on-premises traffic cannot use a gateway endpoint.",
     "Transfer Acceleration sends uploads over the internet to an edge location, which violates the requirement to use the private connection.",
     "An S3 interface endpoint has private IP addresses in the VPC, so on-premises clients can reach it over Direct Connect using its endpoint-specific DNS names."],
- ref:["d2c3","d2w1"], doc:"endpoints"},
+ ref:["d2c3"], doc:"endpoints"},
 
 {id:"q02-029", day:2, dom:1, tags:["VPC endpoints & PrivateLink","S3 security"],
  q:"A healthcare company stores patient records in an S3 bucket. Compliance requires that the bucket be accessible only from the company's application VPC, which reaches S3 through a gateway endpoint. Requests from anywhere else must be denied, even with valid credentials. What should a solutions architect do?",
@@ -295,7 +295,7 @@ window.QUIZ.push(
     "Security groups are a setting of interface endpoints, where they attach to the endpoint network interfaces; a gateway endpoint is a route table target and takes an endpoint policy instead.",
     "An endpoint policy limits what traffic through that endpoint can reach, but requests that arrive at the bucket by other paths never pass through it.",
     "NACL rules only filter traffic in and out of this VPC's subnets; they cannot stop requests that reach the bucket from other networks."],
- ref:["d2c3","d2w1"], doc:"vpc"},
+ ref:["d2c3"], doc:"vpc"},
 
 {id:"q02-030", day:2, dom:1, tags:["VPC endpoints & PrivateLink"],
  q:"A finance company's analytics instances in private subnets reach Amazon S3 only through a gateway endpoint. To reduce the risk of data exfiltration, the security team wants these instances to be able to access only the company's own S3 buckets, not buckets owned by other accounts. Which solution meets this requirement?",
@@ -305,7 +305,7 @@ window.QUIZ.push(
     "The S3 prefix list holds the IP address ranges of the S3 service in the Region, not of particular buckets, so this rule still allows access to buckets owned by anyone.",
     "An endpoint policy is checked for every request that passes through the endpoint, so limiting it to the company's buckets blocks access to all others.",
     "Network ACL rules match IP address ranges, and S3's ranges belong to the service as a whole, so a NACL cannot tell one account's buckets from another's."],
- ref:["d2c3","d2w1"], doc:"vpc"},
+ ref:["d2c3"], doc:"vpc"},
 
 {id:"q02-031", day:2, dom:1, tags:["VPC endpoints & PrivateLink","Security groups & NACLs"],
  q:"A Lambda function connected to private subnets must read secrets from AWS Secrets Manager. The team created an interface endpoint for Secrets Manager with private DNS enabled, but calls from the function time out. The VPC has no NAT gateway. What is the most likely fix?",
@@ -325,7 +325,7 @@ window.QUIZ.push(
     "A transit gateway routes between the CIDR blocks of whole VPCs, so it opens network-level access and relies on those blocks not overlapping; it fails both requirements.",
     "This sends traffic over the public internet, which does not meet the requirement for private access.",
     "An endpoint service in front of the NLB lets each customer create an interface endpoint in its own VPC; traffic flows only to the service, and overlapping CIDRs do not matter."],
- ref:["d2c3","d2w1"], doc:"privatelink"},
+ ref:["d2c3"], doc:"privatelink"},
 
 {id:"q02-033", day:2, dom:4, tags:["VPC peering & Transit Gateway"],
  q:"A startup has three VPCs in one Region. VPC A is peered with VPC B, and VPC B is peered with VPC C. Instances in VPC A now need to reach instances in VPC C, and none of the CIDR blocks overlap. What is the most cost-effective solution?",
@@ -335,7 +335,7 @@ window.QUIZ.push(
     "A direct peering connection with routes on both sides connects A and C, and peering has no hourly charge, only data transfer.",
     "A transit gateway would work but adds hourly attachment and per-GB processing charges, which three VPCs do not justify.",
     "Peered VPCs cannot use each other's gateways (no edge-to-edge routing), so a NAT gateway in VPC B cannot forward this traffic."],
- ref:["d2p2","d2c2"], doc:"vpc"},
+ ref:["d2c2"], doc:"vpc"},
 
 {id:"q02-034", day:2, dom:3, tags:["VPC peering & Transit Gateway"],
  q:"A company plans to peer a VPC in us-east-1 in its production account with a VPC in eu-west-1 in its analytics account. Which two statements about this design are true? (Choose two.)",
@@ -346,7 +346,7 @@ window.QUIZ.push(
     "A peering connection cannot be created between VPCs whose CIDR blocks overlap, so address planning matters before peering.",
     "Inter-Region peering traffic stays on the AWS global network and is encrypted; it does not cross the public internet.",
     "Each side must add routes to the peer's CIDR block in its own route tables; peering does not create them."],
- ref:["d2p2","d2c2","d2w1"], doc:"vpc"},
+ ref:["d2c2"], doc:"vpc"},
 
 {id:"q02-035", day:2, dom:3, tags:["VPC peering & Transit Gateway"],
  q:"A company has 40 VPCs in several accounts in one Region and connects its data center through Site-to-Site VPN. The full mesh of VPC peering connections has become unmanageable. The company needs a central hub with transitive routing and wants to keep production and development traffic separated. Which solution meets these requirements?",
@@ -356,7 +356,7 @@ window.QUIZ.push(
     "A full mesh of 40 VPCs needs 780 peering connections plus routes, which is the problem itself, and peering cannot carry the VPN traffic onward.",
     "Interface endpoints expose individual services, not full network connectivity, and they would not connect the data center.",
     "A Direct Connect gateway links Direct Connect virtual interfaces to VPCs. It is not a hub for routing between the VPCs associated with it, and this company connects over VPN, not Direct Connect."],
- ref:["d2c2","d2w1"], doc:"tgw"},
+ ref:["d2c2"], doc:"tgw"},
 
 {id:"q02-036", day:2, dom:3, tags:["Hybrid connectivity","VPC peering & Transit Gateway"],
  q:"A retail company has 15 VPCs in one Region, each with its own Site-to-Site VPN connection from the same on-premises router. Managing 15 VPN connections and their routes has become error-prone. The company wants on-premises traffic to reach every VPC through a single VPN connection. What should a solutions architect do?",
@@ -366,7 +366,7 @@ window.QUIZ.push(
     "A virtual private gateway can be attached to only one VPC at a time.",
     "A VPN attachment on a transit gateway lets on-premises traffic reach every attached VPC through one connection, with routing managed in one place.",
     "Client VPN is for individual users' devices, and one endpoint per VPC would still leave many connections to manage."],
- ref:["d2c2","d2w1"], doc:"tgw"},
+ ref:["d2c2"], doc:"tgw"},
 
 {id:"q02-037", day:2, dom:4, tags:["Hybrid connectivity"],
  q:"A regional retailer needs encrypted connectivity between its single data center and a VPC within a week. Bandwidth needs are modest, traffic may travel over the internet, and the budget is tight. Which solution is the most cost-effective?",
@@ -376,7 +376,7 @@ window.QUIZ.push(
     "VPC peering connects two VPCs; it cannot connect to an on-premises network.",
     "Client VPN is meant for individual users, and installing it on every server is more work and cost than one site-to-site connection.",
     "Site-to-Site VPN creates encrypted IPsec tunnels over the internet, can be set up in hours, and is billed per connection-hour plus data transfer."],
- ref:["d2w1"], doc:"vpn"},
+ ref:[], doc:"vpn"},
 
 {id:"q02-038", day:2, dom:2, tags:["Hybrid connectivity","High availability design"],
  q:"A company's Site-to-Site VPN connection drops for several minutes whenever AWS performs maintenance on one of its tunnels. The on-premises router has only one of the connection's two tunnels configured. What should a solutions architect do to improve availability with the least effort?",
@@ -386,7 +386,7 @@ window.QUIZ.push(
     "A VPC can have only one virtual private gateway attached at a time, and the real problem is the unused second tunnel.",
     "Acceleration improves the path over the internet but leaves the single configured tunnel as a point of failure.",
     "VPC peering connects VPCs to each other and cannot connect to an on-premises network."],
- ref:["d2w1"], doc:"vpn"},
+ ref:[], doc:"vpn"},
 
 {id:"q02-039", day:2, dom:3, tags:["Hybrid connectivity"],
  q:"A media company moves large volumes of video between its studio and AWS every day over a Site-to-Site VPN. Throughput and latency vary widely during busy hours, which delays production. The company needs consistent, high-bandwidth connectivity that does not traverse the public internet. What should a solutions architect recommend?",
@@ -396,7 +396,7 @@ window.QUIZ.push(
     "Transfer Acceleration improves long-distance uploads to S3, but it still uses the internet and does not cover other traffic.",
     "Direct Connect is a dedicated private connection with consistent latency and bandwidth that bypasses the public internet.",
     "Acceleration carries VPN traffic over the AWS network from the nearest edge location, but the first leg still relies on the internet."],
- ref:["d2w1"], doc:"dx"},
+ ref:[], doc:"dx"},
 
 {id:"q02-040", day:2, dom:2, tags:["Hybrid connectivity","High availability design"],
  q:"A logistics company sends critical traffic over a single AWS Direct Connect connection. It needs a backup path in case the connection fails, and reduced bandwidth during a failure is acceptable. Which solution is the most cost-effective?",
@@ -406,7 +406,7 @@ window.QUIZ.push(
     "A VPN over the internet is inexpensive, and VPC traffic fails over to a backup VPN connection automatically when the Direct Connect connection fails.",
     "This adds the cost of another dedicated connection and still fails if that location has an outage.",
     "A Direct Connect gateway lets a connection reach VPCs in multiple Regions; it adds no physical redundancy."],
- ref:["d2w1"], doc:"dx"},
+ ref:[], doc:"dx"},
 
 {id:"q02-041", day:2, dom:2, tags:["Hybrid connectivity","High availability design"],
  q:"A stock exchange connects its data center to AWS for latency-sensitive production trading. Connectivity must survive the failure of a device, a circuit, or an entire Direct Connect location without falling back to the internet, and cost is a secondary concern. Which design meets these requirements?",
@@ -416,7 +416,7 @@ window.QUIZ.push(
     "This protects against a single device or circuit failure but not against the loss of the whole location.",
     "VPN tunnels run over the internet, so they fail the requirement and give less consistent latency.",
     "Connections terminating on separate devices at two locations survive a device, circuit or location failure without the internet; AWS's maximum resiliency model uses two such connections at each location."],
- ref:["d2w1"], doc:"dx"},
+ ref:[], doc:"dx"},
 
 {id:"q02-042", day:2, dom:1, tags:["Hybrid connectivity","Encryption in transit"],
  q:"A bank sends traffic between its data center and a VPC over an AWS Direct Connect private virtual interface. A new compliance rule requires this traffic to be encrypted in transit without changing the applications. What should a solutions architect do?",
@@ -426,7 +426,7 @@ window.QUIZ.push(
     "Direct Connect provides a private connection, but traffic on it is not encrypted by default.",
     "Flow Logs only record metadata about traffic; encrypting the logs does not encrypt the traffic itself.",
     "Security groups filter by protocol, port and source; they cannot enforce or perform encryption."],
- ref:["d2w1"], doc:"dx"},
+ ref:[], doc:"dx"},
 
 {id:"q02-043", day:2, dom:3, tags:["Hybrid connectivity"],
  q:"A manufacturer has one AWS Direct Connect connection at a location in Frankfurt. It needs private connectivity from its factory to VPCs in both eu-central-1 and eu-west-1 over that same connection. Which solution meets this requirement?",
@@ -436,7 +436,7 @@ window.QUIZ.push(
     "A Direct Connect gateway is a global resource that lets one connection reach VPCs in multiple Regions through their virtual private gateways (or a transit gateway).",
     "A second connection would work but adds cost and weeks of lead time, while a Direct Connect gateway reuses the existing connection.",
     "Global Accelerator gives internet users static anycast addresses at AWS edge locations; the factory's traffic arrives over Direct Connect, which Global Accelerator plays no part in."],
- ref:["d2w1"], doc:"dx"},
+ ref:[], doc:"dx"},
 
 {id:"q02-044", day:2, dom:3, tags:["Route 53","Load balancing"],
  q:"A startup serves its website from an Application Load Balancer and wants users to reach it at the zone apex, <code>example.com</code>, using a Route 53 public hosted zone. The load balancer's IP addresses can change at any time. Which record should the startup create?",
@@ -446,7 +446,7 @@ window.QUIZ.push(
     "The load balancer's addresses are managed by the service, which adds and releases them over time, so a hard-coded A record would eventually break.",
     "Alias records can sit at the zone apex, follow the load balancer's changing IPs automatically, and queries for alias records that point to AWS resources are free.",
     "An Application Load Balancer's addresses are assigned and managed by the service; for a static address per Availability Zone AWS points to a Network Load Balancer, which also accepts Elastic IP addresses."],
- ref:["d2w1"], doc:"route53"},
+ ref:[], doc:"route53"},
 
 {id:"q02-045", day:2, dom:3, tags:["Route 53","VPC & subnets"],
  q:"A company wants internal names such as <code>orders-db.corp.internal</code> to resolve for resources in two of its VPCs. The names must not be resolvable from the internet, and the team wants the least operational overhead. What should a solutions architect do?",
@@ -456,7 +456,7 @@ window.QUIZ.push(
     "Hosts files must be updated on every instance whenever a record changes, which does not scale.",
     "Self-managed DNS servers work but need patching, scaling and high availability, which is more overhead.",
     "A private hosted zone answers queries only from the VPCs associated with it and is fully managed (the VPCs need DNS resolution and DNS hostnames enabled)."],
- ref:["d2w1"], doc:"route53"},
+ ref:[], doc:"route53"},
 
 {id:"q02-046", day:2, dom:2, tags:["Route 53","High availability design"],
  q:"An online store runs its primary stack in eu-west-1 and a standby stack in eu-central-1. Customers should always be sent to eu-west-1 unless it becomes unhealthy, and then automatically to eu-central-1. Which Route 53 configuration meets this requirement?",
@@ -466,7 +466,7 @@ window.QUIZ.push(
     "Latency routing sends each user to the lowest-latency Region, so some users would reach eu-central-1 even while eu-west-1 is healthy.",
     "Failover routing answers with the primary record while its health check passes and switches to the secondary record when it fails.",
     "Simple routing returns all values in random order and does not use health checks, so users could land on either stack."],
- ref:["d2w1"], doc:"route53"},
+ ref:[], doc:"route53"},
 
 {id:"q02-047", day:2, dom:2, tags:["Route 53"],
  q:"A gaming company has deployed a new version of its matchmaking API behind a separate load balancer. It wants to send about 10% of players to the new version and the rest to the current one, then increase the share gradually. Which Route 53 routing policy should it use?",
@@ -476,7 +476,7 @@ window.QUIZ.push(
     "Weighted routing sends traffic in proportion to the weights assigned to each record, so a 90/10 split can be shifted gradually.",
     "Failover routing uses the secondary record only when the primary is unhealthy; it does not split healthy traffic.",
     "Multivalue answer returns several healthy records at random, with no control over the share each one receives."],
- ref:["d2w1"], doc:"route53"},
+ ref:[], doc:"route53"},
 
 {id:"q02-048", day:2, dom:3, tags:["Route 53"],
  q:"A collaboration SaaS runs identical stacks in us-east-1, eu-west-1 and ap-southeast-1. Each user should be routed to the Region that gives the fastest network response, which does not always match the user's country. Which Route 53 routing policy meets this requirement?",
@@ -486,7 +486,7 @@ window.QUIZ.push(
     "Geolocation routes by country or continent, which does not always match the lowest-latency Region.",
     "Weighted routing splits traffic by fixed proportions, regardless of where users are or how fast each Region responds.",
     "Multivalue answer routing returns up to eight healthy records at random, without considering latency."],
- ref:["d2w1","d1w4"], doc:"route53"},
+ ref:[], doc:"route53"},
 
 {id:"q02-049", day:2, dom:1, tags:["VPC & subnets","CloudWatch"],
  q:"Users report timeouts when connecting to an application on an EC2 instance. The team suspects that a security group or network ACL is blocking the traffic and wants to confirm this without installing any software on the instance. What should the team do?",
@@ -496,7 +496,7 @@ window.QUIZ.push(
     "This requires installing software and only shows the operating system's firewall, not decisions made by security groups or NACLs.",
     "Config shows how the security group changed over time, but it does not show which connections were actually blocked.",
     "Flow Logs record each flow's addresses, ports and whether it was accepted or rejected, so blocked traffic shows up without any agent."],
- ref:["d2w1","d2b4"], doc:"vpc"},
+ ref:["d2b4"], doc:"vpc"},
 
 {id:"q02-050", day:2, dom:4, tags:["VPC & subnets","Analytics"],
  q:"A security team must keep VPC Flow Logs from every VPC for one year and query them only a few times a month during investigations. The company wants the lowest storage and query cost. Which solution meets these requirements?",
@@ -506,5 +506,5 @@ window.QUIZ.push(
     "S3 is low-cost, durable storage for flow logs, and Athena queries them in place with pay-per-query pricing and no servers to run.",
     "An OpenSearch Service domain runs continuously and costs far more than occasional queries justify.",
     "Traffic Mirroring copies full packets to inspection appliances; it is expensive at scale and is not a log retention solution."],
- ref:["d2w1"], doc:"vpc"}
+ ref:[], doc:"vpc"}
 );

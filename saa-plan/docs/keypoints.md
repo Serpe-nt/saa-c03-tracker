@@ -6,17 +6,17 @@ Each plan step is shown alone on a card. Under the step text the card shows "Key
 
 | File | Holds |
 |---|---|
-| `site/keys/d01.js` … `d14.js` | `window.KEYS`, one file per day, keyed by plan item id |
+| `site/keys/*.js` | `window.KEYS`, keyed by plan item id. The file follows the id: `dNN.js` holds ids that start with `dN` (steps kept from the 14-day plan, wherever they sit now), `cN.js` holds lecture course N (`cNa`…) and its labs (`lNa`…), `r1.js` the reading block |
 | `site/app.js` → `stepCardHTML` | renders the box, then "AWS docs", "Exam topics", "Terms", "Exam wording" |
 | `tests/data.test.mjs` | shape, ids, markup, coverage, closed-service wording |
 | `tools/links.mjs` | every `docs` URL (and every `DOCS` URL) answers a plain 200 |
 
-150 of the 162 steps have an entry. The twelve without one are pure admin: `d1e1`–`d1e3` (enrolling on Skill Builder), `d1a3`, `d1a4`, `d1d2`, `d4s1`, `d6w6`, `d7h1`, `d8s1`, `d8e7`, `d9e6`.
+175 of the 186 steps have an entry. The eleven without one are pure admin: `d8s1` (buy the subscription), `s0a` and `d1e3` (enrolling), `d1a3`, `d1a4`, `d1d2`, `d4s1`, `d8e7`, `d9e6`, `d11e7` (the Domain Practice labs) and `d13e4`.
 
 ## Format
 
 ```js
-// Key points per plan step for Day 2. Data only. Keys are plan item ids from plan.js.
+// Key points per plan step for … Data only. Keys are plan item ids from plan.js.
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
   d2w1: {
@@ -27,25 +27,26 @@ Object.assign(window.KEYS, {
 });
 ```
 
-- Key: an item id of that day (the file name fixes the day). An entry needs `k` or `trap`.
+- Key: a plan item id; the file is fixed by the id's prefix (see above; `data.test.mjs` checks it). An entry needs `k` or `trap`.
 - `docs`: only `https://aws.amazon.com/…` or `https://docs.aws.amazon.com/…`, and only pages that were fetched while writing the entry.
 - Markup: plain text plus `<b>` and `<code>`. Write a literal `<` as `&lt;`.
 
-What the card adds by itself, with no authoring: AWS pages and exam topics come from the quiz questions whose `ref` names the step (`DOCS` keys and `tags`), terms come from `GLOSSARY` matches in the step text and its key points, and exam wording comes from `CUE_TAGS` (extras.js) for the step's topics.
+What the card adds by itself, with no authoring: exam topics are the step's `STEP_TAGS` (plan.js), AWS pages come from the quiz questions on those topics (`DOCS` keys), terms come from `GLOSSARY` matches in the step text and its key points, and exam wording comes from `CUE_TAGS` (extras.js) for the step's topics.
 
 ## Writing rules
 
 - Each point is a fact or a decision rule ("X when Y, because Z"). Never "understand X" or "know the difference".
-- Cover what the day's questions test for that step: read the questions whose `ref` includes the step id first.
+- Cover what the bank's questions on the step's topics decide on: read the questions tagged with the step's `STEP_TAGS` first.
+- The same topic returns on several days (a Fundamentals lecture, a lab, a design course, an Exam Prep review). Build on what the earlier step's points say instead of repeating them: basics first, trade-offs and decision rules later.
 - By step type:
-  - **Watch** and Exam Prep **task statements**: 3–5 points and a trap.
+  - **Watch** (lecture chunks, reading steps) and Exam Prep **task statements**: 3–5 points and a trap. A "putting it all together" chunk gets points on how the pieces fit and which requirement decides each choice.
   - **Play** and **Build**: 2–4 points on what to notice while doing it.
   - **Self-check**: the model answer is in `CARDS`, so give only the trap and docs; add a point only for something the quiz tests that the card lacks.
   - **Setup** and admin steps: an entry only for a real exam fact, a cost fact or a safety tip.
 - Don't repeat the step's own note from plan.js.
 - No volatile numbers (prices, most quotas). Stable limits that decide exam answers are fine.
 - Current service names; a closed or retired service may be named only with its status (see "AWS changes" in `questions.md`).
-- Nothing about what a Skill Builder lesson or lab contains beyond what plan.js already says: those pages need a login and were never opened.
+- Nothing about what a lecture shows: the videos are behind a login and nobody has watched them; the lesson names in plan.js are all we know. A lab's public description page (the link in the step) may be used to choose what to point out, when it could be read.
 
 ## Checks to run after an edit
 
@@ -54,7 +55,29 @@ node --test              # shape, ids, markup, coverage of Watch/Play/Build/Self
 node tools/links.mjs     # needs network; a redirect counts as broken (docs.aws.amazon.com redirects missing pages to the guide's landing page)
 ```
 
-## Verification status (as of 2026-10-12)
+## Verification status (as of 2026-10-13)
+
+### Steps new with the 21-day plan
+
+The key points for the lecture chunks, the labs and the Day 16 reading block were written on 2026-10-12 by four sessions, one group of courses each, on separate branches. Each looked every sentence up on AWS pages it fetched (redirects not followed), read the bank's questions on the step's topics first, and then had sub-agents that had not seen its sources re-check every sentence against pages they fetched themselves.
+
+| Files | Steps | Entries | Second read | Log in `docs/verification/` |
+|---|---|---|---|---|
+| `c1.js`, `c2.js` | Fundamentals of Architecting, Fundamentals of Security, their 7 labs | 15 | no sentence wrong; 4 reworded | `keys-c1-c2.md` |
+| `c3.js`, `c4.js` | Three-Tier and Containerized courses, their 7 labs | 19 | 1 sentence wrong, 9 too strong: 10 sentences and 3 link titles corrected | `keys-c3-c4.md` |
+| `c5.js`, `c6.js`, `r1.js` | Compliant/Secure/Governed and Hybrid courses, their 4 labs, the reading block | 18 | no sentence wrong; 13 narrower on the page than in the file, reworded | `keys-c5-c6-r1.md` |
+| `c7.js`, `c8.js`, `c9.js` | Serverless, Data-Driven and Summary courses, their 8 labs | 18 | no sentence wrong; 10 partly supported, reworded or listed as inference; 7 link titles corrected | `keys-c7-c9.md` |
+
+What these entries rest on, and what they do not:
+- **Lectures were not watched.** The videos are behind the Skill Builder login. A lecture step's points follow the lesson names in plan.js and the step's topics, checked against AWS documentation; they do not claim what a video says. If a lesson turns out to teach something else, the points are still true but may miss the lesson's emphasis.
+- **Lab description pages were read** (they are public): description, objectives and the list of AWS services. Lab points are about those objectives; none describes a lab's screens or steps. Nobody has done a lab.
+- **Inferences** (framing, design advice, conclusions from two documented facts) are listed per file in each log under "Inferences".
+- **`STEP_TAGS` for the labs** were corrected from those description pages after the merge (for example `l5a` is AWS Config only, `l6b` is endpoints and Route 53 forwarding rules, `l3a` is a serverless single-page app debugged with CloudWatch Logs). Lecture steps keep the topics their lesson names suggest.
+- One read each by AI agents plus one independent re-read: not a review by a human AWS expert.
+
+### Steps kept from the 14-day plan
+
+The text below describes the entries written for the 14-day plan. 45 of those entries belonged to steps that the 21-day plan retired (the Cloud Practitioner Essentials modules, the Cloud Quest assignments and most own builds) and were removed; where a list below names such a step (`d1w3`, `d5b3`, `d9b2`, `d10b2`, `d6w3`, `d6p1`, `d2p2`…), the entry is in git history (commit `add330b`) and several of its checked sentences live on in the new entries.
 
 **Written** on 2026-10-12 by five writer agents, one group of days each, on the owner's PC where `aws.amazon.com` and `docs.aws.amazon.com` can be fetched directly. Each writer checked its statements against fetched AWS pages and cited only pages it fetched. The entries for `d1u1`–`d1u4` and the rewritten `d4s2` were added the same day with the Free-plan change.
 

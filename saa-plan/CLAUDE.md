@@ -1,9 +1,11 @@
 # SAA-C03 study tracker
 
-Personal 14-day study tracker for the AWS Certified Solutions Architect – Associate (SAA-C03) exam.
+Personal 21-day study tracker for the AWS Certified Solutions Architect – Associate (SAA-C03) exam.
 Static site (vanilla HTML/CSS/JS, no build step, no npm deps) served by a small Go server (with SQLite progress storage) in Docker on localhost.
-The page opens on an overview (progress, numbers, one Start/Continue button, the 14 days as tiles). A day is worked one step at a time: a single card per step with Back, Mark complete and Next under it, and the helper material for that step on the card.
-Each of Days 1–13 ends with a 30-question quiz that must be passed at 90% to complete the day; a 65-question mock exam unlocks after Day 13.
+The plan follows two Skill Builder learning plans: "AWS Solutions Architect Learning Plan (Includes Labs)" on Days 1–16 (each lecture course, then its labs) and the Exam Prep Plan on Days 7 and 17–20; a few builds in the owner's own account stay in. The owner's goal is complete knowledge before the exam, lectures first and then the lab version of the same training.
+The page opens on an overview (progress, numbers, one Start/Continue button, the days as tiles). A day is worked one step at a time: a single card per step with Back, Mark complete and Next under it, and the helper material for that step on the card.
+A day ends with a 30-question quiz that must be passed at 90% to complete the day (not Day 1, which is setup, nor exam day); the quiz is drawn by the topics the day's steps teach. A 65-question mock exam unlocks when the lectures and labs (Days 1–16) are done.
+The number of days is data: nothing in the code knows it (see "The plan is data" in `docs/architecture.md`).
 
 Read before changing things:
 - `docs/architecture.md` – state model, quiz/run lifecycle, selection + spaced-repetition rules, sync protocol and merge rules, server security, design decisions and why.
@@ -14,12 +16,12 @@ Read before changing things:
 
 - `site/index.html` – page structure: title block header, blueprint SVG art, `#home` (overview), `#flow` (one-step card view), dialogs (cleanup, settings, quiz, sheet), timer
 - `site/style.css` – all styles; blueprint background, light/dark via `prefers-color-scheme`
-- `site/plan.js` – DATA ONLY: `window.LINKS`, `window.PLAN` (days → groups → items; one item = one step = one card), `window.SCORE_AT` (steps whose card shows a 📊 Scores field), `window.CLEANUP`, `window.GLOSSARY`
+- `site/plan.js` – DATA ONLY: `window.LINKS`, `window.PLAN` (weeks and days → groups → items; one item = one step = one card), `window.STEP_TAGS` (the exam topics each step teaches), `window.MOCK_AFTER`, `window.SCORE_AT` (steps whose card shows a 📊 Scores field), `window.CLEANUP`, `window.GLOSSARY`
 - `site/quiz/meta.js` – DATA ONLY: `window.QUIZ = []`, `window.QTAGS` (allowed topic tags), `window.DOCS` (AWS FAQ links)
-- `site/quiz/d01.js … d11.js` (no d07), `mock1.js`, `mock2.js` – DATA ONLY: question pools pushed onto `window.QUIZ`
+- `site/quiz/d01.js … d15.js` (no d07), `mock1.js`, `mock2.js` – DATA ONLY: question pools pushed onto `window.QUIZ`. The number is a pool, not a plan day: pools 1–6 are foundation level, 8–15 exam level
 - `site/extras.js` – DATA ONLY: `window.CARDS` (self-check model answers by item id), `window.DRILL`, `window.CUES`, `window.CUE_TAGS` (which quiz topics each exam-wording phrase belongs to)
-- `site/keys/d01.js … d14.js` – DATA ONLY: `window.KEYS`, key points per step (`{k: [...], trap, docs: [[title, url]]}` by item id), one file per day
-- `site/qcore.js` – `window.QZ`: quiz logic without DOM (picking, shuffling, grading, spaced repetition, weak spots); unit-tested in Node
+- `site/keys/*.js` – DATA ONLY: `window.KEYS`, key points per step (`{k: [...], trap, docs: [[title, url]]}` by item id). The file follows the id: `dNN.js` for ids that start with `dN`, `cN.js` for lecture course N (`cN…`) and its labs (`lN…`), `r1.js` for the reading block
+- `site/qcore.js` – `window.QZ`: quiz logic without DOM (the topics each day teaches, picking, shuffling, grading, spaced repetition, weak spots); unit-tested in Node
 - `site/fx.js` – `window.FX`: canvas confetti/fireworks + Web Audio sounds + banner
 - `site/app.js` – page logic: state, views (overview / day flow, mirrored in the URL hash), step cards, quizzes (day/review/warm-up/step practice), mock exam, drill, notebook, weak spots, model answers, slip guard, scores/verdict, day and step notes, cleanup dialog, focus timer + time log, settings, export/import, server sync
 - `server/` – Go 1.26+ module: `main.go` (static files, `/api/state`, `/healthz`, security headers, host allowlist, CSRF guard), `store.go` (SQLite via modernc.org/sqlite, one revisioned JSON document)
@@ -40,17 +42,19 @@ python3 -m http.server -d site 8099   # quick preview without the backend (progr
 
 - Item IDs in `plan.js` (e.g. `d2b3`) key saved progress, step notes and key points — never rename or reuse; add new IDs for new items.
 - One step per screen. The day view never shows a list of steps to tick: the owner asked for a single card with Back, Mark complete and Next, because a visible list of tasks discourages them. New per-step material goes on the step's card (`stepCardHTML`), not into a list.
-- Key points (`site/keys/dNN.js`): `k` = 1–5 takeaways, optional `trap`, up to 3 `docs` as `[title, url]` on aws.amazon.com or docs.aws.amazon.com; only `<b>` and `<code>` markup. Every statement must be checked against a fetched AWS page; see `docs/keypoints.md`. `data.test.mjs` enforces the shape, `tools/links.mjs` the links.
+- Key points (`site/keys/*.js`): `k` = 1–5 takeaways, optional `trap`, up to 3 `docs` as `[title, url]` on aws.amazon.com or docs.aws.amazon.com; only `<b>` and `<code>` markup. Every statement must be checked against a fetched AWS page; see `docs/keypoints.md`. `data.test.mjs` enforces the shape, `tools/links.mjs` the links.
 - Question IDs (`q02-017`, `m1-040`) key quiz stats, review queue and notebook — never rename or reuse. Fix a question in place; retire one by deleting it (stats for unknown ids are ignored).
-- Question format: `{id, day, dom, tags, q, o, a, x, ref, doc?}` — 4 options (or 5 with "(Choose two.)" and 2 answers), one explanation per option, `ref` = plan item ids from that day or earlier, `tags` from `QTAGS`, `doc` from `DOCS`. Options are shuffled on screen: no positional wording. Only `<code>` markup.
-- Quiz rules live in `qcore.js` constants: 30 questions/day, pass 90%, mock 65 q / 130 min split 20/17/15/13, review after 1/2/4 days, 3 questions per step practice. A day counts as done only when all its items are complete AND its quiz is passed (Days 1–13).
-- Group fields: `t` (watch|play|prep|build|check|setup), `label`, `where`, `link` (LINKS key or `own`), `min` (estimated minutes for the whole block). Day fields: `tools`, `notesHint`, `decision` (id of the step whose card shows the go/no-go verdict).
+- Question format: `{id, day, dom, tags, q, o, a, x, ref, doc?}` — 4 options (or 5 with "(Choose two.)" and 2 answers), one explanation per option, `day` = the pool number, `tags` = 1–2 from `QTAGS` (the first is the main topic), `ref` = optional ids of steps that are exactly the place to go back to (may be `[]`: the steps that teach the topic are found through `STEP_TAGS`), `doc` from `DOCS`. Options are shuffled on screen: no positional wording. Only `<code>` markup.
+- Quiz rules live in `qcore.js` constants: 30 questions/day, pass 90%, mock 65 q / 130 min split 20/17/15/13, review after 1/2/4 days, 3 questions per step practice. A day counts as done only when all its items are complete AND its quiz is passed (if it has one). A day's quiz asks only about topics taught up to that day: when you add a question, its tags decide where it can appear; when you add or move a step, give it `STEP_TAGS`.
+- Group fields: `t` (watch|play|prep|build|check|setup), `label`, `where`, `link` (LINKS key or `own`), `min` (estimated minutes for the whole block). Day fields: `quiz` (`tags` | `review` | `dom:1,2` | `weak` | `exam`; none = no quiz), `tools`, `notesHint`, `decision` (id of the step whose card shows the go/no-go verdict). A `{week: "…"}` entry starts a week.
+- Changing what a day holds: steps keep their ids, so progress on them survives. Day-keyed state (quiz results, completion dates) does not carry over to a different plan; bump `PLAN_V` in `app.js` when days change meaning (see "Changing the plan" in `docs/architecture.md`).
+- Order inside the plan: a lecture course first, then its labs, in the order of AWS's learning plan. Don't put another course between a course and its labs.
 - State lives in localStorage key `saa-plan-v2` and is mirrored to the server (`PUT /api/state`, revision-checked). On a conflict where both sides changed, `mergeDocs()` merges (ticks union, best quiz results, per-question data from the copy that answered more); otherwise the server copy is taken. Other tabs are followed via the `storage` event. If the shape changes, migrate it in `load()`; don't bump the key and lose progress. New top-level fields need a default in `DEF` and, for maps, a validation rule in `clean()` — every state entry point goes through `parseState()`. Which card is on screen is not state: it lives in the URL hash (`#d3/d3w2`, `#d3/quiz`, `#d3/done`). Which helper lists are folded open is a per-browser preference in `saa-plan-v2-ui`, not synced.
 - Anything from state that reaches `innerHTML` must be escaped (`esc()`) or coerced to a number; URLs must be http(s). The e2e "hostile import" check guards this.
 - No frameworks, bundlers or CDN scripts. Only external resource: Google Fonts (Barlow, Barlow Condensed) with system fallbacks. The CSP in `server/main.go` enforces this; update it if that ever changes.
 - Celebrations must respect the effects/sound toggles and `prefers-reduced-motion`.
 - Design: blueprint drafting sheet (Prussian-blue grid, chalk-white title block, off-white "paper" cards, AWS orange only for progress/primary actions). Sentence-case labels — no all-caps labels, no "A · B · C" meta strings, no "Word — fragment" labels.
-- The owner's AWS account stays on the Free plan: no step may create or join an AWS Organization (that upgrades the account to pay-as-you-go), which rules out enabling IAM Identity Center, Control Tower and anything else that needs an organization. The daily login is an IAM admin user with MFA; Identity Center is studied by reading (`d1c1`, `d1c3`–`d1c5`).
+- The owner's AWS account stays on the Free plan: no step may create or join an AWS Organization (that upgrades the account to pay-as-you-go), which rules out enabling IAM Identity Center, Control Tower and anything else that needs an organization. The daily login is an IAM admin user with MFA; Identity Center is studied by reading (`d1c1`, `d1c3`–`d1c5`). Labs run in Skill Builder's temporary sandboxes, never in the owner's account.
 - Content facts (AWS course/module names, exam details, question keys and explanations) must be checked against official sources before changing. Don't key answers on services closed to new customers (Snow Family, FSx File Gateway, Timestream for LiveAnalytics…); `data.test.mjs` checks the common ones.
 
 ## Testing
@@ -63,7 +67,7 @@ cd server && go vet ./... && go test -race ./...        # backend
 cd server && go build -o /tmp/saa . && ADDR=127.0.0.1:8090 SITE_DIR=../site DB_PATH=/tmp/saa-e2e/test.db /tmp/saa &
 NODE_PATH=$(npm root -g) BASE=http://localhost:8090/ SHOTS=/tmp/shots node tests/e2e.mjs
 ```
-The e2e run covers: overview and day tiles, one step per card (Mark complete moves on, Next skips, Back/arrow keys, Undo, double-click guard, reload stays on the card), locked quiz card, key points/docs/topics/notes on a card, step practice, model answers, quiz card after the last step (Enter starts it), pass and fail paths, day summary, retake draws unseen questions, resume after reload, notebook/weak spots/cheat sheet, warm-up + review, slip guard, timer log, drill, mock exam (split, grid, auto-submit), scores and verdict on their cards, server round trip, 390px dark mode, plus code-review regressions (two tabs, two devices merging, pre-server progress merge, retired question ids, drill restart, hostile/invalid import including notes). Look at the screenshots it writes — an earlier bug (explanations hidden by a CSS class clash) passed every functional check.
+The e2e run takes day and step ids from `window.PLAN` (it expects the first two quiz days to follow each other and the first of them to have a self-check block of several cards). It covers: overview and day tiles, one step per card (Mark complete moves on, Next skips, Back/arrow keys, Undo, double-click guard, reload stays on the card), locked quiz card, key points/docs/topics/notes on a card, step practice, model answers, a day without a quiz, quiz card after the last step (Enter starts it), the topic rule for a day quiz, pass and fail paths, day summary, retake draws unseen questions, resume after reload, notebook/weak spots/cheat sheet, warm-up + review, slip guard, timer log, drill, mock exam (unlock, split, grid, auto-submit), scores and verdict on their cards, server round trip, 390px dark mode, plus code-review regressions (two tabs, two devices merging, pre-server progress merge, progress saved under the old 14-day plan, retired question ids, drill restart, hostile/invalid import including notes). Look at the screenshots it writes — an earlier bug (explanations hidden by a CSS class clash) passed every functional check.
 
 ## Environment notes (owner's Windows PC)
 
@@ -82,7 +86,7 @@ The e2e run covers: overview and day tiles, one step per card (Mark complete mov
 
 ## Working on content with parallel agents
 
-- Give each agent its own files; two agents editing the same pool at once clobber each other.
+- Give each agent its own files; two agents editing the same pool at once clobber each other. For a big job the owner prefers separate sessions, one branch each (`start_session` with its own worktree), merged by the main session: create the empty target files and their `<script>` tags first, so no two sessions touch `index.html` or `meta.js`; new `DOCS` keys are listed in each session's log and added at merge time.
 - Every writer/reviewer runs `node --check`, `node --test` and the tools before reporting; still re-run them yourself before committing.
 - Ask writers to list facts they are unsure of, then have a separate reviewer verify exactly those (that caught SSE-C defaults, Snowball closure, Security Hub CSPM, NLB listener rules, etc.).
 - After any batch of new questions, run `tools/similar.mjs`; parallel writers produce near-copies (the first pass found 49 pairs).
@@ -96,11 +100,12 @@ The e2e run covers: overview and day tiles, one step per card (Mark complete mov
 
 ## Backlog (ideas, not commitments)
 
-Done: daily quiz with 90% gate, spaced review, warm-up, wrong-answer notebook, weak-spot map, flip cards, "Which service?" drill, exam-wording cheat sheet, mock exam, slip guard, study-time log, Go + SQLite backend, overview + one-step-per-card day flow, key points per step, step practice, step notes.
+Done: daily quiz with 90% gate, spaced review, warm-up, wrong-answer notebook, weak-spot map, flip cards, "Which service?" drill, exam-wording cheat sheet, mock exam, slip guard, study-time log, Go + SQLite backend, overview + one-step-per-card day flow, key points per step, step practice, step notes, 21-day plan on the Solutions Architect learning plan with quizzes drawn by topic.
 
-0. Content was read twice against fetched AWS pages on 2026-10-12, by sessions that had not seen each other's files (logs in `docs/verification/`). What is still open is listed under "Verification status" in docs/questions.md and docs/keypoints.md: price comparisons, lead times and figures AWS states two ways (left alone on purpose), m1-048 (MemoryDB, worth rewriting), a short list of statements no page settles, and everything behind the Skill Builder login. A human AWS expert has never reviewed it.
+0. Content from before the 21-day plan was read twice against fetched AWS pages on 2026-10-12, by sessions that had not seen each other's files; the key points for the lecture, lab and reading steps and question pools 12–15 were written the same day with one second read each (logs in `docs/verification/`). What is still open is listed under "Verification status" in docs/questions.md and docs/keypoints.md: price comparisons, lead times and figures AWS states two ways (left alone on purpose), m1-048 (MemoryDB, worth rewriting), a short list of statements no page settles, and everything behind the Skill Builder login (nobody has watched the lectures or done the labs: the plan follows their public outlines). A human AWS expert has never reviewed it.
 1. Clickable blueprint diagrams with explanations
-2. Day 10 build: host this site on S3 + CloudFront (OAC) with Terraform (static mode; no sync there)
+2. A build of your own: host this site on S3 + CloudFront (OAC) with Terraform (static mode; no sync there)
 3. CI: node --test, go test, Playwright run, Trivy scan, SBOM, cosign signing
 4. Optional login (e.g. a shared secret) if the server is ever exposed beyond localhost
 5. Check the Day 1 and Day 4 login steps against a real account once the owner has done them: the IAM admin user block (`d1u1`–`d1u4`), `aws login --profile lab` (`d4s2`), `aws sts assume-role` with those credentials (`d4b3`) and Terraform reading the `lab` profile (`d8b1`) were written from the AWS docs, not tried.
+6. After the owner's first days on Skill Builder: compare the lesson names and durations on the cards with what the courses really show, and adjust `min` per block (the estimates are the durations Skill Builder lists, at normal speed).

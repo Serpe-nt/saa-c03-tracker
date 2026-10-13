@@ -1,33 +1,6 @@
 // Key points per plan step for Day 4. Data only. Keys are plan item ids from plan.js.
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
-  d4w1: {
-    k: [
-      "AWS secures the facilities, hardware, host OS and virtualization layer. On EC2 you patch the guest OS and set the security groups; on RDS and Lambda AWS patches the OS too. Your code and its libraries, data, IAM and encryption choices stay yours.",
-      "A permissions boundary sets the most an IAM user or role can do. Effective permissions are the overlap of the boundary and the identity policy, and the boundary itself grants nothing. Requiring one on new roles lets teams create roles safely.",
-      "IAM Access Analyzer reports resources shared outside your account or organization and can generate a least-privilege policy from CloudTrail activity. The credential report is a CSV of every user's password, MFA and access key status.",
-      "KMS <code>Encrypt</code> accepts at most 4,096 bytes; larger data is encrypted locally with a data key from <code>GenerateDataKey</code> (envelope encryption). EBS encryption by default is a per-Region account setting that covers every new volume.",
-      "S3 encryption by who holds the key: SSE-S3 (S3, the default), SSE-KMS (a KMS key you control and audit), DSSE-KMS (two layers), SSE-C (your key in every request, never stored by S3, blocked on new buckets until enabled), client-side (AWS never sees plaintext)."
-    ],
-    trap: "Options that keep a long-term secret but handle it more carefully (rotate the access key, store it in Secrets Manager, encrypt the credentials file) lose to an IAM role or IAM Identity Center, which hand out temporary credentials.",
-    docs: [
-      ["Shared responsibility model", "https://aws.amazon.com/compliance/shared-responsibility-model/"],
-      ["Permissions boundaries for IAM entities", "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html"],
-      ["Protecting data with server-side encryption (Amazon S3)", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/serv-side-encryption.html"]
-    ]
-  },
-  d4p1: {
-    k: [
-      "Attach policies to a group and manage people through membership. A group holds only users (no roles, no nested groups), a user can be in several groups, and a group cannot be named as the principal in a policy.",
-      "IAM users carry long-term credentials; roles are assumed and hand out temporary ones. A workload such as an EC2 instance that talks to RDS or S3 should get a role scoped to the exact actions and resources it needs.",
-      "The IAM credential report is one CSV for the whole account that lists each user's password, MFA and access key status with last-used and last-rotated dates. It answers audit questions about credentials in one download."
-    ],
-    docs: [
-      ["IAM user groups", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups.html"],
-      ["Generate credential reports for your AWS account", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_getting-report.html"],
-      ["Security best practices in IAM", "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"]
-    ]
-  },
   d4s2: {
     k: [
       "AWS recommends <code>aws login</code> for the CLI when you sign in as root, an IAM user or through federation with IAM. The CLI caches the temporary credentials, renews them every 15 minutes, and <code>aws logout</code> deletes them.",
@@ -87,33 +60,6 @@ Object.assign(window.KEYS, {
       ["IAM roles", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html"],
       ["AssumeRole (AWS STS API Reference)", "https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html"],
       ["The confused deputy problem", "https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html"]
-    ]
-  },
-  d4b4: {
-    k: [
-      "Only a customer managed key lets you edit the key policy, disable the key, set its rotation and share it with another account. An AWS managed key such as <code>aws/s3</code> has a policy you can read but not change and works only inside your account.",
-      "The key policy is the primary access control. Its default statement that gives the account <code>kms:*</code> is what allows IAM policies to grant access; without that statement an IAM Allow for <code>kms:Decrypt</code> has no effect.",
-      "With SSE-KMS a download needs <code>s3:GetObject</code> and <code>kms:Decrypt</code>, an upload needs <code>kms:GenerateDataKey</code>, and key use is recorded in CloudTrail. S3 Bucket Keys reduce the KMS requests and their cost on busy buckets.",
-      "Automatic rotation is optional, yearly by default (or every 90 to 2,560 days) and only for symmetric encryption keys; old key material is kept, so old data still decrypts. Deleting a key is irreversible after a 7 to 30 day wait, so disable it first if unsure."
-    ],
-    trap: "Resources encrypted under an AWS managed key cannot be shared with another account. To share an encrypted RDS snapshot, copy it under a customer managed key whose key policy allows the other account, then share the copy.",
-    docs: [
-      ["AWS KMS keys", "https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html"],
-      ["Default key policy", "https://docs.aws.amazon.com/kms/latest/developerguide/key-policy-default.html"],
-      ["Using server-side encryption with AWS KMS keys (SSE-KMS)", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingKMSEncryption.html"]
-    ]
-  },
-  d4b5: {
-    k: [
-      "Secrets Manager is built for credentials: it rotates secrets on a schedule, natively for supported databases, and can replicate a secret to other Regions where the replicas follow each rotation. It is billed per secret and per API call.",
-      "A Parameter Store SecureString is encrypted with KMS and the standard tier is free, but nothing rotates it. The advanced tier is charged and adds larger values and parameter policies.",
-      "Decide by rotation. Credentials that must rotate automatically go to Secrets Manager, which AWS recommends for every secret. Parameter Store is for configuration values; its free standard tier is the answer only when cost decides and nothing must rotate."
-    ],
-    trap: "Rotating a KMS key changes the key material, not the password it protects, and Parameter Store has no rotation of its own. Automatic database password rotation without custom tooling means Secrets Manager.",
-    docs: [
-      ["What is AWS Secrets Manager?", "https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html"],
-      ["AWS Systems Manager Parameter Store", "https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html"],
-      ["Choosing parameter tiers in Parameter Store", "https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-advanced-parameters.html"]
     ]
   },
   d4b6: {

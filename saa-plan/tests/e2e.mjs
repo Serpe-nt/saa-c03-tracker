@@ -1,4 +1,4 @@
-// End-to-end check of the real page in headless Chromium.
+// End-to-end check of the real page in headless Chromium. Day and step ids are read from the plan (window.PLAN), not written here.
 // Needs the site served (Go server with a fresh database for the sync checks) and Playwright on NODE_PATH:
 //   NODE_PATH=$(npm root -g) BASE=http://localhost:8090/ node tests/e2e.mjs
 // PW_CHANNEL=msedge (or chrome) drives an installed browser instead of Playwright's own Chromium.
@@ -83,8 +83,24 @@ try {
   const bank = await page.evaluate(() => ({ n: window.QUIZ.length, days: [...new Set(window.QUIZ.map(q => q.day))] }));
   console.log(`  bank: ${bank.n} questions, pools ${bank.days.join(",")}`);
   assert.ok(bank.n >= 300, "question bank should be loaded");
+  // Days and steps come from the plan, so these checks hold when the plan changes.
+  const P = await page.evaluate(() => {
+    const days = window.PLAN.filter(d => d.id).map(d => ({ id: d.id, day: d.day, quiz: d.quiz || "", ids: d.groups.flatMap(g => g.items.map(it => it[0])) }));
+    const check = window.PLAN.filter(d => d.id).flatMap(d => d.groups.filter(g => g.t === "check" && g.items.length > 1).map(g => ({ day: d.id, ids: g.items.map(it => it[0]) })))[0];
+    // a step with topics, key points and docs of its own: the card with every kind of helper material
+    const help = Object.keys(window.STEP_TAGS).find(id => window.KEYS[id] && (window.KEYS[id].k || []).length >= 2 && (window.KEYS[id].docs || []).length);
+    return { days, check, help, mockAfter: window.MOCK_AFTER };
+  });
+  const dayOfStep = id => P.days.find(d => d.ids.includes(id)).id;
+  const D1 = P.days[0], LAST = P.days[P.days.length - 1];
+  const QA = P.days.find(d => d.quiz === "tags");            // the first day that ends with a quiz on its own topics
+  const QB = P.days[QA.day], OD = P.days[QB.day];            // the day after it (failed, then retaken), and the one after that
+  assert.equal(QB.quiz, "tags", "these checks expect two quiz days in a row");
+  assert.ok(P.check.day === QA.id && P.check.ids[0] !== QA.ids[QA.ids.length - 2], "these checks expect the first quiz day to have a self-check block of several cards");
+  const [ck1, ck2] = P.check.ids, HELP = P.help, HELPDAY = dayOfStep(HELP);
+  console.log(`  plan: ${P.days.length} days; first quiz days ${QA.day} and ${QB.day}; helper card ${HELP}`);
   assert.ok(await page.locator("#home").isVisible() && await page.locator("#flow").isHidden(), "the overview is the first screen");
-  assert.equal(await page.locator("#map .dt").count(), 14, "one tile per day");
+  assert.equal(await page.locator("#map .dt").count(), P.days.length, "one tile per day");
   assert.equal(await page.locator("#stats .st").count(), 5);
   assert.match(await page.textContent("#next"), /Start Day 1/);
   await page.screenshot({ path: path.join(SHOTS, "01-overview.png"), fullPage: false });
@@ -97,8 +113,9 @@ try {
   assert.equal(await hash(page), `#d1/${s1}`);
   assert.equal(await page.locator("#card .c-t").count(), 1, "one step on screen");
   const n1 = await page.evaluate(() => window.PLAN.find(d => d.id === "d1").groups.reduce((a, g) => a + g.items.length, 0));
-  assert.equal((await page.textContent("#fl-count")).trim(), `Step 1 of ${n1 + 1}`);
-  assert.equal(await page.locator("#fl-strip .dot").count(), n1 + 1, "a dot per step plus the quiz");
+  const q1 = D1.quiz ? 1 : 0;
+  assert.equal((await page.textContent("#fl-count")).trim(), `Step 1 of ${n1 + q1}`);
+  assert.equal(await page.locator("#fl-strip .dot").count(), n1 + q1, "a dot per step, plus one for the quiz on a quiz day");
   assert.ok(await page.locator(".tb").isHidden(), "the big title block steps aside");
 
   log("Mark complete moves on, Next skips, Back and the arrow keys return, Undo reopens");
@@ -121,35 +138,35 @@ try {
   assert.equal(await hash(page), `#d1/${s1}`, "a reload stays on the card");
 
   log("the quiz card stays locked while steps are open, and lists them");
-  await openCard(page, "d1", "quiz");
+  await openCard(page, QA.id, "quiz");
   assert.ok(await page.locator("#fl-nav [data-quiz-start]").isDisabled());
-  assert.equal(await page.locator("#card .c-open li").count(), n1);
+  assert.equal(await page.locator("#card .c-open li").count(), QA.ids.length);
   await page.click("#card .c-open li:first-child button");
-  assert.equal(await hash(page), `#d1/${s1}`);
+  assert.equal(await hash(page), `#${QA.id}/${QA.ids[0]}`);
 
   // ---------- helper material on the card ----------
   log("a step card carries key points, AWS docs, exam topics and its own notes");
-  await openCard(page, "d1", "d1w2");
+  await openCard(page, HELPDAY, HELP);
   assert.ok(await page.locator("#card .c-key li").count() >= 2, "key points");
   assert.ok(await page.locator("#card .c-tags li").count() >= 1, "exam topics");
   const links = await page.$$eval("#card .c-docs a", as => as.map(a => [a.href, a.target, a.rel]));
   assert.ok(links.length >= 1 && links.every(([h, t, r]) => /^https:\/\/(docs\.)?aws\.amazon\.com\//.test(h) && t === "_blank" && r.includes("noopener")), "AWS docs open in a new tab");
-  await page.fill('#card [data-inote="d1w2"]', "burstable = T family");
+  await page.fill(`#card [data-inote="${HELP}"]`, "look at this again");
   await page.waitForTimeout(600);
-  assert.equal((await state(page)).inotes.d1w2, "burstable = T family");
+  assert.equal((await state(page)).inotes[HELP], "look at this again");
   await page.click('#card details[data-sec="terms"] > summary');
   await page.screenshot({ path: path.join(SHOTS, "02-step-card.png"), fullPage: true });
   await page.click("#fl-nav [data-next]");
   if (await page.locator('#card details[data-sec="terms"]').count())
     assert.ok(await page.evaluate(() => document.querySelector('#card details[data-sec="terms"]').open), "an opened helper list stays open on the next card");
 
-  log("step practice: three questions that point at this step");
-  await openCard(page, "d1", "d1w2");
-  await page.click('#card [data-step-quiz="d1w2"]');
+  log("step practice: three questions on this step");
+  await openCard(page, HELPDAY, HELP);
+  await page.click(`#card [data-step-quiz="${HELP}"]`);
   let s = await state(page);
   assert.equal(s.run.kind, "step");
   assert.equal(s.run.ids.length, 3);
-  assert.ok(await page.evaluate(ids => ids.every(id => { const q = window.QUIZ.find(x => x.id === id); return q.ref.includes("d1w2") && q.day === 1; }), s.run.ids), "Day 1 questions on this step");
+  assert.ok(await page.evaluate(([ids, step]) => ids.every(id => { const q = window.QUIZ.find(x => x.id === id); return q.ref.includes(step) || q.tags.some(t => window.STEP_TAGS[step].includes(t)); }), [s.run.ids, HELP]), "questions that name the step or are on its topics");
   for (let i = 0; i < 3; i++) { await answer(page, true); await page.click('#qz-body [data-qz="check"]'); await page.click('#qz-body [data-qz="next"]'); }
   await page.click('#qz-body [data-qz="finish"]');
   assert.equal((await state(page)).run, null);
@@ -157,31 +174,42 @@ try {
 
   // ---------- self-check card ----------
   log("self-check card: reveal the model answer, mark shaky");
-  await openCard(page, "d1", "d1c6");
-  await page.click('#card [data-flip="d1c6"]');
-  assert.ok(await page.locator("#ca-d1c6").isVisible());
-  await page.click('#card [data-conf="shaky"][data-cid="d1c6"]');
-  assert.equal((await state(page)).conf.d1c6, "shaky");
-  assert.ok((await state(page)).ticks.d1c6, "marking a card completes the step");
-  assert.equal(await hash(page), "#d1/d1c7", "and moves on");
+  await openCard(page, QA.id, ck1);
+  await page.click(`#card [data-flip="${ck1}"]`);
+  assert.ok(await page.locator("#ca-" + ck1).isVisible());
+  await page.click(`#card [data-conf="shaky"][data-cid="${ck1}"]`);
+  assert.equal((await state(page)).conf[ck1], "shaky");
+  assert.ok((await state(page)).ticks[ck1], "marking a card completes the step");
+  assert.equal(await hash(page), `#${QA.id}/${ck2}`, "and moves on");
   await page.click("#fl-nav [data-back]");
-  assert.match(await page.textContent('#card [data-flip="d1c6"]'), /Shaky/);
+  assert.match(await page.textContent(`#card [data-flip="${ck1}"]`), /Shaky/);
 
-  // ---------- Day 1 through the cards, then pass the quiz ----------
-  log("complete the last Day 1 steps → the quiz card; Enter starts the quiz");
+  // ---------- a day without a quiz ----------
+  if (!D1.quiz) {
+    log("a day without a quiz is done with its last step");
+    await tickDays(page, [D1.day]);
+    await page.reload();
+    assert.equal(await page.getAttribute(`[data-day="${D1.id}"]`, "data-done"), "1");
+    await openCard(page, D1.id);
+    assert.equal(await hash(page), `#${D1.id}/done`, "a finished day opens on its summary");
+    assert.equal(await page.locator("#fl-strip .dot.qd").count(), 0, "no quiz dot");
+    await goHome(page);
+  }
+
+  // ---------- the first quiz day through the cards, then pass the quiz ----------
+  log(`complete the last Day ${QA.day} steps → the quiz card; Enter starts the quiz`);
   // every step but the last two straight in storage; those two through the cards
-  await page.evaluate(k => {
+  await page.evaluate(([k, ids]) => {
     const st = JSON.parse(localStorage.getItem(k));
-    const ids = window.PLAN.find(d => d.id === "d1").groups.flatMap(g => g.items.map(it => it[0]));
     for (const id of ids.slice(0, -2)) st.ticks[id] = true;
     localStorage.setItem(k, JSON.stringify(st));
-  }, KEY);
+  }, [KEY, QA.ids]);
   await page.reload();
-  await openCard(page, "d1");
-  assert.equal(await hash(page), "#d1/d1c7", "a day opens on its first open step");
+  await openCard(page, QA.id);
+  assert.equal(await hash(page), `#${QA.id}/${QA.ids[QA.ids.length - 2]}`, "a day opens on its first open step");
   await complete(page);
   await complete(page);
-  assert.equal(await hash(page), "#d1/quiz", "after the last step comes the quiz card");
+  assert.equal(await hash(page), `#${QA.id}/quiz`, "after the last step comes the quiz card");
   assert.match(await page.textContent("#card"), /End-of-day quiz/);
   await page.waitForTimeout(300);                          // let the card finish fading in before the picture
   await page.screenshot({ path: path.join(SHOTS, "03-quiz-card.png") });
@@ -189,6 +217,10 @@ try {
   await page.waitForSelector("#qz-body .qz-o");
 
   log("answer 30 questions right, with feedback after each");
+  const asked = (await state(page)).run.ids;
+  assert.equal(asked.length, 30);
+  assert.ok(await page.evaluate(([ids, id]) => { const tp = window.QZ.topics(window.PLAN, window.STEP_TAGS)[id]; return ids.every(q => { const t = window.QUIZ.find(x => x.id === q).tags; return t.some(x => tp.own.has(x)) && t.every(x => tp.sofar.has(x)); }); }, [asked, QA.id]),
+    "every question is on one of the day's topics, and none touches a topic taught later");
   for (let i = 0; i < 30; i++) {
     await answer(page, true);
     if (i === 0) {
@@ -213,28 +245,28 @@ try {
   assert.match(await page.textContent("#qz-body .qz-score"), /30/);
   await page.screenshot({ path: path.join(SHOTS, "05-result-pass.png") });
   await page.click('#qz-body [data-qz="finish"]');
-  await page.waitForFunction(() => location.hash === "#d1/done", null, { timeout: 3000 });
-  assert.match(await page.textContent("#card .c-t"), /Day 1 is done/);
-  assert.match(await page.textContent("#fl-nav"), /Start Day 2/);
+  await page.waitForFunction(h => location.hash === h, `#${QA.id}/done`, { timeout: 3000 });
+  assert.match(await page.textContent("#card .c-t"), new RegExp(`Day ${QA.day} is done`));
+  assert.match(await page.textContent("#fl-nav"), new RegExp(`Start Day ${QB.day}`));
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.join(SHOTS, "06-day-done.png") });
   s = await state(page);
-  assert.ok(s.quiz.d1.passed && s.quiz.d1.best === 30);
-  assert.ok(s.dayDone.d1);
-  await page.click('#fl-nav a[href="#d2"]');
-  await page.waitForFunction(() => location.hash === "#d2/d2w1");
+  assert.ok(s.quiz[QA.id].passed && s.quiz[QA.id].best === 30);
+  assert.ok(s.dayDone[QA.id]);
+  await page.click(`#fl-nav a[href="#${QB.id}"]`);
+  await page.waitForFunction(h => location.hash === h, `#${QB.id}/${QB.ids[0]}`);
   await goHome(page);
-  assert.equal(await page.getAttribute('[data-day="d1"]', "data-done"), "1", "passing the quiz completes the day");
-  assert.match(await page.textContent("#next"), /Start Day 2/);
+  assert.equal(await page.getAttribute(`[data-day="${QA.id}"]`, "data-done"), "1", "passing the quiz completes the day");
+  assert.match(await page.textContent("#next"), new RegExp(`Start Day ${QB.day}`));
 
-  // ---------- Day 2: fail, then retake shows new questions ----------
-  log("Day 2: miss 4 → fail at 26/30, notebook + review queue filled");
-  await tickDays(page, [2]);
+  // ---------- the next day: fail, then retake shows new questions ----------
+  log(`Day ${QB.day}: miss 4 → fail at 26/30, notebook + review queue filled`);
+  await tickDays(page, [QB.day]);
   await page.reload();
-  assert.equal(await page.getAttribute('[data-day="d2"]', "data-quiz"), "1", "day shows quiz pending");
-  assert.equal(await page.getAttribute('[data-day="d2"]', "data-done"), "0");
-  assert.match(await page.textContent("#next"), /Take the Day 2 quiz/);
-  await page.click('#next [data-quiz-start="d2"]');
+  assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-quiz"), "1", "day shows quiz pending");
+  assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-done"), "0");
+  assert.match(await page.textContent("#next"), new RegExp(`Take the Day ${QB.day} quiz`));
+  await page.click(`#next [data-quiz-start="${QB.id}"]`);
   const first = (await state(page)).run.ids.slice();
   assert.equal(first.length, 30);
   assert.equal(new Set(first).size, 30);
@@ -258,15 +290,20 @@ try {
   assert.equal(Object.keys(s.book).length, 4);
   assert.equal(s.book[first[0]].note, "mixed up stateful and stateless");
   assert.equal(Object.keys(s.srs).length, 4);
-  assert.ok(!s.quiz.d2.passed);
+  assert.ok(!s.quiz[QB.id].passed);
 
   log("retake draws the unseen questions");
+  // what is left unseen in the day's own pool (earlier quizzes on shared topics used some of it up)
+  const unseen = await page.evaluate(([k, id]) => {
+    const st = JSON.parse(localStorage.getItem(k)), d = window.PLAN.find(x => x.id === id);
+    return window.QZ.dayPool(d, window.QZ.topics(window.PLAN, window.STEP_TAGS), window.QUIZ).map(q => q.id).filter(q => !st.qs[q]);
+  }, [KEY, QB.id]);
   await page.click('#qz-body [data-qz="retake"]');
   const second = (await state(page)).run.ids;
-  const fresh = second.filter(id => !first.includes(id)).length;
-  const pool = await page.evaluate(() => window.QUIZ.filter(q => q.day === 2).length);
-  console.log(`  retake: ${fresh} of 30 new (pool ${pool})`);
-  assert.equal(fresh, Math.min(30, pool - 30), "a retake shows every question not seen yet");
+  const fresh = second.filter(id => unseen.includes(id)).length;
+  console.log(`  retake: ${fresh} of 30 not seen before (${unseen.length} were left in the day's pool)`);
+  assert.equal(fresh, Math.min(30, unseen.length), "a retake shows every question not seen yet");
+  assert.equal(new Set(second).size, 30, "and fills up with questions seen before, none twice");
   log("close mid-quiz keeps progress; resume from the overview");
   await answer(page, true);
   await page.click('#qz-body [data-qz="check"]');
@@ -274,7 +311,7 @@ try {
   await page.click('#quiz .qz-x');
   await page.reload();
   assert.match(await page.textContent("#next"), /Resume quiz/);
-  await page.click('#next [data-quiz-start="d2"]');
+  await page.click(`#next [data-quiz-start="${QB.id}"]`);
   assert.equal((await state(page)).run.i, 1);
   for (let i = 1; i < 30; i++) {
     await answer(page, true);
@@ -283,7 +320,7 @@ try {
   }
   await page.waitForSelector("#qz-body .qz-res.ok");
   await page.click('#qz-body [data-qz="finish"]');
-  assert.equal(await page.getAttribute('[data-day="d2"]', "data-done"), "1");
+  assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-done"), "1");
 
   // ---------- notebook, weak spots, cheat sheet ----------
   log("notebook, weak spots, exam wording");
@@ -304,7 +341,7 @@ try {
   await page.screenshot({ path: path.join(SHOTS, "10-weak.png") });
   await page.click("#sh-body > .qz-refs [data-jump]");    // "Open step" leaves the sheet for that step's card
   assert.ok(await page.locator("#flow").isVisible() && await page.locator("#sheet[open]").count() === 0);
-  assert.equal(await hash(page), "#d1/d1c6");
+  assert.equal(await hash(page), `#${QA.id}/${ck1}`);
   await goHome(page);
   await openPanel(page, "practice");
   await page.click('#pr-grid [data-sheet="cues"]');
@@ -327,16 +364,17 @@ try {
 
   // ---------- slip guard ----------
   log("slip guard moves the remaining days");
-  await setState(page, s => { s.slipSkip = ""; const d = new Date(); d.setDate(d.getDate() - 3); s.settings.start = d.toISOString().slice(0, 10); s.slips = []; });
+  // start the plan so that the first unfinished day was planned for yesterday
+  await page.evaluate(([k, n]) => { const s = JSON.parse(localStorage.getItem(k)); s.slipSkip = ""; const d = new Date(); d.setDate(d.getDate() - n); s.settings.start = d.toISOString().slice(0, 10); s.slips = []; localStorage.setItem(k, JSON.stringify(s)); }, [KEY, OD.day]);
   await page.reload();
   assert.ok(await page.locator("#slip").isVisible());
   await page.screenshot({ path: path.join(SHOTS, "11-slip.png") });
   await page.click('#slip [data-slip]:not([data-slip="skip"])');
   s = await state(page);
   assert.equal(s.slips.length, 1);
-  assert.equal(s.slips[0].from, 3);
+  assert.equal(s.slips[0].from, OD.day);
   assert.ok(await page.locator("#slip").isHidden(), "banner gone after the move: " + await page.textContent("#slip"));
-  assert.equal(await page.getAttribute('[data-day="d3"]', "data-today"), "1", "Day 3 is today after the move");
+  assert.equal(await page.getAttribute(`[data-day="${OD.id}"]`, "data-today"), "1", "the overdue day is today after the move");
 
   // ---------- focus timer logs time ----------
   log("focus timer logs minutes to the current day");
@@ -344,7 +382,7 @@ try {
   await page.reload();
   await page.click('#timer [data-tm="toggle"]');
   s = await state(page);
-  assert.ok(s.log.d3 >= 9 && s.log.d3 <= 11, `about 10 minutes logged, got ${s.log.d3}`);
+  assert.ok(s.log[OD.id] >= 9 && s.log[OD.id] <= 11, `about 10 minutes logged, got ${s.log[OD.id]}`);
 
   // ---------- drill ----------
   log("which-service drill");
@@ -358,14 +396,15 @@ try {
   await page.click('#quiz .qz-x');
 
   // ---------- mock exam ----------
-  log("mock exam locked until Days 1-13 pass, then a timed 65-question run");
+  log(`mock exam locked until Days 1-${P.mockAfter} are done, then a timed 65-question run`);
   assert.ok(await page.locator("#pr-grid [data-mock]").isDisabled());
   await page.evaluate(k => {
     const s = JSON.parse(localStorage.getItem(k));
-    for (const d of window.PLAN) if (d.id && d.day <= 13) { for (const g of d.groups) for (const it of g.items) s.ticks[it[0]] = true; s.quiz[d.id] = { best: 28, passed: "2026-10-12", tries: [{ at: "2026-10-12", score: 28, n: 30 }] }; }
+    for (const d of window.PLAN) if (d.id && d.day <= window.MOCK_AFTER) { for (const g of d.groups) for (const it of g.items) s.ticks[it[0]] = true; if (d.quiz) s.quiz[d.id] = { best: 28, passed: "2026-10-12", tries: [{ at: "2026-10-12", score: 28, n: 30 }] }; }
     localStorage.setItem(k, JSON.stringify(s));
   }, KEY);
   await page.reload();
+  assert.equal(await page.locator('#map .dt[data-done="1"]').count(), P.mockAfter, "the days of new material are done, the exam-prep days are not");
   await openPanel(page, "practice");
   assert.ok(await page.locator("#pr-grid [data-mock]").isEnabled());
   await page.click("#pr-grid [data-mock]");
@@ -403,13 +442,13 @@ try {
 
   // ---------- scores and the verdict on their own cards ----------
   log("a score typed on its step's card shows in the Scores panel; the verdict sits on its step");
-  await openCard(page, "d7", "d7e4");
+  await openCard(page, dayOfStep("d7e4"), "d7e4");
   await page.fill('#card [data-score="qs7"]', "15");
   assert.equal((await state(page)).scores.qs7, "15");
   assert.equal(await page.inputValue('#scores [data-score="qs7"]'), "15");
-  await openCard(page, "d11", "d11p1");
+  await openCard(page, dayOfStep("d11p1"), "d11p1");
   await page.fill('#card [data-score="pe"]', "780");
-  await openCard(page, "d11", "d11p2");
+  await openCard(page, dayOfStep("d11p2"), "d11p2");
   assert.match(await page.textContent("#card [data-verdict]"), /GO/);
   await goHome(page);
 
@@ -419,11 +458,11 @@ try {
   srv = await serverState(page);
   if (srv) {
     assert.ok(srv.rev > 0, "server has a revision");
-    assert.ok(srv.doc.quiz.d1.passed, "server copy has the passed quiz");
+    assert.ok(srv.doc.quiz[QA.id].passed, "server copy has the passed quiz");
     const fresh = await newPage();
     await fresh.page.goto(BASE);
-    await fresh.page.waitForFunction(() => document.querySelector('[data-day="d1"]')?.dataset.done === "1", null, { timeout: 5000 });
-    console.log(`  server rev ${srv.rev}; fresh browser restored Day 1 as complete`);
+    await fresh.page.waitForFunction(id => document.querySelector(`[data-day="${id}"]`)?.dataset.done === "1", QA.id, { timeout: 5000 });
+    console.log(`  server rev ${srv.rev}; fresh browser restored Day ${QA.day} as complete`);
     await fresh.ctx.close();
   } else console.log("  (no backend on this address: skipped)");
   await ctx.close();
@@ -432,8 +471,8 @@ try {
   log("mobile width and dark mode");
   ({ ctx, page } = await newPage({ viewport: { width: 390, height: 844 }, colorScheme: "dark" }));
   await page.goto(BASE);
-  if (srv) await page.waitForFunction(() => document.querySelector('[data-day="d1"]')?.dataset.done === "1", null, { timeout: 5000 });
-  else { await tickDays(page, [1, 2]); await page.reload(); }
+  if (srv) await page.waitForFunction(id => document.querySelector(`[data-day="${id}"]`)?.dataset.done === "1", QA.id, { timeout: 5000 });
+  else { await tickDays(page, [D1.day, QA.day]); await page.reload(); }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   assert.ok(overflow <= 1, `no horizontal scroll on mobile (overflow ${overflow}px)`);
   await page.screenshot({ path: path.join(SHOTS, "15-mobile-dark.png") });
@@ -445,7 +484,7 @@ try {
   await page.screenshot({ path: path.join(SHOTS, "16-mobile-notebook.png") });
   await page.click("#sheet [data-sh-close]");
   // a step card on a phone: nothing wider than the screen, the three buttons on screen
-  await openCard(page, "d2", "d2w1");
+  await openCard(page, HELPDAY, HELP);
   const fit = await page.evaluate(() => ({
     over: document.documentElement.scrollWidth - innerWidth,
     nav: ["[data-back]", ".fl-mid", "[data-next]"].map(sel => { const r = document.querySelector("#fl-nav " + sel).getBoundingClientRect(); return r.width > 0 && r.left >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; })
@@ -454,8 +493,8 @@ try {
   assert.ok(fit.nav.every(Boolean), "Back, the main action and Next are on screen");
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.join(SHOTS, "17-mobile-card.png") });
-  await openCard(page, "d1", "quiz");
-  await page.click('#flow [data-quiz-start="d1"]');
+  await openCard(page, QA.id, "quiz");
+  await page.click(`#flow [data-quiz-start="${QA.id}"]`);
   await page.waitForSelector("#quiz[open]");
   await answer(page, false);
   await page.click('#qz-body [data-qz="check"]');
@@ -469,30 +508,31 @@ try {
     log("two tabs keep each other current");
     const c = await browser.newContext({ viewport: { width: 1200, height: 900 } });
     const a = track(await c.newPage()), b = track(await c.newPage());
-    await a.goto(BASE + "#d14/d14e1"); await b.goto(BASE + "#d14/d14e2");
+    const [e1, e2, e3] = LAST.ids;
+    await a.goto(BASE + `#${LAST.id}/${e1}`); await b.goto(BASE + `#${LAST.id}/${e2}`);
     await a.waitForTimeout(800);
     await complete(a);
-    await b.waitForFunction(() => document.querySelector('#fl-strip [data-at="d14e1"]').classList.contains("on"), null, { timeout: 3000 });
+    await b.waitForFunction(id => document.querySelector(`#fl-strip [data-at="${id}"]`).classList.contains("on"), e1, { timeout: 3000 });
     await complete(b);
-    await a.waitForFunction(() => document.querySelector('#fl-strip [data-at="d14e2"]').classList.contains("on"), null, { timeout: 3000 });
+    await a.waitForFunction(id => document.querySelector(`#fl-strip [data-at="${id}"]`).classList.contains("on"), e2, { timeout: 3000 });
     await b.waitForTimeout(1500);
     let st = await serverState(b);
-    assert.ok(st.doc.ticks.d14e1 && st.doc.ticks.d14e2, "server has both tabs' ticks");
+    assert.ok(st.doc.ticks[e1] && st.doc.ticks[e2], "server has both tabs' ticks");
     await c.close();
 
     log("two devices editing at once: the conflict merges instead of dropping one side");
     const d1 = await newPage(), d2 = await newPage();
-    await d1.page.goto(BASE + "#d14/d14e3"); await d2.page.goto(BASE + "#d14/d14e3");
+    await d1.page.goto(BASE + `#${LAST.id}/${e3}`); await d2.page.goto(BASE + `#${LAST.id}/${e3}`);
     await d1.page.waitForTimeout(800); await d2.page.waitForTimeout(200);
     await complete(d1.page);
     await d1.page.waitForTimeout(1500);           // d1 saved; d2 hasn't seen it
     await d2.page.click('#fl-tools [data-sheet="daynotes"]');
-    await d2.page.fill('#sh-body textarea[data-notes="d14"]', "note from device two");
+    await d2.page.fill(`#sh-body textarea[data-notes="${LAST.id}"]`, "note from device two");
     await d2.page.waitForTimeout(2200);           // d2 saves with an old revision, gets 409, merges, saves again
     st = await serverState(d2.page);
-    assert.ok(st.doc.ticks.d14e3 && st.doc.ticks.d14e1, "device one's tick survived");
-    assert.equal(st.doc.notes.d14, "note from device two", "device two's note survived");
-    assert.ok(await stepOn(d2.page, "d14e3"), "the merged copy is on screen");
+    assert.ok(st.doc.ticks[e3] && st.doc.ticks[e1], "device one's tick survived");
+    assert.equal(st.doc.notes[LAST.id], "note from device two", "device two's note survived");
+    assert.ok(await stepOn(d2.page, e3), "the merged copy is on screen");
     await d1.ctx.close(); await d2.ctx.close();
 
     log("progress saved before the server existed is merged, not replaced");
@@ -502,7 +542,7 @@ try {
     await old.page.reload();
     await old.page.waitForTimeout(2000);
     st = await serverState(old.page);
-    assert.ok(st.doc.notes.d13 === "old note" && st.doc.inotes.d13l1 === "passport is in the drawer" && st.doc.ticks.d14e3 && st.doc.notes.d14 === "note from device two", "old local progress and server progress both kept");
+    assert.ok(st.doc.notes.d13 === "old note" && st.doc.inotes.d13l1 === "passport is in the drawer" && st.doc.ticks[e3] && st.doc.notes[LAST.id] === "note from device two", "old local progress and server progress both kept");
     await old.ctx.close();
   }
 
@@ -517,10 +557,10 @@ try {
   await page.click('#qz-body [data-qz="finish"]');
 
   log("drill restarts cleanly while a quiz is unfinished");
-  await tickDays(page, [1]);
+  await tickDays(page, [QA.day]);
   await page.reload();
-  await openCard(page, "d1", "quiz");
-  await page.click('#flow [data-quiz-start="d1"]');     // "Start quiz" under the card, or "Practice again" on it once passed
+  await openCard(page, QA.id, "quiz");
+  await page.click(`#flow [data-quiz-start="${QA.id}"]`);     // "Start quiz" under the card, or "Practice again" on it once passed
   await answer(page, true);
   await page.click('#qz-body [data-qz="check"]');
   await page.click('#quiz .qz-x');
@@ -532,6 +572,24 @@ try {
   await page.waitForTimeout(1600);
   assert.notEqual((await page.textContent("#dr-time")).trim(), "60 s", "the restarted drill's clock runs");
   await page.click('#quiz .qz-x');
+
+  log("progress saved under the old 14-day plan: steps and answers stay, day quiz results start again");
+  await page.evaluate(([k, id]) => {
+    const st = JSON.parse(localStorage.getItem(k));
+    delete st.planV;                                   // what a copy from before the 21-day plan looks like
+    st.run = null;
+    st.quiz = { [id]: { best: 30, passed: "2026-10-12", tries: [{ at: "2026-10-12", score: 30, n: 30 }] } };
+    st.dayDone = { [id]: "2026-10-12" };
+    st.qs = { "q01-001": { seen: 2, right: 1, last: 1, at: "2026-10-12" } };
+    st.inotes = { d1a1: "kept" };
+    localStorage.setItem(k, JSON.stringify(st));
+  }, [KEY, QA.id]);
+  await page.reload();
+  assert.equal(await page.getAttribute(`[data-day="${QA.id}"]`, "data-done"), "0", "an old quiz result does not complete a day of the new plan");
+  assert.equal(await page.getAttribute(`[data-day="${QA.id}"]`, "data-quiz"), "1", "its steps are still done, the quiz is open again");
+  await page.click("#b-snd");                          // any change saves the migrated copy
+  const mig = await state(page);
+  assert.deepEqual([mig.planV, Object.keys(mig.quiz).length, mig.qs["q01-001"].seen, mig.inotes.d1a1, !!mig.ticks[QA.ids[0]]], [2, 0, 2, "kept", true]);
 
   log("hostile import is sanitized; invalid import changes nothing");
   await openPanel(page, "practice");
