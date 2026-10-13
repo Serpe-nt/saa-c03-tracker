@@ -20,7 +20,7 @@ Read before changing things:
 - `site/quiz/meta.js` – DATA ONLY: `window.QUIZ = []`, `window.QTAGS` (allowed topic tags), `window.DOCS` (AWS FAQ links)
 - `site/quiz/d01.js … d15.js` (no d07), `mock1.js`, `mock2.js` – DATA ONLY: question pools pushed onto `window.QUIZ`. The number is a pool, not a plan day: pools 1–6 are foundation level, 8–15 exam level
 - `site/extras.js` – DATA ONLY: `window.CARDS` (self-check model answers by item id), `window.DRILL`, `window.CUES`, `window.CUE_TAGS` (which quiz topics each exam-wording phrase belongs to)
-- `site/keys/*.js` – DATA ONLY: `window.KEYS`, key points per step (`{k: [...], trap, docs: [[title, url]]}` by item id). The file follows the id: `dNN.js` for ids that start with `dN`, `cN.js` for lecture course N (`cN…`) and its labs (`lN…`), `r1.js` for the reading block
+- `site/keys/*.js` – DATA ONLY: `window.KEYS`, key points per step (`{why, k: [[label, text], …], trap, docs: [[title, url]]}` by item id). The file follows the id: `dNN.js` for ids that start with `dN`, `cN.js` for lecture course N (`cN…`) and its labs (`lN…`), `r1.js` for the reading block
 - `site/qcore.js` – `window.QZ`: quiz logic without DOM (the topics each day teaches, picking, shuffling, grading, spaced repetition, weak spots); unit-tested in Node
 - `site/fx.js` – `window.FX`: canvas confetti/fireworks + Web Audio sounds + banner
 - `site/app.js` – page logic: state, views (overview / day flow, mirrored in the URL hash), step cards, quizzes (day/review/warm-up/step practice), mock exam, drill, notebook, weak spots, model answers, slip guard, scores/verdict, day and step notes, cleanup dialog, focus timer + time log, settings, export/import, server sync

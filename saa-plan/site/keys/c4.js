@@ -43,7 +43,7 @@ Object.assign(window.KEYS, {
       ["Access by default", "S3 resources are private by default and ACLs are disabled by default (Object Ownership: bucket owner enforced), so access is granted with policies. In one account an allow in the identity policy or the bucket policy is enough. Across accounts both are needed."],
       ["Block Public Access", "Overrides bucket policies, access point policies and ACLs that would allow public access. Turned on for the account it covers all current and future buckets. The most restrictive of the access point, bucket and account settings applies."],
       ["Access points", "Give each application its own entry to a shared bucket. An access point is a named endpoint on a bucket with its own policy and can be limited to a VPC. A Multi-Region Access Point is one global endpoint for buckets in several Regions."],
-      ["Versioning", "Keeps what an overwrite or a delete would destroy. An overwrite becomes a new version and a delete becomes a delete marker."],
+      ["Versioning", "Protects objects from overwrites and accidental deletes. An overwrite becomes a new version and a delete becomes a delete marker, so the earlier versions stay."],
       ["Object Lock", "Adds WORM (write once, read many) retention and needs versioning. Governance mode can be bypassed with a special permission. Compliance mode can be bypassed by no user, not even the root user."],
       ["Replication", "Live replication needs versioning on both buckets, is asynchronous and copies only objects written after it is set up. S3 Batch Replication handles existing ones. Deleting a specific object version is never replicated, and delete markers are not by default."]
     ],

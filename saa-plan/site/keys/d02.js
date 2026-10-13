@@ -1,4 +1,4 @@
-// Key points per plan step for Day 2. Data only. Keys are plan item ids from plan.js.
+// Key points for the plan steps whose id starts with d2 (kept from the 14-day plan; the number is not the day they sit on now). Data only. Keys are plan item ids from plan.js.
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
 
@@ -85,7 +85,7 @@ Object.assign(window.KEYS, {
 
   d2c1: {
     why: "A network needs two kinds of control: which traffic may reach one instance, and which traffic may enter a whole subnet. Security groups do the first. Network ACLs do the second, as an additional layer of defense. The exam names a need, such as blocking one IP address, and you pick the one that can do it.",
-    trap: "Deleting a security group's outbound rules does not break replies to allowed inbound requests; the same change on a NACL does. A NACL deny works only with a lower rule number than the allow it must beat, and a NACL cannot reference a security group.",
+    trap: "Deleting a security group's outbound rules does not break replies to allowed inbound requests. The same change on a NACL does. A NACL deny works only with a lower rule number than the allow it must beat, and a NACL cannot reference a security group.",
     docs: [
       ["Compare security groups and network ACLs", "https://docs.aws.amazon.com/vpc/latest/userguide/infrastructure-security.html"],
       ["Security group rules", "https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html"],

@@ -56,7 +56,7 @@ Object.assign(window.KEYS, {
   c1d: {
     why: "Some of your servers must be reachable from the internet and others must never be. Amazon VPC gives you a logically isolated virtual network that you define yourself, much like the network in your own data center. Subnets, route tables and firewalls are the tools for drawing those lines.",
     k: [
-      ["VPC and subnets", "A VPC can span the Availability Zones of its Region. Each subnet sits entirely in one AZ. The VPC's IPv4 range is between /16 and /28; pick one that overlaps no VPC you will peer with."],
+      ["VPC and subnets", "A VPC can span the Availability Zones of its Region. Each subnet sits entirely in one AZ. The VPC's IPv4 range is between /16 and /28. Pick one that overlaps no VPC you will peer with."],
       ["Public or private", "A subnet is public when its route table has a route to an internet gateway, and private when it has none. To be reached from the internet over IPv4, an instance needs that route and a public IPv4 address."],
       ["Internet gateway", "Connects a VPC to the internet. It is horizontally scaled, redundant and highly available, so it needs no standby."],
       ["NAT gateway", "Lets instances in a private subnet connect out, while external services cannot start a connection to them."],

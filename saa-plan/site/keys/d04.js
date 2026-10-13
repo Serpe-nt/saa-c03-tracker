@@ -1,4 +1,4 @@
-// Key points per plan step for Day 4. Data only. Keys are plan item ids from plan.js.
+// Key points for the plan steps whose id starts with d4 (kept from the 14-day plan; the number is not the day they sit on now). Data only. Keys are plan item ids from plan.js.
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
   d4s2: {

@@ -59,9 +59,9 @@ The owner asked for this in their own words: "When explaining a concept, tool, i
 - Cover what the bank's questions on the step's topics decide on: read the questions tagged with the step's `STEP_TAGS` first.
 - The same topic returns on several days (a Fundamentals lecture, a lab, a design course, an Exam Prep review). Build on what the earlier step's points say instead of repeating them: basics first, trade-offs and decision rules later.
 - By step type:
-  - **Watch** (lecture chunks, reading steps) and Exam Prep **task statements**: 3–5 points and a trap. A "putting it all together" chunk gets points on how the pieces fit and which requirement decides each choice.
+  - **Watch** (lecture chunks, reading steps) and Exam Prep **task statements**: 3–6 points and a trap. A "putting it all together" chunk gets points on how the pieces fit and which requirement decides each choice.
   - **Play** and **Build**: 2–4 points on what to notice while doing it.
-  - **Self-check**: the model answer is in `CARDS`, so give only the trap and docs; add a point only for something the quiz tests that the card lacks.
+  - **Self-check**: the model answer is in `CARDS`, so the entry gives the `why`, the trap and docs; add a point only for something the quiz tests that the card lacks.
   - **Setup** and admin steps: an entry only for a real exam fact, a cost fact or a safety tip.
 - Don't repeat the step's own note from plan.js.
 - No volatile numbers (prices, most quotas). Stable limits that decide exam answers are fine.
@@ -76,6 +76,15 @@ node tools/links.mjs     # needs network; a redirect counts as broken (docs.aws.
 ```
 
 ## Verification status (as of 2026-10-13)
+
+### The purpose-first rewrite (2026-10-13)
+
+The owner found the cards hard to follow and asked that every explanation start with the problem the thing was made to solve. All 175 entries were restructured: a `why` first, the points as `[label, text]` (627 in all), sentences shortened to an average of 13 words. The 32 model answers in `CARDS` now open with a Why line and close with a Pick line. Three entries were written as the pattern (`c1d`, `d2b1`, `d2c1`); three sessions did the rest, one group of files each.
+
+- **It was a restructuring, not new research.** The facts in the points and traps are the ones checked earlier (below); the sessions were told not to look them up again, to keep each fact's meaning and to drop nothing an exam question turns on. Session C reports no fact left out; thirteen domain-review entries sit at the six-point limit and a few of their points still hold two ideas.
+- **New factual claims** are almost all in a `why`, and each was found on a page the entry already cites (ten pages fetched in all): listed with their URLs in `docs/verification/why-b.md` and `why-c.md`. Session A added none: where it carried a fact from one entry to another, `why-a.md` says from where.
+- **Framing sentences** (what goes wrong without the thing, a comparison with your own data center, study technique) have no AWS source by nature. The ones their writers were less than sure of are listed in each log under "Framing sentences".
+- No second read was done on this pass, to keep it cheap. `data.test.mjs` checks the shape of every entry and that none lacks its `why`.
 
 ### Steps new with the 21-day plan
 
