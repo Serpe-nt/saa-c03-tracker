@@ -7,6 +7,7 @@ window.LINKS = {
   sb:      { label: "Skill Builder",      url: "https://skillbuilder.aws/" },
   ess:     { label: "Essentials",         url: "https://skillbuilder.aws/learn/94T2BEN85A/aws-cloud-practitioner-essentials/8D79F3AVR7" },
   cq:      { label: "Cloud Quest",        url: "https://skillbuilder.aws/learn/FU5WCYVGKY/aws-cloud-quest-cloud-practitioner/JF9TKU68GT" },
+  epp:     { label: "Exam Prep Plan",     url: "https://skillbuilder.aws/learning-plan/UYRXS2DF85/exam-prep-plan-aws-certified-solutions-architect--associate-saac03--english/U991QUF9C3" },
   console: { label: "AWS Console",        url: "https://console.aws.amazon.com/" },
   calc:    { label: "Pricing Calculator", url: "https://calculator.aws/" },
   cert:    { label: "aws.training",       url: "https://aws.training/" },
@@ -26,6 +27,10 @@ window.PLAN = [
 {id:"d1", day:1, title:"Create your AWS account + compute basics",
  goal:"Morning: set up ③ your own AWS account safely (~1 h). Rest of the day: videos + first Cloud Quest assignments.",
  groups:[
+ {t:"setup", label:"Setup: enroll on Skill Builder", where:"skillbuilder.aws → sign in with your AWS Builder ID → open each course → Enroll", link:"sb", min:10, items:[
+  ["d1e1","Enroll in <a href=\"https://skillbuilder.aws/learn/94T2BEN85A/aws-cloud-practitioner-essentials/8D79F3AVR7\" target=\"_blank\" rel=\"noopener\"><b>AWS Cloud Practitioner Essentials</b></a>.","Free. 13 modules, about 12 h 45 min at normal speed; you watch most of it in week 1. Skill Builder announces a new format for this course on 23 October 2026 and warns that progress on a course in flight may be reset, so finish it in week 1 as planned."],
+  ["d1e2","Enroll in <a href=\"https://skillbuilder.aws/learn/FU5WCYVGKY/aws-cloud-quest-cloud-practitioner/JF9TKU68GT\" target=\"_blank\" rel=\"noopener\"><b>AWS Cloud Quest: Cloud Practitioner</b></a>.","Free. 12 hands-on assignments, about 12 h. Each one opens a temporary AWS sandbox."],
+  ["d1e3","Enroll in the learning plan <a href=\"https://skillbuilder.aws/learning-plan/UYRXS2DF85/exam-prep-plan-aws-certified-solutions-architect--associate-saac03--english/U991QUF9C3\" target=\"_blank\" rel=\"noopener\"><b>Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)</b></a>.","18 trainings. Free: the two overviews, the Official Practice Question Set and the four Domain Reviews. Domain Practice, the SimuLearn labs and the Official Practice Exam need the subscription you buy on Day 8."]]},
  {t:"setup", label:"Setup: create the account", where:"aws.amazon.com (public website, not Skill Builder)", link:"signup", min:20, items:[
   ["d1a1","Open <b>aws.amazon.com</b> → click <b>Create an AWS Account</b>.","Use your normal email. Account name: anything, e.g. <code>stepan-lab</code>. AWS is rolling out a new sign-up to some customers (a Google, GitHub, Apple or Amazon login, with \"projects\" and \"AWS Settings\"). If you get that one, follow its screens: you then have a personal login from the start, and the admin-user block below does not apply."],
   ["d1a2","Choose the <b>Free plan</b> when asked.","Gives credits (currently $100, plus up to $100 more for onboarding tasks) for up to 6 months. You aren't charged while the account stays on the Free plan. Creating or joining an AWS Organization upgrades it to the Paid plan automatically, which is why this plan never enables AWS Organizations or IAM Identity Center in your account."],
@@ -107,7 +112,7 @@ window.PLAN = [
  goal:"Domain 1 is 30% of the exam. IAM must become second nature.",
  groups:[
  {t:"watch", label:"Watch", where:SB, link:"ess", min:40, items:[
-  ["d4w1","<b>Module 9: Security</b>","Shared responsibility, IAM, Organizations and SCPs, KMS, WAF, Shield, GuardDuty, Inspector."]]},
+  ["d4w1","<b>Module 9: Security</b>","Lessons: Preventing Unauthorized Access, Protecting Networks and Applications, Protecting Data, Detecting and Responding to Security Incidents."]]},
  {t:"play", label:"Play", where:CQ, link:"cq", min:50, items:[
   ["d4p1","<b>Core Security Concepts</b>","IAM users, groups, roles; least privilege for EC2 and RDS."]]},
  {t:"setup", label:"Setup: AWS CLI on your PC", where:"Your terminal", min:20, items:[
@@ -150,12 +155,12 @@ window.PLAN = [
  goal:"The remaining Essentials modules that matter for SAA.",
  groups:[
  {t:"watch", label:"Watch", where:SB, link:"ess", min:120, items:[
-  ["d6w1","<b>Module 8: AI/ML and Data Analytics</b> — data analytics lessons only","Kinesis, Athena, Glue, EMR, Redshift. Skip the AI/ML part."],
-  ["d6w2","<b>Module 10: Monitoring, Compliance, and Governance in the AWS Cloud</b>","CloudWatch, CloudTrail, Config, Trusted Advisor, Control Tower."],
-  ["d6w3","<b>Module 11: Pricing and Support</b> — pricing lessons only","Skip support plans."],
-  ["d6w4","<b>Module 12: Migrating to the AWS Cloud</b> — only DataSync, Snow Family, DMS","Skip the rest."],
+  ["d6w1","<b>Module 8: AI ML and Data Analytics</b> — only the part \"Data analytics on AWS\"","Lessons Introduction to Data Analytics and Data Pipelines on AWS. Skip the AI/ML lessons."],
+  ["d6w2","<b>Module 10: Monitoring, Compliance and Governance in the AWS Cloud</b>","Lessons: Amazon CloudWatch, AWS CloudTrail, Compliance, Auditing AWS Resources for Compliance, AWS Organizations, Governance, AWS Health, AWS Trusted Advisor."],
+  ["d6w3","<b>Module 11: Pricing and Support</b> — pricing lessons only","Lessons AWS Pricing Concepts, AWS Pricing and Billing Services and Cost Optimization. Skip AWS Support Plans and AWS Marketplace and AWS Partners."],
+  ["d6w4","<b>Module 12: Migrating to the AWS Cloud</b> — only Database Migrations, Transferring Data Online and Transferring Data Offline","Skip the rest of the module."],
   ["d6w5","<b>Module 13: Well-Architected Solutions</b>","Don't skip — SAA uses the pillars."],
-  ["d6w6","Skip the course's final assessment.","It tests Cloud Practitioner, not SAA. Mark it complete to confirm you skipped it."]]},
+  ["d6w6","The assessment at the end of each module is optional.","It tests Cloud Practitioner level, not SAA. Mark this complete when you are done with the course."]]},
  {t:"play", label:"Play", where:CQ, link:"cq", min:40, items:[
   ["d6p1","<b>Cloud Economics</b>","AWS Pricing Calculator."]]},
  {t:"build", label:"Build", where:OWN, link:"own", min:60, items:[
@@ -173,12 +178,11 @@ window.PLAN = [
  goal:"First contact with real exam-style questions. A low score is expected and fine. Log it in 📊 Scores.",
  notesHint:"Your 3 weakest topics from the question set…",
  groups:[
- {t:"prep", label:"Exam Prep Plan, step 1 (free)", where:EPP, link:"sb", min:120, items:[
-  ["d7e1","<b>Introduction to AWS Certified Solutions Architect – Associate (SAA-C03)</b>"],
-  ["d7e2","<b>Overview: AWS Certified Solutions Architect – Associate (SAA-C03)</b>"],
-  ["d7e3","<b>Exam guide: AWS Certified Solutions Architect – Associate (SAA-C03)</b>","Read it fully, including the list of in-scope services."],
-  ["d7e4","<b>AWS Certified Solutions Architect - Associate Official Practice Question Set (SAA-C03 - English)</b>","20 questions. Read every explanation, right or wrong. Enter your score below."],
-  ["d7e5","<b>AWS Certified Solutions Architect - Associate Sample Questions (SAA-C03 - English)</b>"],
+ {t:"prep", label:"Exam Prep Plan, step 1 (free)", where:EPP, link:"epp", min:120, items:[
+  ["d7e1","<b>Exam Prep Plan Overview</b>","15 minutes: the four steps of the plan and how much time to spend on each."],
+  ["d7e2","<b>Exam Prep Overview</b>","20 minutes: the scope of the exam, its audience and its topics."],
+  ["d7e3","Read the <a href=\"https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html\" target=\"_blank\" rel=\"noopener\"><b>SAA-C03 exam guide</b></a> on docs.aws.amazon.com.","Read it fully, including the list of in-scope services. It is a document, not one of the plan's trainings."],
+  ["d7e4","<b>Official Practice Question Set</b>","20 questions, free. Read every explanation, right or wrong. Enter your score below."],
   ["d7e6","Write down your 3 weakest topics in 📝 Day notes."]]},
  {t:"setup", label:"Housekeeping", min:60, items:[
   ["d7h1","Finish any unfinished Cloud Quest assignment. Completing all issues the <b>Cloud Quest: Cloud Practitioner</b> badge — accept it on <b>credly.com</b> (you'll get an email).","Free extra line for your CV and LinkedIn."],
@@ -189,18 +193,18 @@ window.PLAN = [
 {week: "Week 2 — Exam Prep Plan, one domain per day"},
 
 {id:"d8", day:8, title:"Domain 1: Design Secure Architectures (30%)",
- goal:"Week 2 needs the subscription: bonus questions, flashcards, labs and the Official Practice Exam are paid content.",
+ goal:"The Domain Reviews are free. Domain Practice (exam-style questions and flashcards), the SimuLearn labs and the Official Practice Exam need the subscription.",
  groups:[
  {t:"setup", label:"Setup", where:"① Skill Builder → top menu → Subscriptions", link:"sb", min:10, items:[
   ["d8s1","<b>Buy one month</b> of the Individual subscription.","Turn off auto-renew right after buying so it doesn't roll into a second month."]]},
- {t:"prep", label:"Exam Prep Plan", where:EPP, link:"sb", min:300, items:[
-  ["d8e1","<b>Domain 1 introduction</b>"],
-  ["d8e2","<b>Task 1.1: Design secure access to AWS resources</b> — review + walkthrough questions"],
-  ["d8e3","<b>Task 1.2: Design secure workloads and applications</b> — review + walkthrough questions"],
-  ["d8e4","<b>Task 1.3: Determine appropriate data security controls</b> — review + walkthrough questions"],
-  ["d8e5","Domain 1 bonus questions","Log your % below."],
-  ["d8e6","Domain 1 flashcards"],
-  ["d8e7","Domain 1 lab(s)","These labs also run in a temporary sandbox, not your account."]]},
+ {t:"prep", label:"Exam Prep Plan", where:EPP, link:"epp", min:300, items:[
+  ["d8e1","<b>Domain 1 Review</b> → Domain 1 Introduction"],
+  ["d8e2","<b>Domain 1 Review</b> → Design secure access to AWS resources","Task statement 1.1."],
+  ["d8e3","<b>Domain 1 Review</b> → Design secure workloads and applications","Task statement 1.2."],
+  ["d8e4","<b>Domain 1 Review</b> → Determine appropriate data security controls","Task statement 1.3."],
+  ["d8e5","<b>Domain 1 Practice</b>: the exam-style questions","Needs the subscription. Log your % below."],
+  ["d8e6","<b>Domain 1 Practice</b>: the flashcards"],
+  ["d8e7","<b>Domain 1 Practice: AWS SimuLearn</b>","A one-hour guided lab in a temporary sandbox, not your account. Needs the subscription."]]},
  {t:"build", label:"Build with Terraform", where:OWN+" Run Terraform from your PC with <code>AWS_PROFILE=lab</code>.", link:"own", min:120, items:[
   ["d8b1","Rebuild the Day 2 VPC in Terraform + an S3 gateway endpoint + SSM interface endpoints. Push to a public GitHub repo.","<code>terraform destroy</code> at the end of the day. If Terraform can't read the <code>lab</code> profile, add a second profile whose only setting is <code>credential_process = aws configure export-credentials --profile lab --format process</code> and use that one."]]},
  {t:"check", label:"Self-check", min:20, items:[
@@ -212,13 +216,13 @@ window.PLAN = [
 {id:"d9", day:9, title:"Domain 2: Design Resilient Architectures (26%)",
  goal:"Decoupling and disaster recovery.",
  groups:[
- {t:"prep", label:"Exam Prep Plan", where:EPP, link:"sb", min:240, items:[
-  ["d9e1","<b>Domain 2 introduction</b>"],
-  ["d9e2","<b>Task 2.1: Design scalable and loosely coupled architectures</b> — review + walkthrough questions"],
-  ["d9e3","<b>Task 2.2: Design highly available and/or fault-tolerant architectures</b> — review + walkthrough questions"],
-  ["d9e4","Domain 2 bonus questions","Log your % below."],
-  ["d9e5","Domain 2 flashcards"],
-  ["d9e6","Domain 2 lab(s)"]]},
+ {t:"prep", label:"Exam Prep Plan", where:EPP, link:"epp", min:240, items:[
+  ["d9e1","<b>Domain 2 Review</b> → Domain 2 Introduction"],
+  ["d9e2","<b>Domain 2 Review</b> → Design scalable and loosely coupled architectures","Task statement 2.1."],
+  ["d9e3","<b>Domain 2 Review</b> → Design highly available and/or fault-tolerant architectures","Task statement 2.2."],
+  ["d9e4","<b>Domain 2 Practice</b>: the exam-style questions","Needs the subscription. Log your % below."],
+  ["d9e5","<b>Domain 2 Practice</b>: the flashcards"],
+  ["d9e6","<b>Domain 2 Practice: AWS SimuLearn</b>","A one-hour guided lab in a temporary sandbox, not your account. Needs the subscription."]]},
  {t:"build", label:"Build with Terraform", where:OWN, link:"own", min:150, items:[
   ["d9b1","SQS queue + dead-letter queue → Lambda consumer written in Go (<code>provided.al2023</code> runtime)."],
   ["d9b2","SNS topic fanning out to two SQS queues."],
@@ -233,16 +237,16 @@ window.PLAN = [
 {id:"d10", day:10, title:"Domain 3: Design High-Performing Architectures (24%)",
  goal:"Largest number of services — pace yourself.",
  groups:[
- {t:"prep", label:"Exam Prep Plan", where:EPP, link:"sb", min:330, items:[
-  ["d10e1","<b>Domain 3 introduction</b>"],
-  ["d10e2","<b>Task 3.1: Determine high-performing and/or scalable storage solutions</b>"],
-  ["d10e3","<b>Task 3.2: Design high-performing and elastic compute solutions</b>"],
-  ["d10e4","<b>Task 3.3: Determine high-performing database solutions</b>"],
-  ["d10e5","<b>Task 3.4: Determine high-performing and/or scalable network architectures</b>"],
-  ["d10e6","<b>Task 3.5: Determine high-performing data ingestion and transformation solutions</b>"],
-  ["d10e7","Domain 3 bonus questions","Log your % below."],
-  ["d10e8","Domain 3 flashcards"],
-  ["d10e9","Domain 3 lab(s)"]]},
+ {t:"prep", label:"Exam Prep Plan", where:EPP, link:"epp", min:330, items:[
+  ["d10e1","<b>Domain 3 Review</b> → Domain 3 Introduction"],
+  ["d10e2","<b>Domain 3 Review</b> → Determine high-performing and/or scalable storage solutions","Task statement 3.1."],
+  ["d10e3","<b>Domain 3 Review</b> → Design high-performing and elastic compute solutions","Task statement 3.2."],
+  ["d10e4","<b>Domain 3 Review</b> → Determine high-performing database solutions","Task statement 3.3."],
+  ["d10e5","<b>Domain 3 Review</b> → Determine high-performing and/or scalable network architecture","Task statement 3.4."],
+  ["d10e6","<b>Domain 3 Review</b> → Determine high-performing data ingestion and transformation solutions","Task statement 3.5."],
+  ["d10e7","<b>Domain 3 Practice</b>: the exam-style questions","Needs the subscription. Log your % below."],
+  ["d10e8","<b>Domain 3 Practice</b>: the flashcards"],
+  ["d10e9","<b>Domain 3 Practice: AWS SimuLearn</b>","A one-hour guided lab in a temporary sandbox, not your account. Needs the subscription."]]},
  {t:"build", label:"Build with Terraform", where:OWN, link:"own", min:120, items:[
   ["d10b1","Private S3 bucket served through CloudFront with Origin Access Control."],
   ["d10b2","API Gateway → Lambda (Go) → DynamoDB minimal API. <code>terraform destroy</code> when done."]]},
@@ -257,15 +261,15 @@ window.PLAN = [
  decision:"d11p2",
  notesHint:"Practice exam score, weakest domain, decision…",
  groups:[
- {t:"prep", label:"Exam Prep Plan", where:EPP, link:"sb", min:200, items:[
-  ["d11e1","<b>Domain 4 introduction</b>"],
-  ["d11e2","<b>Task 4.1: Design cost-optimized storage solutions</b>"],
-  ["d11e3","<b>Task 4.2: Design cost-optimized compute solutions</b>"],
-  ["d11e4","<b>Task 4.3: Design cost-optimized database solutions</b>"],
-  ["d11e5","<b>Task 4.4: Design cost-optimized network architectures</b>"],
-  ["d11e6","Domain 4 bonus questions + flashcards","Log your % below."]]},
- {t:"prep", label:"Checkpoint", where:EPP, link:"sb", min:150, items:[
-  ["d11p1","<b>AWS Certified Solutions Architect – Associate Official Practice Exam (SAA-C03 - English)</b>","Timed, 130 minutes, no notes, in one sitting. Enter the scaled score below."],
+ {t:"prep", label:"Exam Prep Plan", where:EPP, link:"epp", min:200, items:[
+  ["d11e1","<b>Domain 4 Review</b> → Domain 4 Introduction"],
+  ["d11e2","<b>Domain 4 Review</b> → Design cost-optimized storage solutions","Task statement 4.1."],
+  ["d11e3","<b>Domain 4 Review</b> → Design cost-optimized compute solutions","Task statement 4.2."],
+  ["d11e4","<b>Domain 4 Review</b> → Design cost-optimized database solutions","Task statement 4.3."],
+  ["d11e5","<b>Domain 4 Review</b> → Design cost-optimized network architectures","Task statement 4.4."],
+  ["d11e6","<b>Domain 4 Practice</b>: the exam-style questions and the flashcards","Needs the subscription. Log your % below. The Domain 4 SimuLearn lab is optional today."]]},
+ {t:"prep", label:"Checkpoint", where:EPP, link:"epp", min:150, items:[
+  ["d11p1","<b>Official Practice Exam</b>","65 questions, 130 minutes, scored like the real exam. No notes, in one sitting. Needs the subscription. Enter the scaled score below."],
   ["d11p2","<b>Decision</b> — see the verdict below.","The real exam's pass mark is 720 (scaled)."]]},
  {t:"setup", label:"Book the exam (if GO)", where:"④ aws.training → Certification → AWS Certification Account → Pearson VUE", link:"cert", min:15, items:[
   ["d11b1","<b>Schedule New Exam</b> → AWS Certified Solutions Architect – Associate → <b>Schedule at Pearson VUE</b> → online or test centre → Day 14 → pay.","Reschedule (at most twice per appointment) or cancel free up to 24 h before. After a fail you must wait 14 days to retake."]]},
@@ -279,19 +283,19 @@ window.PLAN = [
  goal:"Turn wrong answers into understanding.",
  notesHint:"For each wrong answer: why the right one is right, why each wrong one is wrong…",
  groups:[
- {t:"prep", label:"Review", where:EPP, link:"sb", min:360, items:[
+ {t:"prep", label:"Review", where:EPP, link:"epp", min:360, items:[
   ["d12e1","Go through every wrong practice-exam answer: write why each wrong option is wrong."],
   ["d12e2","Re-watch the task statement reviews for your weakest domain (see 📊 Scores)."],
   ["d12e3","Rebuild your weakest topic in ③ your own account."],
-  ["d12e4","<b>AWS Certified Solutions Architect – Associate Bonus Questions (SAA-C03)</b> — finish any remaining."]]}
+  ["d12e4","<b>Domain 1–4 Practice</b>: finish any questions you have left."]]}
 ]},
 
 {id:"d13", day:13, title:"Final pass + logistics", tools:["weak"],
  goal:"Consolidate. No new topics.",
  groups:[
- {t:"prep", label:"Final pass", where:EPP, link:"sb", min:240, items:[
-  ["d13e1","Full flashcard deck; re-do the ones you miss."],
-  ["d13e2","Re-do the Official Practice Question Set + Sample Questions (aim 85%+).","Log the retake below."],
+ {t:"prep", label:"Final pass", where:EPP, link:"epp", min:240, items:[
+  ["d13e1","All flashcards in the four Domain Practice trainings; re-do the ones you miss."],
+  ["d13e2","Re-do the <b>Official Practice Question Set</b> (aim 85%+).","The same 20 questions in a different order. Log the retake below."],
   ["d13e3","Re-read the exam guide task statements; tick only the ones you can explain out loud."]]},
  {t:"setup", label:"Logistics", min:30, items:[
   ["d13l1","ID ready, name matching your certification account: one government-issued photo ID for an online exam, two IDs for a test centre.","Test centre: two primary IDs, or one primary and one secondary. If online: run Pearson VUE's system test on the exam computer; clear desk and room; webcam works."],
@@ -381,7 +385,7 @@ window.GLOSSARY = {
   "Glue": "Serverless ETL plus the Data Catalog (table metadata used by Athena and others).",
   "EMR": "Managed Hadoop/Spark clusters for big-data processing.",
   "Redshift": "Data warehouse — columnar SQL analytics over large datasets.",
-  "Savings Plans": "1- or 3-year $/hour spend commitment for cheaper compute. Compute Savings Plans are the most flexible.",
+  "Savings Plans": "$/hour spend commitment for lower rates: 1 or 3 years for compute, 1 year for databases. Compute Savings Plans are the most flexible for compute.",
   "Spot": "Spare EC2 capacity at up to ~90% off; can be reclaimed with a 2-minute warning.",
   "Transit Gateway": "Hub router connecting many VPCs and on-prem networks; transitive, unlike peering.",
   "VPC peering": "Private link between two VPCs. Non-transitive; IP ranges must not overlap.",

@@ -7,7 +7,7 @@ Object.assign(window.KEYS, {
       "AWS Glue is serverless data integration. A crawler infers schemas and writes tables to the Glue Data Catalog, which Athena uses for its table metadata, and Glue ETL jobs run Apache Spark with no cluster to manage.",
       "Amazon EMR is a managed cluster platform for Hadoop and Spark. Choose it when existing jobs or custom framework settings must be kept. Task nodes hold no HDFS data, which makes them the natural place for Spot capacity.",
       "Amazon Redshift is the petabyte-scale data warehouse for complex SQL across large structured data sets. Redshift Serverless removes capacity management, and Redshift Spectrum queries files in S3 without loading them.",
-      "Kinesis Data Streams keeps records (24 hours by default, up to 365 days) so that several consumers can read and replay them. Amazon Data Firehose only delivers, to S3, Redshift, OpenSearch or Splunk, and can convert JSON to Parquet on the way."
+      "Kinesis Data Streams keeps records (24 hours by default, up to 365 days) so that several consumers can read and replay them. Amazon Data Firehose only delivers, for example to S3, Redshift, OpenSearch or Splunk, and can convert JSON to Parquet on the way."
     ],
     trap: "A few ad hoc SQL queries on files in S3 is Athena, not a warehouse or cluster you must size and run. Business dashboards are Amazon Quick Sight, which the exam guide lists under Amazon Quick; CloudWatch dashboards show operational metrics.",
     docs: [
@@ -19,13 +19,13 @@ Object.assign(window.KEYS, {
 
   d6w2: {
     k: [
-      "EC2 reports its own metrics (CPU, network, disk I/O, status checks) every 5 minutes; detailed monitoring makes that 1 minute and adds no new metrics. Memory and disk-space use are measured inside the OS, so they need the CloudWatch agent.",
+      "EC2 sends CPU, network and disk I/O metrics in 5-minute periods and status check metrics in 1-minute periods; detailed monitoring shortens the 5 minutes to 1 minute. Memory and disk-space use are measured inside the OS, so they need the CloudWatch agent.",
       "To alert on log text, add a metric filter to the log group, alarm on the resulting metric and notify an SNS topic. A composite alarm fires only when its rule over other alarms is met, which cuts noise. Log groups keep data forever until you set retention.",
       "CloudTrail trails log management events by default. Object-level S3 calls and Lambda invocations are data events that you must switch on. An organization trail covers every account, and member accounts cannot stop or change it.",
       "Detect or prevent? AWS Config rules flag noncompliant resources after the change and can remediate through Systems Manager Automation; an aggregator shows compliance across accounts and Regions. Blocking the call itself takes an SCP or IAM policy.",
-      "Control Tower builds a multi-account landing zone on AWS Organizations. Its preventive controls are Organizations policies such as SCPs; its detective controls are Config rules. Trusted Advisor checks cost, security, fault tolerance and service limits."
+      "Control Tower builds a multi-account landing zone on Organizations: preventive controls are policies such as SCPs, detective ones are Config rules. Trusted Advisor checks cost, performance, security, fault tolerance, service limits and operational excellence."
     ],
-    trap: "Event history always covers the last 90 days of management events; longer retention or S3 object-level calls need a trail. CloudTrail Insights flags unusual API call and error rates. Proof that log files were not altered is log file integrity validation.",
+    trap: "Event history shows only the last 90 days of management events; longer retention or S3 object-level calls need a trail. CloudTrail Insights flags unusual API call and error rates. Proof that log files were not altered is log file integrity validation.",
     docs: [
       ["CloudTrail concepts", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.html"],
       ["Collect metrics, logs, and traces using the CloudWatch agent", "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Install-CloudWatch-Agent.html"],
@@ -53,8 +53,8 @@ Object.assign(window.KEYS, {
     k: [
       "DataSync is the online transfer service for files and objects. An agent reads NFS, SMB, HDFS or object storage on premises and copies to S3, EFS or FSx, with encryption in transit, integrity validation, incremental transfers and an optional bandwidth limit.",
       "AWS DMS migrates a database while the source stays in use. A full load copies the existing data, then change data capture (CDC) keeps the target in sync until a short cutover.",
-      "The same engine on both sides needs only DMS. A different target engine (for example Oracle to Aurora PostgreSQL) first needs the schema and code converted with DMS Schema Conversion or the AWS Schema Conversion Tool.",
-      "Snow Family status: new customers can no longer order Snow devices, and AWS ends support for Snowball in commercial Regions on 31 December 2026. AWS points to DataSync for online transfer and Data Transfer Terminal for physical upload.",
+      "With the same engine on both sides no schema conversion is needed. A different target engine (for example Oracle to Aurora PostgreSQL) first needs the schema and code converted with DMS Schema Conversion or the AWS Schema Conversion Tool.",
+      "Snow Family status: new customers can no longer order devices, and Snowball support ends in commercial Regions on 31 December 2026. AWS points to DataSync for online transfer; Data Transfer Terminal (physical upload) is for Enterprise Support customers only.",
       "The exam guide still lists AWS Snow Family as in scope, so know the idea it stood for: when the data is too large to send over the available link before the deadline, it travels offline on a physical device instead."
     ],
     trap: "DataSync moves files and objects, DMS moves databases, and S3 File Gateway gives on-premises applications ongoing NFS or SMB access to S3. A stem that says migrate plus NFS or SMB share wants DataSync, not DMS and not a gateway.",
@@ -67,7 +67,7 @@ Object.assign(window.KEYS, {
 
   d6w5: {
     k: [
-      "SAA-C03 is built on this framework: the exam guide says the exam validates designing solutions based on the Well-Architected Framework, and its four domains (secure, resilient, high-performing, cost-optimized) mirror four of the six pillars.",
+      "SAA-C03 is built on this framework: the exam guide says the exam validates designing solutions based on the Well-Architected Framework, and its four domains are secure, resilient, high-performing and cost-optimized architectures. The framework has six pillars.",
       "Match a practice to its pillar by the design principles. Operational excellence: frequent, small, reversible changes and learning from operational events. Reliability: automatic recovery from failure, tested recovery procedures, horizontal scaling.",
       "Performance efficiency: go global in minutes, use serverless architectures, experiment more often. Cost optimization: adopt a consumption model, analyze and attribute expenditure. Security: strong identity foundation, traceability, keep people away from data.",
       "Sustainability, the sixth pillar, is about environmental impact: understand your impact, maximize utilization, and adopt more efficient hardware and managed services.",
@@ -76,13 +76,14 @@ Object.assign(window.KEYS, {
     trap: "One practice can sound like two pillars, so decide by the stated goal: switching off idle servers to cut the bill is cost optimization, to cut emissions is sustainability. The Well-Architected Tool asks you questions; Trusted Advisor scans the account.",
     docs: [
       ["The pillars of the framework", "https://docs.aws.amazon.com/wellarchitected/latest/framework/the-pillars-of-the-framework.html"],
-      ["What is AWS Well-Architected?", "https://docs.aws.amazon.com/wellarchitected/latest/userguide/well-architected.html"]
+      ["What is AWS Well-Architected?", "https://docs.aws.amazon.com/wellarchitected/latest/userguide/well-architected.html"],
+      ["Exam guide: AWS Certified Solutions Architect - Associate (SAA-C03)", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html"]
     ]
   },
 
   d6p1: {
     k: [
-      "AWS Pricing Calculator is a free web tool that prices a design before anything is built. It creates no resources, shows the calculation behind each figure, and an estimate can be saved as a shareable link or exported as CSV or PDF.",
+      "AWS Pricing Calculator is a free web tool that prices a design before anything is built. It needs no AWS account, shows the calculation behind each figure, and an estimate can be saved as a shareable link or exported as CSV or PDF.",
       "Watch which inputs move the total: the hours of compute and the pricing model chosen for them, the amount of storage, and the data transferred out. Those are the three basic AWS cost drivers.",
       "An estimate is a plan, not a bill. Actual spend shows up afterwards in Cost Explorer and on the bill, and Budgets warns you when it drifts from the plan."
     ],
@@ -94,15 +95,15 @@ Object.assign(window.KEYS, {
 
   d6b1: {
     k: [
-      "SNS is push-based publish/subscribe. A publisher sends one message to a topic and every subscription gets its own copy. Subscribers can be SQS queues, Lambda functions, HTTP(S) endpoints, email addresses or mobile push.",
-      "An email subscription receives nothing until the recipient confirms it from the email that SNS sends. An alarm that seems silent is often a subscription still pending confirmation.",
+      "SNS is push-based publish/subscribe. A publisher sends one message to a topic and every subscription gets its own copy. Subscribers include SQS queues, Lambda functions, HTTP(S) endpoints, email addresses and mobile push.",
+      "An email subscription receives nothing until the recipient confirms it from the email that SNS sends. If an alarm seems silent, check first whether its subscription is still pending confirmation.",
       "By default a subscriber receives every message published to the topic. A filter policy on the subscription narrows that to messages whose attributes or body match, with no change to the publisher.",
       "SNS pushes to subscribers; they cannot poll it for a backlog. When each consumer must process at its own pace, subscribe one SQS queue per consumer to the topic (fan-out)."
     ],
     docs: [
       ["What is Amazon SNS?", "https://docs.aws.amazon.com/sns/latest/dg/welcome.html"],
       ["Amazon SNS message filtering", "https://docs.aws.amazon.com/sns/latest/dg/sns-message-filtering.html"],
-      ["Fanout Amazon SNS notifications to Amazon SQS queues", "https://docs.aws.amazon.com/sns/latest/dg/sns-sqs-as-subscriber.html"]
+      ["Fanout Amazon SNS notifications to Amazon SQS queues for asynchronous processing", "https://docs.aws.amazon.com/sns/latest/dg/sns-sqs-as-subscriber.html"]
     ]
   },
 
@@ -110,7 +111,7 @@ Object.assign(window.KEYS, {
     k: [
       "A metric alarm watches one metric or math expression and has three states: <code>OK</code>, <code>ALARM</code> and <code>INSUFFICIENT_DATA</code>. A new alarm sits in <code>INSUFFICIENT_DATA</code> until enough data points have arrived.",
       "Period, evaluation periods and datapoints to alarm decide how fast it fires. With basic monitoring an EC2 data point covers 5 minutes, so the alarm reacts slowly; detailed monitoring gives 1-minute data points.",
-      "Besides notifying SNS, an alarm can stop, terminate, reboot or recover the instance. Recover works only with <code>StatusCheckFailed_System</code>: it moves the instance to new hardware and keeps its instance ID, IP addresses and EBS volumes.",
+      "Besides notifying SNS, an alarm can stop, terminate, reboot or recover the instance. Recover is for a failed system status check (<code>StatusCheckFailed_System</code>): the instance moves to new hardware and keeps its ID, IP addresses and EBS volumes.",
       "<code>CPUUtilization</code> is there without an agent. An alarm on memory or disk-space use first needs the CloudWatch agent on the instance to publish those metrics.",
       "A CloudWatch dashboard is not tied to one Region: a single dashboard can show metrics and alarms for resources spread across several Regions."
     ],
@@ -124,25 +125,27 @@ Object.assign(window.KEYS, {
   d6b3: {
     k: [
       "Event history is on by default and free to view: the last 90 days of management events, one Region at a time, filtered by a single attribute. It shows no data events such as S3 object reads.",
-      "IAM is a global service and CloudTrail records its events in US East (N. Virginia). If your Day 4 IAM actions are missing, switch the console Region to <code>us-east-1</code>. Regional services such as KMS and EC2 are listed in the Region you worked in.",
+      "Event history lists each event in the Region where it happened, so KMS and EC2 actions appear in the Region you worked in. A multi-Region trail saves the switching: it delivers events from all enabled Regions, global services included, to one S3 bucket.",
       "Open one event and find the four answers an auditor wants: who (<code>userIdentity</code>), what (<code>eventName</code>), when (<code>eventTime</code>) and from where (<code>sourceIPAddress</code>).",
-      "Event history is for looking back. For longer retention or data events create a trail that delivers to S3, and for an alert within minutes of a specific API call use an EventBridge rule that matches the CloudTrail event."
+      "Event history is for looking back. For longer retention or data events create a trail that delivers to S3, and for an alert whenever a specific API call is made use an EventBridge rule that matches the CloudTrail event."
     ],
     docs: [
       ["Working with CloudTrail event history", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/view-cloudtrail-events.html"],
-      ["CloudTrail concepts", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.html"]
+      ["CloudTrail concepts", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.html"],
+      ["CloudTrail record contents for management, data, and network activity events", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html"]
     ]
   },
 
   d6b4: {
     k: [
       "An Application Load Balancer has two charges: every hour or partial hour it exists, plus Load Balancer Capacity Units for the traffic it handles. An idle load balancer still costs the hourly part.",
-      "730 is the average number of hours in a month. Two instances running all month are 1,460 instance-hours: a steady baseline, which is what Savings Plans discount. Capacity that comes and goes with scaling suits On-Demand or Spot.",
+      "730 is the average number of hours in a month. Two instances running all month are 1,460 instance-hours: a steady baseline, which is what Savings Plans discount. Capacity that comes and goes with scaling suits On-Demand, or Spot if the work can be interrupted.",
       "Change one input at a time (pricing model, instance size, data transferred out) and note which one moves the total most. The largest lever is where cost optimization should start."
     ],
     docs: [
       ["Elastic Load Balancing pricing", "https://aws.amazon.com/elasticloadbalancing/pricing/"],
-      ["What is AWS Pricing Calculator?", "https://docs.aws.amazon.com/pricing-calculator/latest/userguide/what-is-pricing-calculator.html"]
+      ["What is AWS Pricing Calculator?", "https://docs.aws.amazon.com/pricing-calculator/latest/userguide/what-is-pricing-calculator.html"],
+      ["Calculator Assumptions", "https://aws.amazon.com/calculator/calculator-assumptions/"]
     ]
   },
 
@@ -150,7 +153,7 @@ Object.assign(window.KEYS, {
     k: [
       "Each service has its own way to centralize. A Config aggregator gives one view of configuration and compliance across accounts and Regions, an organization trail collects API logs from every account, and one CloudWatch dashboard can show several Regions."
     ],
-    trap: "Ask what the question wants to know. Who made the call is CloudTrail. What the resource looked like and whether it complied is Config. How it performed is CloudWatch. Config detects and can remediate, but only an SCP or IAM policy prevents.",
+    trap: "Ask what the question wants to know. Who made the call is CloudTrail. What the resource looked like and whether it complied is Config. How it performed is CloudWatch. Config detects and can remediate but does not prevent; blocking the call takes an SCP or IAM policy.",
     docs: [
       ["What Is AWS Config?", "https://docs.aws.amazon.com/config/latest/developerguide/WhatIsConfig.html"],
       ["What Is AWS CloudTrail?", "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html"],
@@ -168,7 +171,7 @@ Object.assign(window.KEYS, {
   },
 
   d6c3: {
-    trap: "Decide by what happens to a record after it is read. In SQS it is deleted once one worker has processed it. Kinesis Data Streams keeps it for the retention period, so several applications can read and replay it. Firehose only delivers it to a destination.",
+    trap: "Decide by what happens to a record after it is read. In SQS the worker that processes a message deletes it. Kinesis Data Streams keeps it for the retention period, so several applications can read and replay it. Firehose only delivers it to a destination.",
     docs: [
       ["What is Amazon Kinesis Data Streams?", "https://docs.aws.amazon.com/streams/latest/dev/introduction.html"],
       ["What is Amazon Data Firehose?", "https://docs.aws.amazon.com/firehose/latest/dev/what-is-this-service.html"],

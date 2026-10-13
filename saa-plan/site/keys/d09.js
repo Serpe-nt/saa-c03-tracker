@@ -18,7 +18,7 @@ Object.assign(window.KEYS, {
       "Reserved concurrency sets aside part of the account's Lambda concurrency for one function at no charge and also caps it; provisioned concurrency pre-initializes environments and costs extra. Per-customer API Gateway limits come from usage plans with API keys.",
       "Take read load off the writer before resizing it: a read replica for reporting, Aurora Auto Scaling to add and remove replicas behind the reader endpoint, API Gateway stage caching or CloudFront for repeated identical responses."
     ],
-    trap: "More capacity in front of a saturated database (longer Lambda timeout, provisioned concurrency, more instances) raises the pressure; a queue with a capped consumer relieves it. FIFO deduplication covers 5 minutes only, so later resends need an idempotent consumer.",
+    trap: "A longer Lambda timeout, provisioned concurrency or more instances add no capacity to a saturated database; a queue with a capped consumer protects it. FIFO deduplication covers 5 minutes only, so later resends need an idempotent consumer.",
     docs: [
       ["Scaling policy based on Amazon SQS", "https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-using-sqs-queue.html"],
       ["Choosing workflow type in Step Functions", "https://docs.aws.amazon.com/step-functions/latest/dg/choosing-workflow-type.html"],
@@ -31,7 +31,7 @@ Object.assign(window.KEYS, {
       "Automatic database failover comes from RDS Multi-AZ (a synchronous standby, no reads), a Multi-AZ DB cluster (two readable standbys) or an Aurora Replica that Aurora promotes. A read replica is asynchronous and promoted by you, so it is not failover.",
       "Choose the cheapest DR strategy that meets the stated RPO and RTO: hours allow backup and restore, continuous data replication with servers switched off is pilot light, a small running copy is warm standby, near zero for both needs active/active.",
       "Prefer managed replication to scripts: S3 Cross-Region Replication (versioning on both buckets, Replication Time Control for a 15-minute SLA, Batch Replication for objects older than the rule), EFS replication, Elastic Disaster Recovery for whole servers.",
-      "Failover that must not wait for DNS uses a CloudFront origin group (retries the secondary origin on chosen error codes) or Global Accelerator (two static anycast IPs, traffic follows endpoint health). Route 53 failover depends on resolvers honouring the TTL."
+      "Failover that must not wait for DNS uses a CloudFront origin group (retries the secondary origin on chosen error codes) or Global Accelerator (two static anycast IPs, traffic follows endpoint health). DNS failover waits until clients' cached answers expire."
     ],
     trap: "High availability, disaster recovery and read scaling are different asks. Backups and read replicas give no automatic failover, and an Aurora cluster with only a writer has to create a new instance when it fails, although its storage already spans several AZs.",
     docs: [
@@ -79,7 +79,7 @@ Object.assign(window.KEYS, {
   d9b3: {
     k: [
       "A scheduled rule can exist only on the default event bus and runs its cron or rate expression in UTC. AWS now labels scheduled rules legacy and recommends EventBridge Scheduler, which adds one-time schedules, time zones, retry limits and a dead-letter queue.",
-      "EventBridge may invoke the function only if the function's resource-based policy allows <code>events.amazonaws.com</code> (a Lambda permission resource in Terraform) or the target has an execution role. Without either, the rule matches and nothing runs.",
+      "EventBridge may invoke the function only if the function's resource-based policy allows <code>events.amazonaws.com</code> to call <code>lambda:InvokeFunction</code> or the target has an execution role. Without either, the rule matches and nothing runs.",
       "A rule sees only events on its own bus. Partner SaaS events arrive on a partner event bus, and another account can send to your bus only after the bus policy allows it, with a rule in the sending account that targets your bus.",
       "When a target fails, EventBridge retries for up to 24 hours and 185 attempts by default. Attach an SQS dead-letter queue to the target to keep events that still fail; errors caused by missing permissions are not retried."
     ],

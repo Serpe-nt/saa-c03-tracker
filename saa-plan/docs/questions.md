@@ -72,23 +72,30 @@ The remaining pairs at 0.38–0.40 (q01-049/q04-002, q10-013/q11-018, q04-039/q0
 
 **History.** All content was written on 2026-10-12 by AI writer agents working from this guide, and reviewed the same day by separate reviewer agents inside a cloud sandbox where aws.amazon.com and docs.aws.amazon.com were blocked. They worked from web-search snippets, and 90 late rewrites were reviewed from model knowledge only.
 
-**Second pass, against the pages themselves.** Later on 2026-10-12 the whole bank was re-checked on the owner's PC, where both sites can be fetched. Seven agent sessions each took their own files and read every entry against pages fetched from `docs.aws.amazon.com` and `aws.amazon.com` (a fact counted as confirmed only when the sentence was found in the page text). Their logs, with one line and a source URL per change, are in `docs/verification/`.
+**Two passes against the pages themselves.** Later on 2026-10-12 the whole bank was re-checked twice on the owner's PC, where both sites can be fetched. A fact counted as confirmed only when the sentence or table entry was found in the text of a fetched page.
 
-| Part | Checked | Changed | Answer keys changed | Log |
-|---|---|---|---|---|
-| `d01.js`–`d03.js` | 150 of 150 | 13 | 0 | `verification/d01-d03.md` |
-| `d04.js`–`d06.js` | 150 of 150 | 5 | 0 | `verification/d04-d06.md` |
-| `d08.js`, `d09.js` | 100 of 100 | 8 | 0 | `verification/d08-d09.md` |
-| `d10.js`, `d11.js` | 100 of 100 | 18 | 0 | `verification/d10-d11.md` |
-| `mock1.js` | 65 of 65 | 3 | 0 | `verification/mock1.md` |
-| `mock2.js` | 65 of 65 | 11 | 0 | `verification/mock2.md` |
-| `extras.js` and the glossary | 335 of 335 | 32 (11 model answers, 9 glossary terms, 9 drill items, 3 cues) | n/a | `verification/extras.md` |
+- **Pass 1:** seven agent sessions, one group of files each, read every entry against the pages and corrected what disagreed.
+- **Pass 2:** fresh sessions that had not seen their files before read everything again. Beyond re-checking each keyed answer they had four extra jobs: back every statement in a wrong option's explanation that a service cannot do something with a page, or rewrite it to what is documented; find a source for the statements pass 1 had only inferred, or reword them; apply the AWS changes found by any session to their own files (current names, no outdated absolutes); and give every question a `doc` link.
 
-All 90 formerly knowledge-only questions are covered by this pass. No answer key changed; in m2-050 the keyed option was reworded (same index) because it relied on a feature closed to new customers, and q08-003 now keys the current S3 operation and names the older one in its explanation.
+| Part | Entries | Changed in pass 1 | Changed in pass 2 | Answer keys changed | Logs in `docs/verification/` |
+|---|---|---|---|---|---|
+| `d01.js`–`d03.js` | 150 | 13 | 64 (14 only a doc link) | 0 | `d01-d03.md`, `pass2-d01-d03.md` |
+| `d04.js`–`d06.js` | 150 | 5 | 47 | 0 | `d04-d06.md`, `pass2-d04-d06.md` |
+| `d08.js`, `d09.js` | 100 | 8 | 42 (9 only a doc link) | 0 | `d08-d09.md`, `pass2-d08-d09.md` |
+| `d10.js`, `d11.js` | 100 | 18 | 44 (8 only a doc link) | 0 | `d10-d11.md`, `pass2-d10-d11.md` |
+| `mock1.js` | 65 | 3 | 38 (5 only a doc link) | 0 | `mock1.md`, `pass2-mock1.md` |
+| `mock2.js` | 65 | 11 | 29 (4 only a doc link) | 0 | `mock2.md`, `pass2-mock2.md` |
+| `extras.js` and the glossary | 335 | 32 | 22 (8 model answers, 1 glossary term, 11 drill items, 2 cues) | n/a | `extras.md`, `pass2-extras.md` |
 
-What this pass was: one read by an AI agent per file, on one day. It was not a review by a human AWS expert, and most entries had no second, independent read.
+No answer key changed in either pass. Stems changed: q02-005 (a wrong option had become a second defensible answer) and one word in q04-036. Option texts reworded without changing their meaning: q10-018, q10-034, m1-042 (service name) and the keyed option of m2-050 (it relied on a feature closed to new customers). q08-003 keys the current S3 operation and its explanation describes the older copy job, so either exam wording is recognisable.
 
-**Doubts from the first pass, now settled:**
+After pass 2 every one of the 630 questions has a `doc` link (`DOCS` grew from 61 to 111 keys, each checked by `tools/links.mjs`), and `tools/qstats.mjs` reports "keyed option clearly longest: 0" for every pool.
+
+Each log lists, per changed entry, what was wrong and the page that says so; the pass-2 logs also list the wrong-option claims that were rewritten because no page backed them, and the ones that were kept with the page that backs them.
+
+What these passes were: two independent reads by AI agents on one day. No human AWS expert has reviewed the content.
+
+**Doubts from the sandbox review, now settled:**
 - Organization conformance packs do deploy to accounts that join later (m2-046).
 - The Los Angeles Local Zone lists GPU instances (m2-064).
 - Rekognition does work on Kinesis video streams, but that feature is closed to new customers (m2-050, rewritten).
@@ -96,24 +103,29 @@ What this pass was: one read by an AI agent per file, on one day. It was not a r
 - S3 has an in-place encryption change, `UpdateObjectEncryption` (q08-003).
 - Amazon AppFlow and Amazon Detective are on none of AWS's lifecycle lists, so both are open to new customers (m1-026, m1-038).
 
-**Still not confirmed** (details per question in the logs):
-- **Price comparisons.** AWS pricing pages load their figures by script, so statements such as "A costs less than B" were checked only as far as AWS says them in words (for example q03-001, q03-004, q11-002, q11-018, q11-042, m1-024, m2-051, card `d11c3`).
-- **Lead times.** That Direct Connect takes weeks and a VPN hours (q02-037, q02-043, q10-038, q11-044, q11-047) is not stated on any page fetched.
-- **AWS pages that disagree.** S3 Replication Time Control: the SLA says 99.9%, the FAQ's design target 99.99% (q09-033, m1-061 no longer depends on the number). Aurora Global Database recovery time: minutes in the user guide, under a minute on the product page.
-- **Shield Response Team plans.** The Shield docs still name Business or Enterprise Support and not Business Support+ (q04-045 says "Business-tier or higher").
-- **What a wrong option cannot do.** Explanations that say a distractor service lacks a feature were checked for plausibility against the service overview, not against a page that states the absence.
-- **Inferred, not quoted:** q01-029, q02-002, q05-016, q09-043, m2-014, m2-016, m2-022 and the items listed as such in the logs.
-- **Refs to Skill Builder steps.** `ref` ids were checked to exist and to fit the step titles in plan.js; the lessons behind them need a login and were never opened.
-- **Names the exam may still print.** The bank uses current names ("Aurora serverless", AWS Transform MGN, Security Hub CSPM) with the older one in an explanation; exam items written earlier may show only the old name.
-- **AWS Data Transfer Terminal** is available only to Enterprise Support customers at this time; drill item 48 and one cue name it with that caveat because Snowball Edge is closed.
+**Left alone by the owner's decision** (counted in the pass-2 logs, not rewritten because no page contradicts them):
+- **Price comparisons** that AWS does not state in words: about 54 questions. AWS pricing pages load their figures by script. Keys that rest on one are named in the logs (for example q11-023, q11-030, q11-033, q11-042, m1-019, m1-022, m1-049, m2-009, m2-051).
+- **Provisioning lead times** (Direct Connect weeks, VPN hours): 5 questions (q02-037, q02-043, q10-038, q10-040, q11-047).
+- **Figures on which AWS's own pages disagree:** S3 Replication Time Control (SLA 99.9%, FAQ design target 99.99%), Aurora Global Database recovery time, the per-strategy recovery times in the DR whitepaper (a figure, not text).
+- **Refs to Skill Builder steps:** `ref` ids exist and fit the step titles in plan.js; the lessons behind them need a login and were never opened.
 
-The wording of each affected question avoids depending on these, but verify before building on them.
+**Still open after both passes:**
+- **m1-048 (MemoryDB).** ElastiCache for Valkey now has a durability option and the MemoryDB FAQ recommends ElastiCache for new workloads. The key still holds for the options as written (the ElastiCache option has only asynchronous replicas). Rewrite or retire it when there is time.
+- **Not stated on a page either way:** q05-005 and q05-039 (an own Elastic IP on an ALB), q06-020 (what landing zone 4.0 calls the log archive and audit accounts), q08-024 (flow logs hold no payload: from the field list), q08-034, q08-044, q09-010 (root sign-in events matched by an EventBridge rule), q10-023 ("within seconds"), q11-008, q11-046 (price classes on a flat-rate plan), m1-022 and m1-049 (no documented lag figure for a cross-Region read replica), m2-022 (reworded, not tried on a live bucket), m2-047 and q10-032 (the words "fuzzy" and "facets").
+- **Judgement statements** in explanations ("adds operational overhead", "more work") have no source page and were reviewed by reasoning.
+- **General descriptions** that restate what a feature is for were read for plausibility, not traced to a sentence.
+- **Names the exam may still print.** The bank uses current names with the former one once in an explanation (Aurora serverless, AWS Transform MGN, Route 53 VPC Resolver, Security Hub CSPM); which wording the live exam shows is unknown.
 
 ## Skill Builder and AWS links
 
-- Refs point at plan steps (Essentials modules, Cloud Quest assignments, Exam Prep Plan tasks, own builds). Skill Builder needs a login, so lesson titles inside a module were never verified. Lesson-level pointers are possible if the owner pastes a module's lesson list.
-- Shared responsibility questions on Day 1 (q01-048–050) reference Module 1 (d1w1). Third-party listings of the 13-module Essentials course show a shared-responsibility lesson in Module 1; Skill Builder itself couldn't be opened.
-- `DOCS` holds only stable FAQ/overview URLs on aws.amazon.com and docs.aws.amazon.com. All 61 were fetched on 2026-10-12 from the owner's PC with `node tools/links.mjs` and answer a plain 200; the Aurora FAQ had moved to docs.aws.amazon.com and was repointed. Re-run the tool after adding a link.
+- Refs point at plan steps (Essentials modules, Cloud Quest assignments, Exam Prep Plan lessons, own builds).
+- **Skill Builder outlines were read on 2026-10-12.** Course pages and their Outline tab are public (no login), so course, module, lesson and training names in plan.js now follow them:
+  - **AWS Cloud Practitioner Essentials:** free, 13 modules, 12 h 45 min. All 13 module names match the plan; the notes of `d4w1`, `d6w1`–`d6w4` now name the lessons. There is no course-level final assessment, only one per module (`d6w6`). Skill Builder announces a new format for the course on 2026-10-23 and warns that progress on a course in flight may be reset.
+  - **AWS Cloud Quest: Cloud Practitioner:** free, 12 assignments, 12 h. All 12 names match the Play steps. Cloud Quest lists them in its own order (Cloud Economics is fifth, Connecting VPCs seventh).
+  - **Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English):** a learning plan of 18 trainings, 18 h 25 min, last updated 2026-05-07. Free: Exam Prep Plan Overview, Official Practice Question Set (20 questions), Exam Prep Overview, Domain 1–4 Review (45 min each; one lesson per task statement), Exam Prep Summary. Subscription: Domain 1–4 Practice (exam-style questions and flashcards), Domain 1–4 Practice: AWS SimuLearn (1 h labs), AWS Escape Room, Official Practice Exam (65 questions, 130 minutes). Days 7–13 were renamed to these; the old "Sample Questions" step (`d7e5`) is not in the plan any more and was retired, and "bonus questions" are now part of Domain Practice.
+- Shared responsibility questions on Day 1 (q01-048–050) reference Module 1 (d1w1): confirmed, Module 1 has the lesson "The AWS Shared Responsibility Model". Module 2 has a lesson "Messaging and Queuing", and AWS Organizations is taught in Module 10, not in Module 9.
+- What is inside a lesson (the videos themselves) still needs a login and was not opened, so whether a `ref` points at the lesson that teaches exactly that fact is checked by lesson title only.
+- `DOCS` holds only stable FAQ/overview URLs on aws.amazon.com and docs.aws.amazon.com. All 111 were fetched on 2026-10-12 from the owner's PC with `node tools/links.mjs` and answer a plain 200; the Aurora FAQ had moved to docs.aws.amazon.com and was repointed, and 50 keys were added that day so that every question can link a page. Re-run the tool after adding a link.
 
 ## AWS changes the reviewers found (reported via web search, 2024–2026)
 
@@ -195,3 +207,38 @@ Read from AWS pages by the verification sessions; the source URL for each is in 
 - **Accounts and billing:**
   - A Free plan account is upgraded to the Paid plan when it creates or joins an AWS Organization, which enabling an organization instance of IAM Identity Center does in a standalone account. The plan therefore keeps the account out of Organizations.
   - AWS is rolling out a new sign-up ("Sign up for AWS (new)") to a limited number of customers: a Google, GitHub, Apple or Amazon login, projects and AWS Settings. IAM users with console access can't be created in it.
+
+### Added by the second pass (2026-10-12)
+
+Read from AWS pages by the second-pass sessions; sources are in the `pass2-*.md` logs. The three marked "re-read" were also checked by the coordinating session.
+
+- **Renames:**
+  - Route 53 Resolver → Route 53 VPC Resolver, renamed when Route 53 Global Resolver was introduced (re-read). The endpoints are still called Resolver endpoints.
+  - Control Tower: the log archive account is now the "CloudTrail administrator account" and the audit account the "Config aggregator account"; landing zone 4.0 no longer requires a Security OU.
+  - X-Ray "service map" → "trace map".
+- **Compute and containers:**
+  - Lambda durable functions run multi-step workflows for up to a year; the 15-minute cap is per invocation of a standard function.
+  - Predictive scaling is no longer described as machine learning.
+  - Spot requests are capped at the On-Demand price by default; setting a lower maximum price means more interruptions.
+  - The Wavelength guide describes communications service provider networks, not only 5G.
+- **Networking:**
+  - Application Load Balancers use service-managed public Elastic IPv4 addresses and can draw from an IPAM pool. "An ALB does not support Elastic IPs" should read "its addresses are assigned by the service"; a static IP per AZ still means an NLB.
+  - Inter-AZ data transfer through a transit gateway, PrivateLink interface endpoints and Client VPN has been free since 2022-04-01; data processing is still charged.
+  - Gateway endpoints do not allow access from on-premises networks, from peered VPCs in other Regions, or through a transit gateway.
+  - API Gateway usage plan throttling and quotas are not hard limits and are applied on a best-effort basis.
+- **Storage and databases:**
+  - ElastiCache for Valkey has a durability option (Multi-AZ transactional log), and the MemoryDB FAQ recommends ElastiCache for new workloads (re-read).
+  - The Aurora guide now says "six storage nodes" with copies across three Availability Zones.
+  - S3 Block Public Access also has an organization level.
+  - The S3 static-hosting page no longer prints "does not support server-side scripting".
+- **Security and identity:**
+  - CloudTrail Lake (event data stores) is reported as closed to new customers since 2026-03-31 (one session's reading of the General Reference lifecycle list; no question, drill item or key point uses it).
+  - AWS managed KMS keys are a legacy key type, no longer created for new AWS services as of 2021.
+  - ACM renews a certificate automatically only when it is DNS-validated; email-validated ones get notices (re-read).
+  - Trusted Advisor can display Security Hub CSPM controls.
+  - IAM best practices describe an "account access manager" that assigns existing IAM roles to Identity Center users and groups.
+- **Monitoring, messaging, cost:**
+  - SNS FIFO topics have message archiving and replay (up to 365 days); standard topics do not.
+  - CloudWatch Logs allows 5 subscription filters per log group (not adjustable).
+  - On-failure destinations of a Lambda event source mapping cover Kinesis, DynamoDB Streams, MSK and self-managed Kafka only.
+  - Cost Explorer shows the last 13 months and forecasts 18 months.

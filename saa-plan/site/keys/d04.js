@@ -3,11 +3,11 @@ window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
   d4w1: {
     k: [
-      "AWS secures the facilities, hardware, host OS and virtualization layer. On EC2 you patch the guest OS and configure the security groups; on managed services such as RDS and Lambda AWS patches the OS too. Data, IAM and encryption choices stay yours.",
+      "AWS secures the facilities, hardware, host OS and virtualization layer. On EC2 you patch the guest OS and set the security groups; on RDS and Lambda AWS patches the OS too. Your code and its libraries, data, IAM and encryption choices stay yours.",
       "A permissions boundary sets the most an IAM user or role can do. Effective permissions are the overlap of the boundary and the identity policy, and the boundary itself grants nothing. Requiring one on new roles lets teams create roles safely.",
       "IAM Access Analyzer reports resources shared outside your account or organization and can generate a least-privilege policy from CloudTrail activity. The credential report is a CSV of every user's password, MFA and access key status.",
       "KMS <code>Encrypt</code> accepts at most 4,096 bytes; larger data is encrypted locally with a data key from <code>GenerateDataKey</code> (envelope encryption). EBS encryption by default is a per-Region account setting that covers every new volume.",
-      "S3 encryption by who holds the key: SSE-S3 (S3, the default), SSE-KMS (a KMS key you control and audit), DSSE-KMS (two layers), SSE-C (your key sent with each request and never stored by S3), client-side (AWS never sees the plaintext)."
+      "S3 encryption by who holds the key: SSE-S3 (S3, the default), SSE-KMS (a KMS key you control and audit), DSSE-KMS (two layers), SSE-C (your key in every request, never stored by S3, blocked on new buckets until enabled), client-side (AWS never sees plaintext)."
     ],
     trap: "Options that keep a long-term secret but handle it more carefully (rotate the access key, store it in Secrets Manager, encrypt the credentials file) lose to an IAM role or IAM Identity Center, which hand out temporary credentials.",
     docs: [
@@ -30,9 +30,9 @@ Object.assign(window.KEYS, {
   },
   d4s2: {
     k: [
-      "<code>aws login</code> signs the CLI in with your console credentials: after a sign-in in the browser it holds temporary credentials and refreshes them for up to 12 hours, so no long-term access key sits on the PC.",
-      "A company on IAM Identity Center uses <code>aws configure sso</code> instead. That profile holds no secret, only the portal URL, account ID, role name and Region; <code>aws sso login</code> then fetches short-term credentials.",
-      "An IAM user access key has no expiration, which is why AWS marks long-term credentials for the CLI as not recommended. When your session has expired, run <code>aws login --profile lab</code> again."
+      "AWS recommends <code>aws login</code> for the CLI when you sign in as root, an IAM user or through federation with IAM. The CLI caches the temporary credentials, renews them every 15 minutes, and <code>aws logout</code> deletes them.",
+      "<code>aws configure sso</code> is the IAM Identity Center way. The profile it writes holds no access key, just the start URL, account ID, role name and Region; <code>aws sso login</code> then fetches temporary credentials for that role.",
+      "An IAM user access key has no expiration, so AWS marks long-term credentials for the CLI as not recommended. Retire one by deactivating it, then deleting it once nothing breaks. When your session expires, run <code>aws login --profile lab</code> again."
     ],
     docs: [
       ["Login for AWS local development using console credentials", "https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sign-in.html"],
@@ -50,15 +50,15 @@ Object.assign(window.KEYS, {
   },
   d4b1: {
     k: [
-      "Read each statement as Effect, Action, Resource and an optional Condition. A request is allowed only if some statement explicitly allows it, so a policy that lists one action on one bucket permits nothing else.",
+      "Besides Effect, Action and Resource, a statement can carry a Condition that limits when it is in effect. A request is allowed only if some statement explicitly allows it, so a policy that lists one action on one bucket permits nothing else.",
       "<code>s3:GetObject</code> acts on objects, so its Resource is <code>arn:aws:s3:::bucket-name/*</code>. <code>s3:ListBucket</code> acts on the bucket itself and needs <code>arn:aws:s3:::bucket-name</code>. Mixing the two up causes AccessDenied.",
       "IAM Access Analyzer can generate a policy from the CloudTrail activity of a user or role and can validate a policy you wrote. That gets you to least privilege without reading logs by hand.",
       "Bucket policies use the same grammar plus a Principal. A Deny when <code>aws:SecureTransport</code> is false forces TLS, and an Allow limited by <code>aws:PrincipalOrgID</code> opens the bucket only to accounts in your organization."
     ],
     docs: [
-      ["Example policy: read and write access to objects in an S3 bucket", "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_s3_rw-bucket.html"],
+      ["Grant read and write access to Amazon S3 bucket objects", "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_s3_rw-bucket.html"],
       ["Examples of Amazon S3 bucket policies", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html"],
-      ["Using IAM Access Analyzer", "https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html"]
+      ["Using AWS Identity and Access Management Access Analyzer", "https://docs.aws.amazon.com/IAM/latest/UserGuide/what-is-access-analyzer.html"]
     ]
   },
   d4b2: {
@@ -70,7 +70,7 @@ Object.assign(window.KEYS, {
     ],
     trap: "Storing an access key in Secrets Manager, in user data or in an environment variable still leaves a long-term key to manage. For code on EC2 the most secure answer with the least overhead is an IAM role attached through an instance profile.",
     docs: [
-      ["Use an IAM role to grant permissions to applications running on Amazon EC2", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html"],
+      ["Use an IAM role to grant permissions to applications running on Amazon EC2 instances", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html"],
       ["Use instance profiles", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html"],
       ["Use the Instance Metadata Service to access instance metadata", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html"]
     ]
@@ -78,8 +78,8 @@ Object.assign(window.KEYS, {
   d4b3: {
     k: [
       "A role has two policies: the trust policy says who may assume it, the permissions policy says what the session may do. <code>AssumeRole</code> returns an access key ID, a secret access key and a session token that expire.",
-      "While you use the role you have its permissions instead of your own. A session lasts from 15 minutes up to the role's maximum (1 to 12 hours), but role chaining, assuming a role from a role session such as your Identity Center profile, is capped at one hour.",
-      "In the same account, a trust policy that trusts the account still needs an IAM policy allowing <code>sts:AssumeRole</code> for the caller. Across accounts both sides are always required: the trust policy in one account, the IAM permission in the other.",
+      "While you use the role you have its permissions instead of your own. A session lasts one hour by default and can be set from 15 minutes up to the role's maximum (1 to 12 hours), but role chaining, using one role to assume a second role, is capped at one hour.",
+      "In the same account, a trust policy that trusts the account still needs an IAM policy allowing <code>sts:AssumeRole</code> for the caller; one that names the user itself does not. Across accounts both sides are always required, one in each account.",
       "For a third-party vendor that serves many customers, trust the vendor's account and require an external ID in the trust policy. That condition is what prevents the confused deputy problem."
     ],
     trap: "The permissions attached to a role decide what a session can do, never who may start one. When a principal cannot assume a role, the fix is in the trust policy or in the caller's <code>sts:AssumeRole</code> permission, not in the role's permissions policy.",
@@ -94,7 +94,7 @@ Object.assign(window.KEYS, {
       "Only a customer managed key lets you edit the key policy, disable the key, set its rotation and share it with another account. An AWS managed key such as <code>aws/s3</code> has a policy you can read but not change and works only inside your account.",
       "The key policy is the primary access control. Its default statement that gives the account <code>kms:*</code> is what allows IAM policies to grant access; without that statement an IAM Allow for <code>kms:Decrypt</code> has no effect.",
       "With SSE-KMS a download needs <code>s3:GetObject</code> and <code>kms:Decrypt</code>, an upload needs <code>kms:GenerateDataKey</code>, and key use is recorded in CloudTrail. S3 Bucket Keys reduce the KMS requests and their cost on busy buckets.",
-      "Automatic rotation is optional, yearly by default and only for symmetric keys; old key material is kept, so existing data still decrypts. Deleting a key is irreversible after a 7 to 30 day waiting period, so disable the key first when unsure."
+      "Automatic rotation is optional, yearly by default (or every 90 to 2,560 days) and only for symmetric encryption keys; old key material is kept, so old data still decrypts. Deleting a key is irreversible after a 7 to 30 day wait, so disable it first if unsure."
     ],
     trap: "Resources encrypted under an AWS managed key cannot be shared with another account. To share an encrypted RDS snapshot, copy it under a customer managed key whose key policy allows the other account, then share the copy.",
     docs: [
@@ -107,7 +107,7 @@ Object.assign(window.KEYS, {
     k: [
       "Secrets Manager is built for credentials: it rotates secrets on a schedule, natively for supported databases, and can replicate a secret to other Regions where the replicas follow each rotation. It is billed per secret and per API call.",
       "A Parameter Store SecureString is encrypted with KMS and the standard tier is free, but nothing rotates it. The advanced tier is charged and adds larger values and parameter policies.",
-      "Decide by rotation. Credentials that must rotate automatically go to Secrets Manager; configuration values and rarely changing keys that only need encryption go to Parameter Store at the lowest cost."
+      "Decide by rotation. Credentials that must rotate automatically go to Secrets Manager, which AWS recommends for every secret. Parameter Store is for configuration values; its free standard tier is the answer only when cost decides and nothing must rotate."
     ],
     trap: "Rotating a KMS key changes the key material, not the password it protects, and Parameter Store has no rotation of its own. Automatic database password rotation without custom tooling means Secrets Manager.",
     docs: [
@@ -125,9 +125,9 @@ Object.assign(window.KEYS, {
     ]
   },
   d4c1: {
-    trap: "Options that say one policy type is evaluated first, or that a broad Allow such as <code>s3:*</code> outweighs a narrow Deny, are wrong. Also, a bucket policy that grants a named account is not public access, so Block Public Access can stay on.",
+    trap: "An option where a broad Allow such as <code>s3:*</code> outweighs a narrow Deny, or the identity policy outranks the bucket policy, is wrong: AWS checks all policies for a Deny first. A bucket policy that grants a named account is not public, so Block Public Access can stay on.",
     docs: [
-      ["How AWS enforcement code logic evaluates requests", "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic_policy-eval-basics.html"],
+      ["Policy evaluation for requests within a single account", "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic_policy-eval-basics.html"],
       ["Cross-account policy evaluation logic", "https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic-cross-account.html"],
       ["Identity-based policies and resource-based policies", "https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_identity-vs-resource.html"]
     ]
@@ -140,6 +140,9 @@ Object.assign(window.KEYS, {
     ]
   },
   d4c3: {
+    k: [
+      "AWS Security Hub CSPM (formerly Security Hub) collects the findings of GuardDuty, Inspector and Macie across accounts in one place and runs its own checks against standards such as AWS Foundational Security Best Practices."
+    ],
     trap: "GuardDuty, Inspector and Macie report findings; none of them filters or blocks traffic. Filtering web requests is WAF, DDoS protection is Shield, and an automatic reaction to a finding is an EventBridge rule that triggers a Lambda function.",
     docs: [
       ["AWS WAF", "https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html"],

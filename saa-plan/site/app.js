@@ -303,7 +303,7 @@ function renderMap(ti) {
 function renderLinks() {
   const nav = document.getElementById("links");
   const items = [];
-  for (const k of ["sb", "ess", "cq"]) items.push([LINKS[k].label, LINKS[k].url]);
+  for (const k of ["sb", "ess", "cq", "epp"]) items.push([LINKS[k].label, LINKS[k].url]);
   items.push(S.settings.portal ? ["AWS sign-in", S.settings.portal] : [LINKS.console.label, LINKS.console.url]);
   for (const k of ["calc", "cert"]) items.push([LINKS[k].label, LINKS[k].url]);
   nav.innerHTML = items.map(([l, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(l)} ↗</a>`).join("");
@@ -608,7 +608,7 @@ function quizCardHTML(d) {
   else if (ok) h += `<p class="c-st ok">Passed with ${r.best} of ${QZ.DAILY} on ${fmtD(parseDate(r.passed))}.</p><div class="c-w"><button type="button" data-quiz-start="${d.id}">Practice again</button></div>`;
   else if (open.length) {
     h += `<p class="c-st">${plural(open.length, "step")} still open. The quiz unlocks when every step of the day is complete.</p>` +
-      `<ul class="c-open">${open.map(id => `<li><button type="button" class="link" data-at="${id}">${itemIndex[id].it[1]}</button></li>`).join("")}</ul>`;
+      `<ul class="c-open">${open.map(id => `<li><button type="button" class="link" data-at="${id}">${esc(stepTitle(id))}</button></li>`).join("")}</ul>`;
   } else {
     h += (tries ? `<p class="c-st">Best so far ${r.best} of ${QZ.DAILY} after ${plural(tries, "try", "tries")}. A retake draws different questions.</p>` : "") +
       `<ul class="qz-facts"><li>After each answer you see why every option is right or wrong, and which step to go back to.</li>` +

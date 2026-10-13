@@ -93,7 +93,8 @@ try {
   log("Start Day 1 opens the first step alone on a card");
   await page.click('#next a[href="#d1"]');
   await page.waitForSelector("#flow:not([hidden])");
-  assert.equal(await hash(page), "#d1/d1a1");
+  const [s1, s2, s3] = await page.evaluate(() => window.PLAN.find(d => d.id === "d1").groups.flatMap(g => g.items.map(it => it[0])));
+  assert.equal(await hash(page), `#d1/${s1}`);
   assert.equal(await page.locator("#card .c-t").count(), 1, "one step on screen");
   const n1 = await page.evaluate(() => window.PLAN.find(d => d.id === "d1").groups.reduce((a, g) => a + g.items.length, 0));
   assert.equal((await page.textContent("#fl-count")).trim(), `Step 1 of ${n1 + 1}`);
@@ -102,29 +103,29 @@ try {
 
   log("Mark complete moves on, Next skips, Back and the arrow keys return, Undo reopens");
   await complete(page);
-  assert.equal(await hash(page), "#d1/d1a2");
-  assert.ok((await state(page)).ticks.d1a1);
+  assert.equal(await hash(page), `#d1/${s2}`);
+  assert.ok((await state(page)).ticks[s1]);
   await page.click("#fl-nav [data-complete]");            // an instant second click must not complete the next card
-  assert.ok(!(await state(page)).ticks.d1a2, "double click completes one step only");
-  await page.click("#fl-nav [data-next]");                // skip d1a2
-  assert.equal(await hash(page), "#d1/d1a3");
+  assert.ok(!(await state(page)).ticks[s2], "double click completes one step only");
+  await page.click("#fl-nav [data-next]");                // skip the second step
+  assert.equal(await hash(page), `#d1/${s3}`);
   await page.keyboard.press("ArrowLeft");
-  assert.equal(await hash(page), "#d1/d1a2");
+  assert.equal(await hash(page), `#d1/${s2}`);
   await page.click("#fl-nav [data-back]");
-  assert.equal(await hash(page), "#d1/d1a1");
+  assert.equal(await hash(page), `#d1/${s1}`);
   assert.match(await page.textContent("#fl-nav .fl-mid"), /Completed/);
-  assert.ok(await stepOn(page, "d1a1"));
+  assert.ok(await stepOn(page, s1));
   await page.click("#fl-nav [data-undo]");
-  assert.ok(!(await state(page)).ticks.d1a1);
+  assert.ok(!(await state(page)).ticks[s1]);
   await page.reload();
-  assert.equal(await hash(page), "#d1/d1a1", "a reload stays on the card");
+  assert.equal(await hash(page), `#d1/${s1}`, "a reload stays on the card");
 
   log("the quiz card stays locked while steps are open, and lists them");
   await openCard(page, "d1", "quiz");
   assert.ok(await page.locator("#fl-nav [data-quiz-start]").isDisabled());
   assert.equal(await page.locator("#card .c-open li").count(), n1);
   await page.click("#card .c-open li:first-child button");
-  assert.equal(await hash(page), "#d1/d1a1");
+  assert.equal(await hash(page), `#d1/${s1}`);
 
   // ---------- helper material on the card ----------
   log("a step card carries key points, AWS docs, exam topics and its own notes");
