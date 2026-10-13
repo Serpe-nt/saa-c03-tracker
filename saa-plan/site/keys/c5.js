@@ -2,7 +2,7 @@
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
   c5a: {
-    why: "When everything runs in one account, a mistake or a break-in in a test system can reach production, and nobody can tell whose costs are whose. Separate accounts put walls between workloads. AWS Organizations then manages the many accounts as one and sets limits that no member account can step over.",
+    why: "When everything runs in one account, a mistake or a break-in in a test system can reach production, and it is hard to tell whose costs are whose. Separate accounts put walls between workloads. AWS Organizations then manages the many accounts as one and sets limits that no member account can step over.",
     k: [
       ["Why several accounts", "An AWS account is an isolation boundary. Separate accounts per workload or environment limit the scope of impact of an incident, allow distinct security controls per environment, and split costs and service quotas."],
       ["Organizations and OUs", "AWS Organizations groups accounts into organizational units (OUs). A service control policy (SCP) attached to the root or to an OU applies to every OU and member account underneath it. Where an account sits therefore decides which guardrails it gets."],

@@ -54,7 +54,7 @@ Object.assign(window.KEYS, {
   },
 
   r1d: {
-    why: "Many applications are already written for a certain database or streaming system, or their data has a shape that a general database handles badly. Rewriting them costs more than running what they already speak. AWS offers managed services that are compatible with those systems or built for that one shape.",
+    why: "Many applications are already written for a certain database or streaming system, or their data has a shape that a general database handles badly. Rewriting them is costly, so it is easier to run what they already speak. AWS offers managed services that are compatible with those systems or built for that one shape.",
     k: [
       ["Compatibility", "Match the service to what the application already speaks. MongoDB drivers and tools: Amazon DocumentDB. Apache Cassandra: Amazon Keyspaces, which is serverless. Apache Kafka: Amazon MSK (Managed Streaming for Apache Kafka)."],
       ["Amazon Neptune", "For highly connected data that is queried by its relationships. It is a managed graph database with the query languages Gremlin, openCypher and SPARQL. AWS names recommendation engines among its use cases."],
