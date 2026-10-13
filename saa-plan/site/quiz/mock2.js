@@ -478,7 +478,7 @@ window.QUIZ.push(
     "Store the values in a DynamoDB table encrypted with the key and read them with SDK calls when each container starts."],
  a:[1],
  x:["This works, but Secrets Manager charges per secret per month, which adds up across about 600 values, and its main advantage, managed rotation, is not needed here.",
-    "SecureString parameters are encrypted with the KMS key you choose and keep a version history, standard-tier parameters have no storage charge, and ECS injects them as environment variables through the <code>secrets</code> section of the task definition.",
+    "SecureString parameters are encrypted with the KMS key you choose and keep a version history, standard-tier parameters have no storage charge, and ECS injects them as environment variables through the <code>secrets</code> section of the task definition. AWS recommends Secrets Manager for tokens; here the cost requirement decides.",
     "Environment variables written into a task definition are readable by every user and role that is allowed to describe the task definition, which is why AWS recommends Secrets Manager or Parameter Store for sensitive values.",
     "This needs custom code in every service to fetch values at startup, and ECS does not inject them, adding effort with no benefit over Parameter Store."],
  ref:["d8e3"], doc:"parameter-store"},

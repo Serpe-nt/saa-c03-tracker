@@ -8,7 +8,7 @@ The quizzes exist to turn "I watched it" into "I can answer a scenario question 
 |---|---|---|---|
 | `site/quiz/d01.js` … `d06.js` | `q01-001` … `q06-050` | 50 per file | foundation level: day quizzes (first on a topic), reviews, warm-up; the mock once mock questions run out |
 | `site/quiz/d08.js` … `d11.js` | `q08-001` … `q11-050` | 50 per file, one exam domain each | exam level: the same uses, after the foundation questions on a topic |
-| `site/quiz/d12.js` … `d15.js` | `q12-001` … `q15-0NN` | about 40 per file | exam level, written for the 21-day plan on topics the exam guide's in-scope list had ahead of the bank: 12 identity and access, 13 serverless, messaging and containers, 14 data, analytics, ML services and purpose-built databases, 15 operations, governance, migration and the edge |
+| `site/quiz/d12.js` … `d15.js` | `q12-001` … `q15-040` | 40 per file | exam level, written for the 21-day plan on topics the exam guide's in-scope list had ahead of the bank: 12 identity and access, 13 serverless, messaging and containers, 14 data, analytics, ML services and purpose-built databases, 15 operations, governance, migration and the edge |
 | `site/quiz/mock1.js`, `mock2.js` | `m1-001` … `m2-065` | 65 per file, each split 20/17/15/13 by domain | mock exam only |
 | `site/quiz/meta.js` | — | — | `QUIZ` array, `QTAGS` (allowed tags), `DOCS` (AWS FAQ links) |
 | `site/extras.js` | — | 32 cards, 171 drill items, 45 cues | self-check model answers, "Which service?" drill, exam-wording cheat sheet |
@@ -71,7 +71,7 @@ The remaining pairs at 0.38–0.40 (q01-049/q04-002, q10-013/q11-018, q04-039/q0
 5. Tags are right: the first is what the question decides on, and no tag names a topic the scenario only mentions. Any `ref` names a step that exists.
 6. `doc` key exists and fits.
 
-## Verification status (as of 2026-10-12)
+## Verification status (as of 2026-10-13)
 
 **History.** All content was written on 2026-10-12 by AI writer agents working from this guide, and reviewed the same day by separate reviewer agents inside a cloud sandbox where aws.amazon.com and docs.aws.amazon.com were blocked. They worked from web-search snippets, and 90 late rewrites were reviewed from model knowledge only.
 
@@ -88,11 +88,14 @@ The remaining pairs at 0.38–0.40 (q01-049/q04-002, q10-013/q11-018, q04-039/q0
 | `d10.js`, `d11.js` | 100 | 18 | 44 (8 only a doc link) | 0 | `d10-d11.md`, `pass2-d10-d11.md` |
 | `mock1.js` | 65 | 3 | 38 (5 only a doc link) | 0 | `mock1.md`, `pass2-mock1.md` |
 | `mock2.js` | 65 | 11 | 29 (4 only a doc link) | 0 | `mock2.md`, `pass2-mock2.md` |
+| `d12.js`–`d15.js` (new with the 21-day plan) | 160 | written 2026-10-12, see below | | | `pool12.md` … `pool15.md` |
 | `extras.js` and the glossary | 335 | 32 | 22 (8 model answers, 1 glossary term, 11 drill items, 2 cues) | n/a | `extras.md`, `pass2-extras.md` |
 
 No answer key changed in either pass. Stems changed: q02-005 (a wrong option had become a second defensible answer) and one word in q04-036. Option texts reworded without changing their meaning: q10-018, q10-034, m1-042 (service name) and the keyed option of m2-050 (it relied on a feature closed to new customers). q08-003 keys the current S3 operation and its explanation describes the older copy job, so either exam wording is recognisable.
 
-After pass 2 every one of the 630 questions has a `doc` link (`DOCS` grew from 61 to 111 keys, each checked by `tools/links.mjs`), and `tools/qstats.mjs` reports "keyed option clearly longest: 0" for every pool.
+After pass 2 every one of the 630 questions had a `doc` link (`DOCS` grew from 61 to 111 keys, each checked by `tools/links.mjs`), and `tools/qstats.mjs` reports "keyed option clearly longest: 0" for every pool.
+
+**Pools 12–15 (160 questions, 2026-10-12).** An audit of the exam guide's in-scope services against the bank found services with no question at all (the eight machine learning services, X-Ray, Service Catalog, License Manager, Application Migration Service and more) and too few questions on identity for a day of its own. Four sessions each wrote one pool of 40 on its own branch: every statement looked up on AWS pages fetched in that session, sources per question in the log. Then a sub-agent that saw only stems and options answered each pool blind and argued for any other option it could defend: in all four pools its 40 answers matched the keys, and the questions it found arguable or too easy were reworked (pool 12: 2 after the read and 2 before it; pool 13: 6; pool 14: 4; pool 15: 7). No pair with a new id shows in `tools/similar.mjs 0.38`. The bank is now 790 questions and `DOCS` has 155 keys (44 new, 443 links checked in all). Each log ends with what its session could not settle; those lists are short and name the question ids.
 
 Each log lists, per changed entry, what was wrong and the page that says so; the pass-2 logs also list the wrong-option claims that were rewritten because no page backed them, and the ones that were kept with the page that backs them.
 
@@ -110,10 +113,18 @@ What these passes were: two independent reads by AI agents on one day. No human 
 - **Price comparisons** that AWS does not state in words: about 54 questions. AWS pricing pages load their figures by script. Keys that rest on one are named in the logs (for example q11-023, q11-030, q11-033, q11-042, m1-019, m1-022, m1-049, m2-009, m2-051).
 - **Provisioning lead times** (Direct Connect weeks, VPN hours): 5 questions (q02-037, q02-043, q10-038, q10-040, q11-047).
 - **Figures on which AWS's own pages disagree:** S3 Replication Time Control (SLA 99.9%, FAQ design target 99.99%), Aurora Global Database recovery time, the per-strategy recovery times in the DR whitepaper (a figure, not text).
-- **Refs to Skill Builder steps:** `ref` ids exist and fit the step titles in plan.js; the lessons behind them need a login and were never opened.
+- **Where a question sends you back to:** since the 21-day plan this is derived from topics (`STEP_TAGS`), not written per question; a `ref` survives only where its step still exists. The lectures behind the steps need a login and were never opened.
 
 **Still open after both passes:**
-- **m1-048 (MemoryDB).** ElastiCache for Valkey now has a durability option and the MemoryDB FAQ recommends ElastiCache for new workloads. The key still holds for the options as written (the ElastiCache option has only asynchronous replicas). Rewrite or retire it when there is time.
+- **m1-048 and q14-035 (MemoryDB).** ElastiCache for Valkey now has a durability option and the MemoryDB FAQ recommends ElastiCache for new workloads; MemoryDB is also not on the exam guide's in-scope list. Both keys still hold for the options as written (the ElastiCache options have only asynchronous replicas or are Memcached). Rewrite or retire m1-048 when there is time.
+- **Flagged by the sessions that wrote the 21-day content, not changed** (each is true as written but narrower than AWS's current pages; sources in the logs named):
+  - q01-036 and q10-020 speak of two ECS launch types; ECS now documents three capacity options, with ECS Managed Instances (`keys-c3-c4.md`, `pool13.md`).
+  - q10-015 and q01-031 treat 15 minutes as the Lambda limit; Lambda Managed Instances allows up to 90 minutes for asynchronous and event source mapping invocations (`keys-c7-c9.md`).
+  - q09-010, m1-054, m2-055 and an option of m2-052 say "custom event bus" with rules; EventBridge now calls that type Custom Event Bus - Classic and has a new subscriber-based Custom Event Bus (`keys-c7-c9.md`).
+  - q06-021 names SCPs as how Control Tower implements preventive controls; they are now SCPs, RCPs and declarative policies (`pool15.md`).
+  - q01-039's explanation leans on a sentence that the S3 static-hosting page no longer has (no server-side scripting); the page still says a website endpoint supports only GET and HEAD requests on objects (`keys-c1-c2.md`).
+  - q08-030's explanation says what a security group rule may reference; not re-checked (`pool12.md`).
+  - q04-041 and m2-039 key Parameter Store on cost for API keys and tokens. The Parameter Store guide now recommends Secrets Manager for those; both explanations say so since 2026-10-13, and the stems' cost requirement still decides.
 - **Not stated on a page either way:** q05-005 and q05-039 (an own Elastic IP on an ALB), q06-020 (what landing zone 4.0 calls the log archive and audit accounts), q08-024 (flow logs hold no payload: from the field list), q08-034, q08-044, q09-010 (root sign-in events matched by an EventBridge rule), q10-023 ("within seconds"), q11-008, q11-046 (price classes on a flat-rate plan), m1-022 and m1-049 (no documented lag figure for a cross-Region read replica), m2-022 (reworded, not tried on a live bucket), m2-047 and q10-032 (the words "fuzzy" and "facets").
 - **Judgement statements** in explanations ("adds operational overhead", "more work") have no source page and were reviewed by reasoning.
 - **General descriptions** that restate what a feature is for were read for plausibility, not traced to a sentence.
@@ -210,6 +221,18 @@ Read from AWS pages by the verification sessions; the source URL for each is in 
 - **Accounts and billing:**
   - A Free plan account is upgraded to the Paid plan when it creates or joins an AWS Organization, which enabling an organization instance of IAM Identity Center does in a standalone account. The plan therefore keeps the account out of Organizations.
   - AWS is rolling out a new sign-up ("Sign up for AWS (new)") to a limited number of customers: a Google, GitHub, Apple or Amazon login, projects and AWS Settings. IAM users with console access can't be created in it.
+
+### Reported while writing the 21-day content (2026-10-12)
+
+Seen by the eight content sessions on pages they fetched; the page for each is in the log named. Not all of them have been checked against the whole bank.
+
+- **Names:** AWS Application Migration Service is "AWS Transform MGN" in the docs and the overview whitepaper; the exam guide keeps the old name (`keys-c5-c6-r1.md`). The exam guide's in-scope list prints "Amazon Quick"; the service page says Amazon Quick Sight, a feature of Amazon Quick (`keys-c7-c9.md`). Firehose "delivery streams" are "Firehose streams". The classic Lambda function type is called "Lambda Event Functions" next to Lambda Managed Instances (`keys-c1-c2.md`).
+- **Not in scope:** Amazon MemoryDB, Amazon Timestream and QLDB are not on the exam guide's in-scope list (`pool14.md`). QLDB is shut down and Amazon Managed Blockchain is in sunset, so no ledger question was written.
+- **Closed, maintenance or sunset:** Outposts 1U and 2U servers are no longer sold; Application Discovery Service, Migration Hub, Systems Manager Incident Manager, Change Manager and Application Manager, Service Catalog AppRegistry, Comprehend topic modeling and event detection, AWS Glue Ray jobs, Rekognition Batch Image Content Moderation, Amazon Cognito Sync and SNS Message Data Protection are in maintenance; AWS WAF Classic, App Mesh, Proton, Managed Blockchain and DevOps Guru are in sunset; DMS Fleet Advisor and DataSync Discovery are shut down; the ARC readiness check is closed to new customers (ARC now has Region switch); ECS Anywhere drops several operating systems from 2026-08-07 (`keys-c5-c6-r1.md`, `keys-c3-c4.md`, `pool13.md`, `pool14.md`, `pool15.md`).
+- **Limits that moved:** the SQS maximum message size is 1 MiB and the Lambda asynchronous invocation payload 1 MB; an API Gateway REST API integration timeout can be raised above 29 seconds for Regional and private APIs; REST APIs support VPC links V2 to an Application Load Balancer (VPC links V1 are legacy) (`pool13.md`). The bank has no "256 KB" statement (checked 2026-10-13).
+- **New options next to old ones:** regional NAT gateways next to the zonal kind; ECS Managed Instances as a third capacity option, with capacity providers recommended over launch types; Kinesis Data Streams on-demand streams can deliver to S3 without Firehose; Redshift RG instances and Redshift Serverless query the data lake on their own compute (Spectrum is the DC2 and RA3 mechanism); EventBridge has a subscriber-based Custom Event Bus next to the default bus and Custom Event Bus - Classic; an EventBridge target can be invoked through an IAM execution role instead of a resource-based policy; CloudFormation `Fn::GetStackOutput` reads outputs across accounts and Regions (`Fn::ImportValue` stays same account and Region); Control Tower preventive controls use SCPs, RCPs and declarative policies; a third Secrets Manager rotation form (managed external secrets); Cost and Usage Reports are "CUR 2.0" in Data Exports, the old kind is Legacy; MACsec is on 10, 100 and 400 Gbps dedicated Direct Connect connections only; the Well-Architected guide describes a Well-Architected Agent (preview) next to the Tool.
+- **Narrower than it was written here:** only "certain newly created" Athena federated connectors run without a Lambda function; data catalog and custom connectors still need one (`keys-c7-c9.md`). ACM renews a DNS-validated certificate automatically only while it is in use by an AWS service and its CNAME records are in DNS (checked 2026-10-13; the `d8c3` model answer now says so). The Parameter Store guide recommends Secrets Manager for database credentials, API keys and tokens (checked 2026-10-13).
+- **Checked and left:** the CloudTrail Insights page says Insights analyzes "management and data events", as the list above has it; the concepts page words it more narrowly.
 
 ### Added by the second pass (2026-10-12)
 

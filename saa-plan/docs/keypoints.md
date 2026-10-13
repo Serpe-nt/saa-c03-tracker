@@ -11,7 +11,7 @@ Each plan step is shown alone on a card. Under the step text the card shows "Key
 | `tests/data.test.mjs` | shape, ids, markup, coverage, closed-service wording |
 | `tools/links.mjs` | every `docs` URL (and every `DOCS` URL) answers a plain 200 |
 
-150 of the 162 steps have an entry. The twelve without one are pure admin: `d1e1`–`d1e3` (enrolling on Skill Builder), `d1a3`, `d1a4`, `d1d2`, `d4s1`, `d6w6`, `d7h1`, `d8s1`, `d8e7`, `d9e6`.
+175 of the 186 steps have an entry. The eleven without one are pure admin: `d8s1` (buy the subscription), `s0a` and `d1e3` (enrolling), `d1a3`, `d1a4`, `d1d2`, `d4s1`, `d8e7`, `d9e6`, `d11e7` (the Domain Practice labs) and `d13e4`.
 
 ## Format
 
@@ -55,7 +55,29 @@ node --test              # shape, ids, markup, coverage of Watch/Play/Build/Self
 node tools/links.mjs     # needs network; a redirect counts as broken (docs.aws.amazon.com redirects missing pages to the guide's landing page)
 ```
 
-## Verification status (as of 2026-10-12)
+## Verification status (as of 2026-10-13)
+
+### Steps new with the 21-day plan
+
+The key points for the lecture chunks, the labs and the Day 16 reading block were written on 2026-10-12 by four sessions, one group of courses each, on separate branches. Each looked every sentence up on AWS pages it fetched (redirects not followed), read the bank's questions on the step's topics first, and then had sub-agents that had not seen its sources re-check every sentence against pages they fetched themselves.
+
+| Files | Steps | Entries | Second read | Log in `docs/verification/` |
+|---|---|---|---|---|
+| `c1.js`, `c2.js` | Fundamentals of Architecting, Fundamentals of Security, their 7 labs | 15 | no sentence wrong; 4 reworded | `keys-c1-c2.md` |
+| `c3.js`, `c4.js` | Three-Tier and Containerized courses, their 7 labs | 19 | 1 sentence wrong, 9 too strong: 10 sentences and 3 link titles corrected | `keys-c3-c4.md` |
+| `c5.js`, `c6.js`, `r1.js` | Compliant/Secure/Governed and Hybrid courses, their 4 labs, the reading block | 18 | no sentence wrong; 13 narrower on the page than in the file, reworded | `keys-c5-c6-r1.md` |
+| `c7.js`, `c8.js`, `c9.js` | Serverless, Data-Driven and Summary courses, their 8 labs | 18 | no sentence wrong; 10 partly supported, reworded or listed as inference; 7 link titles corrected | `keys-c7-c9.md` |
+
+What these entries rest on, and what they do not:
+- **Lectures were not watched.** The videos are behind the Skill Builder login. A lecture step's points follow the lesson names in plan.js and the step's topics, checked against AWS documentation; they do not claim what a video says. If a lesson turns out to teach something else, the points are still true but may miss the lesson's emphasis.
+- **Lab description pages were read** (they are public): description, objectives and the list of AWS services. Lab points are about those objectives; none describes a lab's screens or steps. Nobody has done a lab.
+- **Inferences** (framing, design advice, conclusions from two documented facts) are listed per file in each log under "Inferences".
+- **`STEP_TAGS` for the labs** were corrected from those description pages after the merge (for example `l5a` is AWS Config only, `l6b` is endpoints and Route 53 forwarding rules, `l3a` is a serverless single-page app debugged with CloudWatch Logs). Lecture steps keep the topics their lesson names suggest.
+- One read each by AI agents plus one independent re-read: not a review by a human AWS expert.
+
+### Steps kept from the 14-day plan
+
+The text below describes the entries written for the 14-day plan. 45 of those entries belonged to steps that the 21-day plan retired (the Cloud Practitioner Essentials modules, the Cloud Quest assignments and most own builds) and were removed; where a list below names such a step (`d1w3`, `d5b3`, `d9b2`, `d10b2`, `d6w3`, `d6p1`, `d2p2`…), the entry is in git history (commit `add330b`) and several of its checked sentences live on in the new entries.
 
 **Written** on 2026-10-12 by five writer agents, one group of days each, on the owner's PC where `aws.amazon.com` and `docs.aws.amazon.com` can be fetched directly. Each writer checked its statements against fetched AWS pages and cited only pages it fetched. The entries for `d1u1`–`d1u4` and the rewritten `d4s2` were added the same day with the Free-plan change.
 

@@ -68,8 +68,8 @@ test("each day of new material has enough questions of its own", () => {
     if (d.quiz !== "tags") continue;
     const own = W.QZ.dayPool(d, TP, Q).length;
     const sofar = study.filter(q => q.tags.every(t => TP[d.id].sofar.has(t))).length;
-    assert.ok(own >= 20, `Day ${d.day}: ${own} questions on its own topics`);
-    assert.ok(sofar >= 45, `Day ${d.day}: ${sofar} questions on topics taught so far; need 30 per quiz plus room for a different retake`);
+    assert.ok(own >= 45, `Day ${d.day}: ${own} questions on its own topics; need 30 per quiz plus room for a different retake`);
+    assert.ok(sofar >= own, `Day ${d.day}`);
   }
 });
 

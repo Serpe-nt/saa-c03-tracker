@@ -538,7 +538,7 @@ window.QUIZ.push(
     "Store them in an encrypted Amazon RDS table that the functions query"],
  a:[1],
  x:["Secrets Manager charges per secret per month; its rotation features are not needed here, so it costs more than necessary.",
-    "Standard-tier parameters have no storage charge, and SecureString encrypts each value with a KMS key, which fits rarely changing values that do not need rotation. AWS recommends Secrets Manager for credentials, but it is billed per secret.",
+    "Standard-tier parameters have no storage charge, and SecureString encrypts each value with a KMS key, which fits rarely changing values that do not need rotation. AWS recommends Secrets Manager for secrets such as API keys and tokens, but it is billed per secret, and the stem asks for the lowest cost.",
     "Advanced-tier parameters are billed per parameter, and their policies (such as expiration) are not needed.",
     "Running a database just to hold a few dozen values costs far more and adds connection handling to every function."],
  ref:[], doc:"parameter-store"},
