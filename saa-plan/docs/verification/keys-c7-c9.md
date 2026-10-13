@@ -1,6 +1,6 @@
 # Key points for c7a–c7f, l7a–l7e, c8a–c8c, l8a–l8c, c9a: sources
 
-Written on 2026-10-12/13 for the 21-day plan. Files: `site/keys/c7.js`, `site/keys/c8.js`, `site/keys/c9.js` (18 entries, 78 sentences).
+Written on 2026-10-12/13 for the 21-day plan. Files: `site/keys/c7.js`, `site/keys/c8.js`, `site/keys/c9.js` (18 entries, 91 key points and traps).
 
 ## How it was checked
 
@@ -392,7 +392,7 @@ Sources with a caveat:
 - c7f trap: AWS lists "Lambda functions calling Lambda functions" as an anti-pattern but now exempts Lambda durable functions, a code-based way to orchestrate multi-step work. The sentence holds for ordinary functions.
 - l7e k3: the sampling default is the X-Ray SDK's; the Lambda page adds that the sampling rate of a function cannot be configured.
 
-Not settled: none of the 78 sentences was left without a source or an entry in the list above.
+Not settled: none of the 91 key points and traps was left without a source or an entry in the list above.
 
 ## Found elsewhere (not fixed here)
 
