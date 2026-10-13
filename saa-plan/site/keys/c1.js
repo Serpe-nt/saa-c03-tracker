@@ -50,12 +50,14 @@ Object.assign(window.KEYS, {
   },
 
   c1d: {
+    why: "Some of your servers must be reachable from the internet and others must never be. Amazon VPC gives you a logically isolated virtual network that you define yourself, much like the network in your own data center. Subnets, route tables and firewalls are the tools for drawing those lines.",
     k: [
-      "A VPC can span the Availability Zones of its Region, while each subnet resides entirely in one AZ. The VPC's IPv4 CIDR block is between /16 and /28; choose a range that overlaps no VPC you will peer with.",
-      "A subnet is public when its route table has a route to an internet gateway and private when it has none. To be reached from the internet over IPv4 an instance needs both that route and a public IPv4 address.",
-      "An internet gateway is horizontally scaled, redundant and highly available, so it needs no standby. A NAT gateway lets instances in a private subnet connect out, while external services cannot initiate a connection to them.",
-      "Security groups work at instance level, are stateful and hold allow rules only. Network ACLs work at subnet level, are stateless and evaluate numbered allow and deny rules in ascending order until one matches.",
-      "A security group rule can name another security group as its source. It then covers every instance associated with that group, whatever its IP address, which is how only the web tier is let through to the database tier."
+      ["VPC and subnets", "A VPC can span the Availability Zones of its Region. Each subnet sits entirely in one AZ. The VPC's IPv4 range is between /16 and /28; pick one that overlaps no VPC you will peer with."],
+      ["Public or private", "A subnet is public when its route table has a route to an internet gateway, and private when it has none. To be reached from the internet over IPv4, an instance needs that route and a public IPv4 address."],
+      ["Internet gateway", "Connects a VPC to the internet. It is horizontally scaled, redundant and highly available, so it needs no standby."],
+      ["NAT gateway", "Lets instances in a private subnet connect out, while external services cannot start a connection to them."],
+      ["Security group", "The firewall of an instance. Stateful, with allow rules only. A rule can name another security group as its source: that is how only the web tier is let through to the database tier."],
+      ["Network ACL", "The firewall of a subnet. Stateless, with numbered allow and deny rules that are checked in ascending order until one matches."]
     ],
     trap: "A subnet is not public because of its name or because its instances have public IP addresses: without a route to an internet gateway they cannot communicate with the internet. A NAT gateway gives a private subnet outbound access only.",
     docs: [

@@ -5,12 +5,13 @@ Object.assign(window.KEYS, {
 
 
   d2b1: {
+    why: "A private server still has to reach out, for example to AWS services, while nothing outside may start a connection to it. This build makes you trace the one path that allows exactly that: private subnet, then a NAT gateway in a public subnet, then the internet gateway.",
     k: [
-      "Trace the chain on the VPC's Resource map tab: private route tables send <code>0.0.0.0/0</code> to the NAT gateway, which sits in a public subnet with an Elastic IP, and the public route table sends <code>0.0.0.0/0</code> to the internet gateway.",
-      "One zonal NAT gateway is a single point of failure for outbound traffic from every AZ that routes to it. The resilient zonal design is a NAT gateway per AZ and a private route table per AZ pointing to its own gateway.",
-      "A regional NAT gateway is the newer mode: one resource that expands across AZs by itself and needs no public subnet. Zonal NAT gateways remain, and a zonal public one works only from a public subnet.",
-      "A NAT gateway is managed by AWS, scales its bandwidth automatically and is redundant inside its AZ; a NAT instance is an EC2 instance you patch, size and fail over. NAT gateways take no security group and do no port forwarding.",
-      "A NAT gateway serves only connections started from inside the VPC. Inbound requests for private instances come through an internet-facing load balancer, whose targets need no public IP addresses."
+      ["Trace the path", "Open the VPC's Resource map tab. Private route tables send <code>0.0.0.0/0</code> to the NAT gateway, which sits in a public subnet with an Elastic IP. The public route table sends <code>0.0.0.0/0</code> to the internet gateway."],
+      ["One gateway is a risk", "One zonal NAT gateway is a single point of failure for outbound traffic from every AZ that routes to it. The resilient zonal design is a NAT gateway per AZ, and a private route table per AZ that points to its own gateway."],
+      ["Regional NAT gateway", "The newer mode: one resource that expands across AZs by itself and needs no public subnet. Zonal NAT gateways remain, and a zonal public one works only from a public subnet."],
+      ["Gateway or instance", "A NAT gateway is managed by AWS, scales its bandwidth automatically and is redundant inside its AZ. A NAT instance is an EC2 instance you patch, size and fail over. NAT gateways take no security group and do no port forwarding."],
+      ["Outbound only", "A NAT gateway serves only connections started from inside the VPC. Inbound requests for private instances come through an internet-facing load balancer, whose targets need no public IP addresses."]
     ],
     trap: "Three designs look private but are not isolated: a subnet that still routes to the NAT gateway, a public subnet whose instances lack public IPs, and a NACL that blocks one port. No internet path at all means a route table with only the local route.",
     docs: [
@@ -79,6 +80,7 @@ Object.assign(window.KEYS, {
   },
 
   d2c1: {
+    why: "A network needs two kinds of control: which traffic may reach one instance, and which traffic may enter a whole subnet. Security groups do the first. Network ACLs do the second, as an additional layer of defense. The exam names a need, such as blocking one IP address, and you pick the one that can do it.",
     trap: "Deleting a security group's outbound rules does not break replies to allowed inbound requests; the same change on a NACL does. A NACL deny works only with a lower rule number than the allow it must beat, and a NACL cannot reference a security group.",
     docs: [
       ["Compare security groups and network ACLs", "https://docs.aws.amazon.com/vpc/latest/userguide/infrastructure-security.html"],

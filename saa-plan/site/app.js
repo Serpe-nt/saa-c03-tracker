@@ -578,6 +578,8 @@ function stepCardHTML(id) {
     (g.min ? `<span class="c-meta">~${fmtH(g.min)}${n > 1 ? " for this block" : ""}</span>` : "") +
     (done(id) ? `<span class="pill ok">✓ Completed</span>` : "") + `</div>` +
     `<h2 class="c-t txt" tabindex="-1">${txt}</h2>` + (note ? `<p class="c-n txt">${note}</p>` : "");
+  // Purpose first: the problem or need behind the step comes before where to do it and before any detail.
+  if (kp && kp.why) h += `<section class="c-why"><h3>${g.t === "setup" || g.t === "prep" ? "Why this step" : "Why it exists"}</h3><p class="txt">${kp.why}</p></section>`;
   if (g.where || url) h += `<div class="c-w">${g.where ? `<span class="where">Where: ${g.where}</span>` : ""}${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</div>`;
   if (SCORE_AT[id]) h += scoreFieldHTML(SCORE_AT[id]);
   if (d.decision === id) { const [cls, v] = verdictHTML(); h += `<div class="verdict ${cls}" data-verdict>${v}</div>`; }
@@ -589,7 +591,10 @@ function stepCardHTML(id) {
   }
 
   if (kp) {
-    h += `<section class="c-sec c-key"><h3>Key points</h3>` + (kp.k && kp.k.length ? `<ul>${kp.k.map(x => `<li>${x}</li>`).join("")}</ul>` : "") +
+    // a point is [label, text]; a bare string is the older form
+    const pts = kp.k || [], labelled = pts.some(Array.isArray);
+    if (pts.length || kp.trap) h += `<section class="c-sec c-key"><h3>${kp.why ? "What to know" : "Key points"}</h3>` +
+      (pts.length ? `<ul${labelled ? ' class="k-list"' : ""}>${pts.map(x => (Array.isArray(x) ? `<li><b class="k-l">${x[0]}</b><span>${x[1]}</span></li>` : `<li>${x}</li>`)).join("")}</ul>` : "") +
       (kp.trap ? `<p class="c-trap"><b>Exam trap.</b> ${kp.trap}</p>` : "") + `</section>`;
   }
 
@@ -604,7 +609,7 @@ function stepCardHTML(id) {
       }).join("")}</ul><p class="muted c-hint">Your quiz answers on each topic so far, right of all.</p></div>` : "") + `</section>`;
   }
 
-  const terms = termsIn(strip(`${txt} ${note || ""} ${kp ? (kp.k || []).join(" ") + " " + (kp.trap || "") : ""}`)).slice(0, 8);
+  const terms = termsIn(strip(`${txt} ${note || ""} ${kp ? `${kp.why || ""} ${(kp.k || []).flat().join(" ")} ${kp.trap || ""}` : ""}`)).slice(0, 8);
   const cues = [];
   for (const t of tags) for (const c of CUES) if ((CUE_TAGS[c[0]] || []).includes(t) && !cues.includes(c) && cues.length < 4) cues.push(c);
   if (terms.length) h += fold("terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, false);
