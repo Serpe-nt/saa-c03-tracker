@@ -9,7 +9,7 @@ Object.assign(window.KEYS, {
       "A subnet you never associate with a route table uses the VPC's main route table. Leave the main table in its default, local-only state and associate each subnet explicitly with a custom table, so no subnet becomes public by accident.",
       "A route table applies the most specific matching route (longest prefix match), so a peering route for <code>10.50.0.0/16</code> wins over <code>0.0.0.0/0</code>. Outbound-only IPv6 uses an egress-only internet gateway; a NAT gateway does that job for IPv4."
     ],
-    trap: "An internet gateway is already horizontally scaled, redundant and highly available, so it needs no standby. A NAT gateway, by contrast, is created in one specific Availability Zone, and a tier with a subnet in only one zone fails with that zone.",
+    trap: "An internet gateway is already horizontally scaled, redundant and highly available, so it needs no standby. A standard (zonal) NAT gateway, by contrast, works in a single Availability Zone, and a tier with a subnet in only one zone fails with that zone.",
     docs: [
       ["Subnets for your VPC", "https://docs.aws.amazon.com/vpc/latest/userguide/configure-subnets.html"],
       ["Subnet route tables", "https://docs.aws.amazon.com/vpc/latest/userguide/subnet-route-tables.html"],
@@ -25,7 +25,7 @@ Object.assign(window.KEYS, {
       "A Compute Savings Plan is a 1- or 3-year commitment in dollars per hour that applies across instance family, size and Region and to Fargate and Lambda. An EC2 Instance Savings Plan has the lowest prices but is tied to one instance family in one Region.",
       "Spot Instances use spare capacity at a steep discount and are interrupted with a two-minute warning, so they fit stateless, fault-tolerant work. Be flexible about instance types and Availability Zones and use the <code>price-capacity-optimized</code> strategy."
     ],
-    trap: "A Savings Plan is a billing discount and reserves no capacity. To be sure instances can launch in a given Availability Zone, create an On-Demand Capacity Reservation, which needs no term commitment. Per-socket or per-core licences need Dedicated Hosts.",
+    trap: "A Savings Plan is a billing discount and reserves no capacity. To be sure instances can launch in a given Availability Zone, create an On-Demand Capacity Reservation; one for immediate use has no term commitment. Per-socket or per-core licences need Dedicated Hosts.",
     docs: [
       ["Amazon EC2 billing and purchasing options", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html"],
       ["Savings Plans types", "https://docs.aws.amazon.com/savingsplans/latest/userguide/plan-types.html"],
@@ -51,13 +51,13 @@ Object.assign(window.KEYS, {
 
   c3d: {
     k: [
-      "EC2 sends metrics such as <code>CPUUtilization</code> and status checks to CloudWatch with no agent, in 5-minute periods by default and 1-minute periods with detailed monitoring. Memory and disk-space use are in-guest metrics from the CloudWatch agent.",
+      "EC2 sends metrics such as <code>CPUUtilization</code> to CloudWatch with no agent, in 5-minute periods by default and 1-minute periods with detailed monitoring; status check metrics are always 1-minute. Memory and disk-space use come from the CloudWatch agent.",
       "A metric alarm can notify an SNS topic or run an EC2 or Auto Scaling action. A composite alarm combines other alarms with Boolean logic to reduce noise, for example notifying only when both the CPU alarm and the memory alarm have triggered.",
       "CloudWatch Logs keeps log data indefinitely unless you set a retention period on the log group. A metric filter turns a pattern found in the logs into a CloudWatch metric that you can graph or set an alarm on.",
       "An ALB listener evaluates its rules in priority order and forwards to a target group, so rules on host name or path let one load balancer serve several services. Health checks are set per target group, and requests go only to healthy targets.",
       "An Application Load Balancer must be enabled in at least two Availability Zones. It reaches targets on their private IP addresses, so the servers need no public IPs: they sit in private subnets and allow traffic from the load balancer's security group."
     ],
-    trap: "Detailed monitoring adds no memory or disk-space metrics: it only delivers the metrics EC2 already sends in 1-minute instead of 5-minute periods. An alarm on memory or free disk space first needs the CloudWatch agent on the instance.",
+    trap: "Detailed monitoring adds no memory or disk-space metrics: it only delivers the metrics EC2 already sends in 1-minute periods. An alarm on memory or free disk space first needs the CloudWatch agent on the instance.",
     docs: [
       ["Monitor your instances using CloudWatch", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html"],
       ["Composite alarms", "https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarm-combining.html"],
@@ -76,7 +76,7 @@ Object.assign(window.KEYS, {
     trap: "Sticky sessions are a stopgap, not high availability. When the stem says any instance may be terminated without users noticing, move state out of the instance. One zonal component, such as a single NAT gateway or a Single-AZ database, undoes a multi-AZ web tier.",
     docs: [
       ["Target tracking scaling policies for Amazon EC2 Auto Scaling", "https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-scaling-target-tracking.html"],
-      ["Health checks for instances in an Auto Scaling group", "https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-checks-overview.html"],
+      ["About the health checks for your Auto Scaling group", "https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-checks-overview.html"],
       ["REL11-BP05 Use static stability to prevent bimodal behavior", "https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_withstand_component_failures_static_stability.html"]
     ]
   },
@@ -85,11 +85,11 @@ Object.assign(window.KEYS, {
     k: [
       "The finished request path: an internet-facing load balancer in public subnets, an Auto Scaling group of servers in private subnets, and a Multi-AZ database in subnets with no internet route. Every tier spans at least two Availability Zones.",
       "Chain the security groups: the load balancer accepts client traffic, the servers accept traffic only from the load balancer's security group, and the database only from the servers' security group. No rule then depends on instance IP addresses.",
-      "Read each requirement as one choice. Survive a zone failure: every tier in two zones and a Multi-AZ database. Changing load: Auto Scaling with target tracking. Reports slowing the primary: a read replica, because a Multi-AZ standby cannot serve reads.",
+      "Read each requirement as one choice. Survive a zone failure: every tier in two zones and a Multi-AZ database. Changing load: Auto Scaling with target tracking. Reports slowing the primary: a read replica, as a Multi-AZ DB instance standby serves no reads.",
       "A separate application tier is load balanced too: the web servers call it through an internal load balancer, whose nodes have only private IP addresses. Only the first load balancer is internet-facing.",
       "RDS needs a DB subnet group with subnets in two Availability Zones, and AWS advises this even for Single-AZ so you can convert to Multi-AZ later. On failover RDS repoints the instance's DNS record to the standby, so the endpoint name does not change."
     ],
-    trap: "More capacity is not more availability: a bigger instance, or more instances in the same Availability Zone, still fails with that zone, and Multi-AZ on the database adds no read capacity. Match the option to the stem's word: available, scalable or recoverable.",
+    trap: "More capacity is not more availability: a bigger instance, or more instances in the same Availability Zone, still fails with that zone, and a Multi-AZ DB instance adds no read capacity. Match the option to the stem's word: available, scalable or recoverable.",
     docs: [
       ["Example: VPC with servers in private subnets and NAT", "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-example-private-subnets-nat.html"],
       ["How Elastic Load Balancing works", "https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html"],
@@ -101,13 +101,13 @@ Object.assign(window.KEYS, {
     k: [
       "S3 static website hosting serves static content and client-side scripts only. Anything dynamic happens when the script in the browser calls an API; the lab pairs the bucket with API Gateway, Lambda and DynamoDB for that part.",
       "Lambda sends the logs of every invocation to CloudWatch Logs, by default to the log group <code>/aws/lambda/&lt;function-name&gt;</code>, provided the execution role has the permissions. Start troubleshooting a function there.",
-      "API Gateway may invoke a function only if the function's resource-based policy allows it. With Lambda proxy integration the function must return the expected format; any other output makes API Gateway answer 502 Bad Gateway.",
+      "API Gateway gets permission to invoke a function from the function's resource-based policy (or from an IAM role it assumes). With Lambda proxy integration the function must return the expected format; any other output makes API Gateway answer 502 Bad Gateway.",
       "Every change to a REST API must be redeployed to a stage before callers see it. A page that calls an API on a different domain makes a cross-origin request, so the API must return an <code>Access-Control-Allow-Origin</code> header."
     ],
     trap: "An S3 website endpoint does not support HTTPS. HTTPS for a static site means CloudFront in front of the bucket, or Amplify Hosting, which AWS now recommends for static sites; it is not a setting on the website endpoint.",
     docs: [
       ["Hosting a static website using Amazon S3", "https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html"],
-      ["Sending Lambda function logs to CloudWatch Logs", "https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs.html"],
+      ["Sending Lambda Event Function logs to CloudWatch Logs", "https://docs.aws.amazon.com/lambda/latest/dg/monitoring-cloudwatchlogs.html"],
       ["CORS for REST APIs in API Gateway", "https://docs.aws.amazon.com/apigateway/latest/developerguide/how-to-cors.html"]
     ]
   },
@@ -121,7 +121,7 @@ Object.assign(window.KEYS, {
     ],
     trap: "When only the web tier may reach the database, the expected answer is an inbound rule on the database's security group whose source is the web tier's security group, not a rule on IP addresses that change as instances are replaced.",
     docs: [
-      ["Compare security groups and network ACLs", "https://docs.aws.amazon.com/vpc/latest/userguide/infrastructure-security.html"],
+      ["Infrastructure security in Amazon VPC", "https://docs.aws.amazon.com/vpc/latest/userguide/infrastructure-security.html"],
       ["Security group rules", "https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html"],
       ["Network ACL rules", "https://docs.aws.amazon.com/vpc/latest/userguide/nacl-rules.html"]
     ]
@@ -132,7 +132,7 @@ Object.assign(window.KEYS, {
       "Database tier: a Multi-AZ DB instance keeps a synchronous standby in another Availability Zone and fails over automatically by repointing the instance's DNS record, so the application keeps its endpoint. The DB subnet group must cover two zones.",
       "Shared storage tier: EFS gives the web servers in every zone the same NFS file system through a mount target in each zone. If a mount times out, check that the mount target's security group allows inbound TCP 2049 from the servers.",
       "Web tier: an Auto Scaling group across the same Availability Zones as the load balancer. A target in a zone that is not enabled on an Application Load Balancer shows as <code>unused</code> and receives no requests.",
-      "The network comes from a CloudFormation template: a stack is a collection of resources created, updated and deleted as a single unit, and deleting the stack deletes all the resources in it."
+      "The network comes from a CloudFormation template: a stack is a collection of resources created, updated and deleted as a single unit, and deleting the stack deletes its resources, except those a deletion policy retains."
     ],
     docs: [
       ["Multi-AZ DB instance deployments for Amazon RDS", "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZSingleStandby.html"],

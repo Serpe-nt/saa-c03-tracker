@@ -180,3 +180,20 @@ Done by a sub-agent that had not seen these sources; see the end of this file fo
 - The MemoryDB FAQ recommends ElastiCache for new workloads now that ElastiCache has a durability option (m1-048, already flagged).
 - docs.aws.amazon.com now writes "Aurora serverless" and "Route 53 VPC Resolver"; plan.js c4e keeps the course's lesson name "Aurora Serverless v2", which is right for a lesson title.
 - `saa-plan/CLAUDE.md` and `docs/keypoints.md` still describe the 14-day plan and `dNN.js` files only (being rewritten elsewhere).
+
+## Second read: result
+
+A sub-agent that had not seen the sources fetched pages itself and checked all 102 strings (about 218 sentences): about 187 confirmed, 1 wrong, 9 too strong or imprecise, about 21 framing or inference (all listed above or of the same kind), 57 of 57 links answer 200. Changed after it:
+
+- c3d k1 (wrong): status check metrics are 1-minute even with basic monitoring (ec2/manage-detailed-monitoring.html). Reworded; the c3d trap dropped "instead of 5-minute".
+- l3a k3: API Gateway can also invoke through an IAM role (https://docs.aws.amazon.com/apigateway/latest/developerguide/permissions.html).
+- l3c k4: a deletion policy can retain resources (https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-console-delete-stack.html).
+- c3a trap: "standard (zonal) NAT gateway", since regional NAT gateways exist (vpc/nat-gateways-regional.html).
+- c3b trap: only an immediate-use Capacity Reservation has no term commitment.
+- c3f k3 and trap: "Multi-AZ DB instance" (a Multi-AZ DB cluster does serve reads).
+- c4a k1: "no guest operating system" removed (https://aws.amazon.com/what-is/containerization/ allows a light one).
+- c4d k5: the certificate may be requested or imported.
+- c4e trap: "point to DynamoDB global tables" instead of "means" (Aurora DSQL is also multi-Region active-active).
+- Link titles aligned to the pages: c3e (health checks), l3a (Lambda logs), l3b (Infrastructure security in Amazon VPC).
+
+Further inferences it named, added to the list above: c3e k3 "an instance that runs with a hung application is kept", l3c k3 "across the same Availability Zones as the load balancer", c4d trap "DNS failover is not instant", l4d k3 "or they cannot be placed", c3f k1 as a composed design.

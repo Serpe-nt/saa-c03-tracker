@@ -3,7 +3,7 @@ window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
   c4a: {
     k: [
-      "A container packages an application with its code, runtime, libraries and system tools and virtualizes the operating system, not the hardware. With no guest operating system inside, images are measured in MB rather than GB and the same package runs anywhere.",
+      "A container packages an application with its code, runtime, libraries and system tools and virtualizes the operating system, not the hardware. Sharing the host's operating system, images are measured in MB rather than GB and the same package runs anywhere.",
       "An image is a read-only template, typically built from a Dockerfile, and containers are created from it. Images live in a registry: Amazon ECR offers private repositories with IAM permissions, scanning on push and lifecycle policies that clean up images.",
       "Treat a container as disposable: a bind mount and Fargate's task storage are ephemeral. Data that must outlive a task goes to a database, to S3 or to an EFS volume, which is persistent and gives tasks the same files wherever they run.",
       "Containers suit microservices: each service has one function, is deployed and scaled independently, and one faulty container does not affect the others. An orchestrator such as Amazon ECS or Amazon EKS deploys, manages and scales the containers.",
@@ -55,7 +55,7 @@ Object.assign(window.KEYS, {
       "In Route 53 the routing policy picks the DNS answer: failover for active-passive, weighted for proportions you specify, latency for the Region with the best latency, geolocation for the user's location. Resolvers cache the answer for the record's TTL.",
       "Global Accelerator provides two static anycast IPv4 addresses, takes TCP or UDP traffic onto the AWS network at the closest edge location and routes it to a healthy endpoint: a load balancer, EC2 instance or Elastic IP address in one or more Regions.",
       "Choosing: cacheable web content means CloudFront. Non-HTTP traffic such as UDP gaming, or HTTP that needs static IP addresses or fast, deterministic regional failover, means Global Accelerator. A Route 53 alias record can point a domain at either one.",
-      "A custom domain on CloudFront needs an ACM certificate requested in us-east-1. Keep an S3 origin private with origin access control, and keep a load balancer or EC2 instance in private subnets by using a VPC origin."
+      "A custom domain on CloudFront needs a certificate in ACM in us-east-1 (requested or imported). Keep an S3 origin private with origin access control, and keep a load balancer or EC2 instance in private subnets by using a VPC origin."
     ],
     trap: "DNS failover is not instant: resolvers keep using a cached answer until its TTL ends, while Global Accelerator redirects new connections as soon as an endpoint is unhealthy. Latency routing picks the lowest-latency Region, so a rule about where users live needs geolocation.",
     docs: [
@@ -73,7 +73,7 @@ Object.assign(window.KEYS, {
       "Aurora serverless (the lesson's Serverless v2) scales each instance within a minimum and maximum capacity, for variable and unpredictable workloads; with a minimum of 0 ACUs an idle instance pauses. A cluster can mix serverless and provisioned instances.",
       "Application Recovery Controller (ARC) moves traffic. A zonal shift temporarily moves a load balancer's traffic away from an impaired Availability Zone; routing controls are on-off switches on Route 53 health checks that fail traffic over between Regions."
     ],
-    trap: "Multi-AZ, Aurora Replicas and the cluster volume's copies all sit in a single Region. Surviving a Region needs a global database or a cross-Region read replica, each with one place for writes; any replica accepting writes means DynamoDB global tables.",
+    trap: "Multi-AZ, Aurora Replicas and the cluster volume's copies all sit in a single Region. Surviving a Region needs a global database or a cross-Region read replica, each with one place for writes; writes accepted in every Region point to DynamoDB global tables.",
     docs: [
       ["High availability for Amazon Aurora", "https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.AuroraHighAvailability.html"],
       ["Using Amazon Aurora Global Database", "https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database.html"],
