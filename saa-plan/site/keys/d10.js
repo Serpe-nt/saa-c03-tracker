@@ -17,7 +17,7 @@ Object.assign(window.KEYS, {
     k: [
       ["S3 request rate", "For 503 Slow Down under parallel load, spread keys across more prefixes. S3 scales per prefix: at least 3,500 PUT/COPY/POST/DELETE and 5,500 GET/HEAD requests per second each. The number of prefixes has no limit."],
       ["Large S3 transfers", "Large uploads use multipart upload: parts go in parallel and only a failed part is resent. Distant clients add Transfer Acceleration. Large downloads use parallel byte-range GETs."],
-      ["S3 Express One Zone", "For the fastest S3 access. It gives single-digit millisecond access in one AZ."],
+      ["S3 Express One Zone", "For S3 data that must be read very fast. It gives single-digit millisecond access in one AZ."],
       ["gp3 or gp2", "gp3 includes 3,000 IOPS and 125 MiB/s at any size. You can raise both without adding capacity. gp2 is tied to size at 3 IOPS per GiB. Elastic Volumes changes the type while the volume stays in use."],
       ["io2, st1, sc1, instance store", "io2 Block Express is for sustained high IOPS at sub-millisecond latency. st1 is for large sequential work such as log processing, sc1 for rarely read data. Instance store NVMe is fastest, but its data is lost on stop, hibernate or terminate."],
       ["EFS", "The elastic shared file system for many Linux clients across AZs, including Fargate tasks. Elastic throughput fits spiky load. Provisioned bills a fixed level. Bursting scales with the amount of data stored."]

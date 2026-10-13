@@ -31,7 +31,7 @@ Object.assign(window.KEYS, {
     ]
   },
   d9e3: {
-    why: "Hardware, a whole data center or a whole Region can fail, and a system with one copy of anything stops when that copy is lost. This task tests whether you can remove single points of failure and make failover automatic. It also tests whether you can pick a recovery design that meets the stated limits on downtime and data loss without paying for more.",
+    why: "Hardware, a whole data center or a whole Region can fail, and a system with one copy of anything stops when that copy is lost. This task tests whether you can remove single points of failure and make failover automatic. It also tests whether you can pick a recovery design that meets the stated limits on downtime (RTO) and data loss (RPO) without paying for more.",
     k: [
       ["No single-AZ dependency", "Spread every part: an Auto Scaling group across AZs, a NAT gateway per AZ used by that AZ's private route table, Lambda subnets in several AZs. Inside one AZ, a spread placement group keeps each instance on distinct hardware."],
       ["Automatic database failover", "Comes from RDS Multi-AZ (a synchronous standby, no reads), a Multi-AZ DB cluster (two readable standbys) or an Aurora Replica that Aurora promotes. A read replica is asynchronous and promoted by you, so it is not failover."],
@@ -70,7 +70,7 @@ Object.assign(window.KEYS, {
     ]
   },
   d9c2: {
-    why: "After a disaster two things hurt: how long the service is down and how much recent data is gone. Cutting either one costs money, because more has to be kept ready in a second place. The disaster recovery strategies are steps on that scale. The exam states the limits and asks for the cheapest step that still meets them.",
+    why: "After a disaster two things hurt: how long the service is down and how much recent data is gone. The recovery time objective (RTO) and the recovery point objective (RPO) limit each. Tighter limits cost more, because more must be kept ready in a second place. The disaster recovery strategies are steps on that scale, and the exam asks for the cheapest step that meets the stated limits.",
     trap: "Pilot light and warm standby both replicate data continuously. The difference is compute. Pilot light cannot serve requests until servers are started. Warm standby already serves at reduced capacity and only scales up. How often you back up sets the RPO, not the RTO.",
     docs: [
       ["Disaster recovery options in the cloud", "https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/disaster-recovery-options-in-the-cloud.html"],

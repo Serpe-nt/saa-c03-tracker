@@ -15,7 +15,7 @@ Object.assign(window.KEYS, {
   d8e2: {
     why: "When access is designed badly, people and programs hold more rights than their job needs, and long-lived keys sit in code where they leak. One stolen key then opens far more than it should. This task tests whether you can give each person and workload only the access it needs, across many accounts, without handing out permanent credentials.",
     k: [
-      ["Service control policy (SCP)", "Caps what member accounts may do and never grants. A call needs an allow from the SCPs and from an identity or resource policy. A deny on <code>aws:RequestedRegion</code> or a missing <code>aws:RequestTag</code> binds even administrators there."],
+      ["Service control policy (SCP)", "Caps member accounts and never grants. A call needs an allow from the SCPs and from an identity or resource policy. A deny on a condition such as <code>aws:RequestedRegion</code> or a missing <code>aws:RequestTag</code> binds even administrators there."],
       ["Roles for workloads", "Workloads get roles, never access keys. Use one ECS task role per service. Use IAM Roles Anywhere for on-premises servers that hold X.509 certificates from your CA. Use IAM database authentication (tokens valid 15 minutes) in place of an RDS password."],
       ["Cross-account: policy or role", "A resource-based policy such as a bucket policy lets the caller keep its own permissions. Assuming a role in the other account replaces them for that session. So one set of credentials cannot use resources in both accounts."],
       ["Require MFA", "A deny when <code>aws:MultiFactorAuthPresent</code> is false forces MFA on API calls. Write it with <code>BoolIfExists</code>, as access keys lack the key."],
