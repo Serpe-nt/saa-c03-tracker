@@ -2,7 +2,7 @@
 
 Study tracker for the AWS Certified Solutions Architect – Associate exam: a 21-day plan you work through one step at a time, a quiz at the end of a day that you must pass at 90%, spaced review of what you missed, and a full mock exam. Static HTML/CSS/JS (no frameworks) served by a small Go server that also keeps your progress in SQLite.
 
-The plan follows two learning plans on AWS Skill Builder: the **AWS Solutions Architect Learning Plan (Includes Labs)** on Days 1–16 (each lecture course, then its labs) and the **Exam Prep Plan** for SAA-C03 on Days 7 and 17–20. Day 1 tells you what to enroll in. One month of the Skill Builder subscription is needed from Day 1: most of the courses and labs are behind it. A few builds in your own AWS account (a VPC, IAM roles and policies, one Terraform project) stay in the plan; that account remains on the Free plan.
+The plan follows two learning plans on AWS Skill Builder: the **AWS Solutions Architect Learning Plan (Includes Labs)** on Days 1–16 (each lecture course, then its labs) and the **Exam Prep Plan** for SAA-C03 on Days 7 and 17–20. Day 1 tells you what to enroll in. One month of the Skill Builder subscription is needed from Day 1: most of the courses and labs are behind it. A few builds in your own AWS account (a VPC, IAM roles and policies, one Terraform project) stay in the plan; that account is on the Paid plan, because the subscription is billed to it, so Day 1 also sets up budgets.
 
 ```
 site/

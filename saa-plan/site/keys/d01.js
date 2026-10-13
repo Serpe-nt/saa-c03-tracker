@@ -10,13 +10,16 @@ Object.assign(window.KEYS, {
   },
 
   d1a2: {
-    why: "A learning account should not be able to run up a bill by accident. The Free plan gives that protection, but it has limits, and a few actions move the account to the Paid plan automatically. Knowing them keeps the surprise bill away.",
+    why: "The Skill Builder subscription is billed to your AWS account, and an account on the Free plan can't be charged for anything. So this plan needs the Paid plan. The price of that choice is that a mistake now costs real money, which is what the budgets and the cleanup steps are for.",
     k: [
-      ["When the plan ends", "A Free plan account closes automatically when the plan period ends or the credits are used up, whichever comes first. Upgrading to the Paid plan keeps the account and its resources."],
-      ["What upgrades the account", "Setting up an AWS Control Tower landing zone upgrades the account to the Paid plan, just as joining an organization does."],
-      ["No commitment discounts", "The Free plan gives no access to Savings Plans or Reserved Instances, so you study those without buying one."]
+      ["What the Paid plan changes", "You can use all AWS services and features. Usage beyond your credit balance is charged at standard pay-as-you-go prices, and so is any service that credits do not apply to."],
+      ["Credits still apply", "A Paid plan account receives the same sign-up credit as a Free plan account and can earn the same extra credits. After an upgrade, the credits left from the Free plan are applied to future bills automatically."],
+      ["The account stays open", "A Free plan account closes when its credits are used up or its plan period ends. A Paid plan account does not close when the credits run out. From then on you pay for what you use."],
+      ["Upgrading later", "If the account was created on the Free plan: sign in to the console, choose Upgrade plan, review what you gain and choose Upgrade account."],
+      ["What upgrades by itself", "A Free plan account moves to the Paid plan automatically when it joins AWS Organizations or sets up an AWS Control Tower landing zone. A Paid plan account can do both freely."]
     ],
-    docs: [["Choosing a plan (Free or Paid)", "https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html"]]
+    trap: "Credits are not a spending limit. On the Paid plan nothing stops a resource you forgot from running, and the bill arrives once the credits are gone. A limit with a notification is AWS Budgets.",
+    docs: [["Choosing a plan (Free or Paid)", "https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html"], ["AWS Training FAQs (how the Individual subscription is billed)", "https://aws.amazon.com/training/faqs/"]]
   },
 
   d1b1: {
@@ -70,7 +73,7 @@ Object.assign(window.KEYS, {
       ["IAM user", "An identity inside one account with its own long-lived password and, optionally, access keys. AWS recommends federation with temporary credentials for people, and IAM users only where federation does not fit."],
       ["Only the credentials needed", "Create only the credentials a user needs. Someone who works only in the console gets a password and no access keys."]
     ],
-    trap: "On the exam an IAM user per person is usually the distractor. For employees the expected answer is IAM Identity Center or federation with temporary credentials. You use an IAM user here only to keep a single learning account on the Free plan.",
+    trap: "On the exam an IAM user per person is usually the distractor. For employees the expected answer is IAM Identity Center or federation with temporary credentials. You use an IAM user here because it is the simplest login for one person and one account.",
     docs: [
       ["Create an IAM user in your AWS account", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html"],
       ["Security best practices in IAM", "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html"]
@@ -160,6 +163,15 @@ Object.assign(window.KEYS, {
       ["Configuring budget actions", "https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-controls.html"],
       ["Best practices for AWS Budgets", "https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-best-practices.html"]
     ]
+  },
+  d1d3: {
+    why: "The zero spend budget tells you the first time the account costs anything. Your subscription is that first cost, and after it the budget stays silent for the rest of the month. A second budget set just above the subscription tells you when something else starts to cost money.",
+    k: [
+      ["One alert a month", "An alert on actual spend is sent only once per budget and budget period, when the threshold is first reached. A budget that has already fired says nothing about what comes after."],
+      ["Monthly cost budget", "The template notifies you if you exceed the amount you set, or are forecasted to exceed it. Set the amount a little above your known monthly charge, so any alert means something new is running."],
+      ["Alerts lag", "Budgets works from billing data that is updated at least once per day. An alert can arrive hours after the spending began, so the cleanup after each build still matters."]
+    ],
+    docs: [["Best practices for AWS Budgets", "https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-best-practices.html"], ["Using a budget template (simplified)", "https://docs.aws.amazon.com/cost-management/latest/userguide/budget-templates.html"]]
   },
 
   d1c6: {

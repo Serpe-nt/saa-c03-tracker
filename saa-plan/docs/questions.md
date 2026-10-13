@@ -219,7 +219,7 @@ Read from AWS pages by the verification sessions; the source URL for each is in 
   - Some Athena federated connectors created through the Glue Data Catalog no longer use a Lambda function (2026-04-21).
   - Site-to-Site VPN tunnels carry 1.25 Gbps, or up to 5 Gbps with a Large Bandwidth Tunnel on Transit Gateway or Cloud WAN.
 - **Accounts and billing:**
-  - A Free plan account is upgraded to the Paid plan when it creates or joins an AWS Organization, which enabling an organization instance of IAM Identity Center does in a standalone account. The plan therefore keeps the account out of Organizations.
+  - A Free plan account is upgraded to the Paid plan when it creates or joins an AWS Organization, which enabling an organization instance of IAM Identity Center does in a standalone account. The plan kept the account out of Organizations for that reason until 2026-10-13, when the owner moved it to the Paid plan to buy the Skill Builder subscription.
   - AWS is rolling out a new sign-up ("Sign up for AWS (new)") to a limited number of customers: a Google, GitHub, Apple or Amazon login, projects and AWS Settings. IAM users with console access can't be created in it.
 
 ### Reported while writing the 21-day content (2026-10-12)
