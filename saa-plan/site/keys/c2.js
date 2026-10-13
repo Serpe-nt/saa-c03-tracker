@@ -21,7 +21,7 @@ Object.assign(window.KEYS, {
     k: [
       "You cannot attach identity-based policies or a permissions boundary to the root user, which is why it is guarded with MFA and kept out of daily use. In an organization, SCPs restrict a member account's root user, and its credentials can be removed centrally.",
       "An IAM user has long-term credentials. A user group is only a collection of users for sharing permissions. A role has no long-term credentials: whoever is allowed to assume it gets temporary security credentials for the session.",
-      "All requests are implicitly denied by default. An Allow in an identity-based or a resource-based policy grants access; inside one account either one is enough. An explicit Deny in any applicable policy overrides every Allow.",
+      "Requests are implicitly denied by default (the root user aside). An Allow in an identity-based or a resource-based policy grants access; inside one account either one is enough. An explicit Deny in any applicable policy overrides every Allow.",
       "A role carries two policies: the trust policy says who may assume it, the permissions policy says what the session may do. Roles serve applications on EC2, users from another account and federated users, so none of them needs a stored access key.",
       "To demand MFA for a sensitive action, deny it under <code>BoolIfExists</code> with <code>aws:MultiFactorAuthPresent</code> set to false. That also blocks long-term access keys; CLI users get MFA-backed temporary credentials with <code>GetSessionToken</code>."
     ],

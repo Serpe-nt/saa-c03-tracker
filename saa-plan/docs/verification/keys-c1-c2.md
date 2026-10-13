@@ -152,6 +152,17 @@ URL prefixes used below: `EC2/` = https://docs.aws.amazon.com/AWSEC2/latest/User
 - c2b k1 "which is why it is guarded with MFA and kept out of daily use". c2b trap example with AdministratorAccess (the docs give a similar example with another user).
 - l2a trap first sentence. l2b trap: advice built from the group and role pages.
 
+## Second read
+
+A sub-agent that had not seen the pages above fetched about 190 AWS pages itself (curl, redirects not followed) and looked up every sentence of both files. Result: no sentence wrong; all 45 `docs` links answer 200 and fit their entry; all figures match (30/26/24/20%, 100 km, /16–/28, five reserved addresses, 400 KB, 15 minutes, 60–120 seconds, 99.999999999% and 99.99%). Four sentences were reworded on its findings:
+
+- l1d k4: Session Manager also needs software on the instance (the SSM Agent, per the table on EC2/connect.html); "only IAM permissions and an instance profile role" was too narrow.
+- l1b k4: "only through a snapshot" is not stated on a page; now says a snapshot is restorable as a volume in any AZ of the Region (https://docs.aws.amazon.com/ebs/latest/userguide/ebs-snapshots.html).
+- l1e k1: the standby that serves no reads is that of a Multi-AZ DB instance deployment; a Multi-AZ DB cluster has readable standbys (RDS/Concepts.MultiAZ.html).
+- c2b k3: implicit deny by default has one exception, the root user (IAM/reference_policies_evaluation-logic_policy-eval-denyallow.html).
+
+It also noted three facts whose source is not among the entry's three links: c1a k2 (WAF/definitions.html), l1e k2 backups on the source (RDS/USER_ReadRepl.Create.html), c1e k5 "full control" (Elastic Beanstalk FAQ). The URLs are in the lists above. And "standard function" in c1e k4 is not an AWS term: the Lambda page now calls the classic type "Lambda Event Functions".
+
 ## Found elsewhere (not fixed here)
 
 - `STEP_TAGS.l2b` has "IAM roles & cross-account", but the lab's objectives name only users, groups, policies and the sign-in URL. No role appears in its description.

@@ -117,7 +117,7 @@ Object.assign(window.KEYS, {
       "You pick an Availability Zone by picking a subnet, because each subnet resides entirely within one AZ. Running in two AZs therefore takes at least two subnets.",
       "Instances in two AZs become one highly available application only when something spreads the traffic. Elastic Load Balancing distributes incoming traffic across targets in one or more AZs and routes only to the healthy ones.",
       "Size for the loss of one AZ: the remaining AZs must carry the whole load. Needing 4 instances means 2 in each of three AZs (6 in total) or 4 in each of two (8 in total), so three AZs need less spare capacity.",
-      "An EBS volume and the instance it attaches to must be in the same AZ, so a volume cannot follow you to the other AZ. Its data gets there only through a snapshot."
+      "An EBS volume and the instance it attaches to must be in the same AZ, so a volume cannot follow you to the other AZ. A snapshot can: it is restorable as a new volume in any AZ of the Region."
     ],
     trap: "A larger instance type, a cluster placement group or daily snapshots do not survive an AZ outage. The first two stay inside one AZ and snapshots only help you rebuild afterwards; only instances already running in a second AZ keep serving.",
     docs: [
@@ -147,7 +147,7 @@ Object.assign(window.KEYS, {
       "Changing the instance type means downtime: you must stop an EBS-backed instance, change the type and start it again. The EBS volumes and their data are kept.",
       "A stop and start loses the contents of RAM, instance store data and the auto-assigned public IPv4 address. EBS volumes, private IPv4 addresses and associated Elastic IP addresses persist.",
       "Read a type name such as <code>m7g.large</code> left to right: the series (M, general purpose), the generation (7), option letters (g for Graviton processors) and, after the dot, the size. Pick the series by the resource that runs short.",
-      "Connection methods differ: an SSH client needs an inbound rule and a key pair; EC2 Instance Connect needs the inbound rule and IAM permissions but no key pair; Session Manager needs no inbound rule, only IAM permissions and an instance profile role."
+      "Connection methods differ: an SSH client needs an inbound rule and a key pair; EC2 Instance Connect needs the inbound rule and IAM permissions, no key pair; Session Manager needs no inbound rule: IAM permissions, an instance profile role and the SSM Agent."
     ],
     trap: "A bigger instance type is vertical scaling: it costs downtime and still leaves one instance to fail; the reliability pillar prefers several small resources to one large one. More memory comes from the instance type, never from a larger EBS volume.",
     docs: [
@@ -159,7 +159,7 @@ Object.assign(window.KEYS, {
 
   l1e: {
     k: [
-      "Multi-AZ keeps a synchronous standby replica in another AZ. On a failure RDS switches over automatically and points the DB instance's DNS record at the standby, typically in 60 to 120 seconds. The standby cannot serve read traffic.",
+      "In a Multi-AZ DB instance deployment RDS keeps a synchronous standby in another AZ. On a failure it switches over automatically and repoints the instance's DNS record, typically in 60 to 120 seconds. That standby cannot serve read traffic.",
       "A read replica is a read-only copy that RDS updates asynchronously. It takes load off the primary only when the application routes queries to it, it can be promoted to a standalone DB instance, and its source needs automatic backups enabled.",
       "Managed versus self-hosted: for a database on EC2 you do the OS and database patching, backups, high availability and scaling yourself. On RDS AWS does all of these; application optimization and query tuning stay with you.",
       "AWS DMS keeps the source database fully operational during a migration: a full load copies the existing data, then change data capture applies ongoing changes until you switch over. A different target engine also needs schema conversion."
