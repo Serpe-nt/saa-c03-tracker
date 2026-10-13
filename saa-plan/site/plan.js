@@ -14,6 +14,7 @@ window.LINKS = {
   signup:  { label: "aws.amazon.com",     url: "https://aws.amazon.com/", hidden: true },
   credly:  { label: "Credly",             url: "https://www.credly.com/", hidden: true },
   idc:     { label: "Identity Center docs", url: "https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html", hidden: true },
+  te:      { label: "AWS Technical Essentials", url: "https://skillbuilder.aws/learn/K8C2FNZM6X/aws-technical-essentials/N7Q3SXQCDY", hidden: true },
   overview: { label: "Overview of Amazon Web Services", url: "https://docs.aws.amazon.com/whitepapers/latest/aws-overview/amazon-web-services-cloud-platform.html", hidden: true },
   // the lecture courses of the Solutions Architect plan (the Open button of each lecture block)
   c1:      { label: "Fundamentals of Architecting on AWS", url: "https://skillbuilder.aws/learn/ACYHAC5Q6K/aws-solutions-architect--fundamentals-of-architecting-on-aws/HNFECXKH8Q", hidden: true },
@@ -28,15 +29,16 @@ window.LINKS = {
 };
 
 // The plan follows two Skill Builder learning plans, as listed there on 2026-10-12:
-// "AWS Solutions Architect Learning Plan (Includes Labs)" (Days 1–16: each lecture course, then its labs) and
-// "Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)" (Days 7 and 17–20).
+// "AWS Solutions Architect Learning Plan (Includes Labs)" (Days 2–17: each lecture course, then its labs) and
+// "Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)" (Days 8 and 18–21). Days 1 and 2 open with the free course "AWS Technical Essentials",
+// which every course of the first plan lists as recommended previous knowledge.
 // Day fields: quiz = "tags" (the topics of the day's steps), "review" (everything taught so far), "dom:1,2" (exam domains),
 // "weak" (your weakest topics), "exam" (weighted like the exam); no quiz field = no quiz that day.
 window.PLAN = [
 {week: "Week 1 — Foundations and a three-tier application"},
 
-{id:"d1", day:1, title:"Set up, and how an architect thinks",
- goal:"Create ③ your own AWS account and make it safe (~1 h), buy the Skill Builder subscription with it and enroll, then the first half of Fundamentals of Architecting.",
+{id:"d1", day:1, title:"Set up, and AWS from zero",
+ goal:"Create ③ your own AWS account and make it safe (~1 h), buy the Skill Builder subscription with it and enroll. Then the first half of AWS Technical Essentials: what AWS is, compute and networking.",
  groups:[
  {t:"setup", label:"Setup: create the account", where:"aws.amazon.com (public website, not Skill Builder)", link:"signup", min:20, items:[
   ["d1a1","Open <b>aws.amazon.com</b> → click <b>Create an AWS Account</b>.","Use your normal email. Account name: anything, e.g. <code>stepan-lab</code>. AWS is rolling out a new sign-up to some customers (a Google, GitHub, Apple or Amazon login, with \"projects\" and \"AWS Settings\"). If you get that one, follow its screens: you then have a personal login from the start, and the admin-user block below does not apply."],
@@ -56,9 +58,25 @@ window.PLAN = [
   ["d1d3","<b>Create budget</b> again → <b>Use a template</b> → <b>Monthly cost budget</b> → an amount a few dollars above your subscription's monthly charge (35, say, if the charge is 29) → your email.","The alarm for a forgotten NAT gateway. A budget alerts on actual spend only once a month, so the zero spend budget goes quiet as soon as the subscription is charged. When the charge shows under <b>Bills</b>, set the amount to it plus a few dollars."],
   ["d1d2","Search <b>Billing and Cost Management</b> → <b>Credits</b>: note your credit balance and expiry.","Check this page every few days."]]},
  {t:"setup", label:"Setup: subscribe and enroll on Skill Builder", where:"skillbuilder.aws → sign in with your AWS Builder ID", link:"sb", min:15, items:[
-  ["d8s1","<b>Buy one month</b> of the Individual subscription (top menu → Subscriptions).","It is billed to ③ your AWS account, which must be on the Paid plan. 27 of the 36 trainings in the Solutions Architect plan need it, and so do Domain Practice and the Official Practice Exam. It renews every month until you cancel: Day 20 has the step for that."],
-  ["s0a","Enroll in the learning plan <a href=\"https://skillbuilder.aws/learning-plan/EB6SVX4CTK/aws-solutions-architect-learning-plan-includes-labs/SAJSTUCC44\" target=\"_blank\" rel=\"noopener\"><b>AWS Solutions Architect Learning Plan (Includes Labs)</b></a>.","36 trainings, 66 h 45 min: eight lecture courses, each followed by its labs. This is the backbone of Days 1–16."],
-  ["d1e3","Enroll in the learning plan <a href=\"https://skillbuilder.aws/learning-plan/UYRXS2DF85/exam-prep-plan-aws-certified-solutions-architect--associate-saac03--english/U991QUF9C3\" target=\"_blank\" rel=\"noopener\"><b>Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)</b></a>.","18 trainings. Days 7 and 17–20 use it: overviews, the Official Practice Question Set, a review, practice questions and a lab per exam domain, and the Official Practice Exam."]]},
+  ["d8s1","<b>Buy one month</b> of the Individual subscription (top menu → Subscriptions).","It is billed to ③ your AWS account, which must be on the Paid plan. 27 of the 36 trainings in the Solutions Architect plan need it, and so do Domain Practice and the Official Practice Exam. It renews every month until you cancel: Day 21 has the step for that."],
+  ["s0b","Enroll in the course <a href=\"https://skillbuilder.aws/learn/K8C2FNZM6X/aws-technical-essentials/N7Q3SXQCDY\" target=\"_blank\" rel=\"noopener\"><b>AWS Technical Essentials</b></a>.","Free, 4 hours, beginner level. Every course of the Solutions Architect plan lists it as recommended previous knowledge, and it needs no AWS experience."],
+  ["s0a","Enroll in the learning plan <a href=\"https://skillbuilder.aws/learning-plan/EB6SVX4CTK/aws-solutions-architect-learning-plan-includes-labs/SAJSTUCC44\" target=\"_blank\" rel=\"noopener\"><b>AWS Solutions Architect Learning Plan (Includes Labs)</b></a>.","36 trainings, 66 h 45 min: eight lecture courses, each followed by its labs. This is the backbone of Days 2–17."],
+  ["d1e3","Enroll in the learning plan <a href=\"https://skillbuilder.aws/learning-plan/UYRXS2DF85/exam-prep-plan-aws-certified-solutions-architect--associate-saac03--english/U991QUF9C3\" target=\"_blank\" rel=\"noopener\"><b>Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)</b></a>.","18 trainings. Days 8 and 18–21 use it: overviews, the Official Practice Question Set, a review, practice questions and a lab per exam domain, and the Official Practice Exam."]]},
+ {t:"watch", label:"Lecture: AWS Technical Essentials", where:"① Skill Builder → My training → AWS Technical Essentials", link:"te", min:120, items:[
+  ["t1a","<b>AWS Technical Essentials</b> → Part 1, Module 1: Introduction to Amazon Web Services","Lessons: What Is AWS?, AWS Global Infrastructure, Interacting with AWS, Security and the AWS Shared Responsibility Model, Protecting the AWS Root User, AWS Identity and Access Management, and a demonstration of IAM. You did some of this by hand an hour ago. Free; it needs no AWS experience."],
+  ["t1b","<b>AWS Technical Essentials</b> → Part 1, Module 2: AWS Compute","Lessons: Compute as a Service, Getting Started with Amazon EC2, Amazon EC2 Instance Lifecycle, Container Services, Introduction to Serverless, Serverless with AWS Fargate, Serverless with AWS Lambda, Choosing the Right Compute Service."],
+  ["t1c","<b>AWS Technical Essentials</b> → Part 1, Module 3: AWS Networking","Lessons: Introduction to Networking, Amazon VPC, Amazon VPC Routing, Amazon VPC Security, and a demonstration."]]}
+]},
+
+{id:"d2", day:2, title:"AWS from zero, continued, and how an architect thinks",
+ goal:"Finish AWS Technical Essentials (storage, databases, monitoring and scaling) and take its assessment. Then the first half of Fundamentals of Architecting.",
+ groups:[
+ {t:"watch", label:"Lecture: AWS Technical Essentials", where:"① Skill Builder → My training → AWS Technical Essentials", link:"te", min:120, items:[
+  ["t1d","<b>AWS Technical Essentials</b> → Part 2, Module 4: AWS Storage","Lessons: Storage Types, File Storage with Amazon EFS and Amazon FSx, Block Storage with Amazon EC2 Instance Store and Amazon EBS, Object Storage with Amazon S3, Choosing the Right Storage Service, and a demonstration."],
+  ["t1e","<b>AWS Technical Essentials</b> → Part 2, Module 5: Databases on AWS","Lessons: Introduction to Databases on AWS, Amazon RDS, Purpose-Built Databases, Amazon DynamoDB, Choosing the Right Database Service, and a demonstration."],
+  ["t1f","<b>AWS Technical Essentials</b> → Part 2, Module 6: Monitoring, Load Balancing, and Scaling","Lessons: Monitoring, Amazon CloudWatch, Solution Optimization, Traffic Routing with Elastic Load Balancing, Amazon EC2 Auto Scaling, and a demonstration that makes the course's application highly available."]]},
+ {t:"prep", label:"Course assessment", where:"① Skill Builder → My training → AWS Technical Essentials", link:"te", min:15, items:[
+  ["t1g","<b>AWS Technical Essentials - Assessment</b>","The course's own test. A miss shows which module to look at again before the architecture courses build on it."]]},
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Fundamentals of Architecting on AWS", link:"c1", min:120, items:[
   ["c1a","<b>Fundamentals of Architecting on AWS</b> → Foundations of AWS solution design: Solutions Architect Role, Cloud Architecting","Free. Watch at 1.25–1.5×; stop and replay whatever is new to you."],
   ["c1b","<b>Fundamentals of Architecting on AWS</b> → AWS Well-Architected Tool, Best Practices, Tech Talk: AWS Well-Architected Framework"]]},
@@ -66,7 +84,7 @@ window.PLAN = [
   ["d6c2","The six Well-Architected pillars."]]}
 ]},
 
-{id:"d2", day:2, title:"Global infrastructure and the core services", quiz:"tags",
+{id:"d3", day:3, title:"Global infrastructure and the core services", quiz:"tags",
  goal:"Finish Fundamentals of Architecting, then the first two labs.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Fundamentals of Architecting on AWS", link:"c1", min:180, items:[
@@ -83,7 +101,7 @@ window.PLAN = [
   ["d1c8","When to pick EC2 vs Lambda vs ECS on Fargate."]]}
 ]},
 
-{id:"d3", day:3, title:"Networking, compute and databases, hands-on", quiz:"tags",
+{id:"d4", day:4, title:"Networking, compute and databases, hands-on", quiz:"tags",
  goal:"Three guided labs, then build a VPC yourself with nobody guiding you.",
  groups:[
  {t:"play", label:"Labs", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:180, items:[
@@ -101,7 +119,7 @@ window.PLAN = [
   ["d3c2","RDS Multi-AZ (availability) vs read replica (read scaling)."]]}
 ]},
 
-{id:"d4", day:4, title:"Security foundations and IAM", quiz:"tags",
+{id:"d5", day:5, title:"Security foundations and IAM", quiz:"tags",
  goal:"Domain 1 is 30% of the exam. IAM must become second nature.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Fundamentals of Security on AWS", link:"c2", min:90, items:[
@@ -129,7 +147,7 @@ window.PLAN = [
   ["d8c2","Cross-account access: role trust policy, external ID."]]}
 ]},
 
-{id:"d5", day:5, title:"A three-tier web application", quiz:"tags",
+{id:"d6", day:6, title:"A three-tier web application", quiz:"tags",
  goal:"The pattern most exam scenarios are built on: network, compute, storage, then load balancing and scaling across AZs.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Designing a Three-Tier Web Architecture", link:"c3", min:270, items:[
@@ -145,7 +163,7 @@ window.PLAN = [
   ["d5c3","EC2 vs ELB health checks in an Auto Scaling group."]]}
 ]},
 
-{id:"d6", day:6, title:"Build and secure the three tiers", quiz:"tags",
+{id:"d7", day:7, title:"Build and secure the three tiers", quiz:"tags",
  goal:"Labs for yesterday's course. The last one is three hours: start it rested.",
  groups:[
  {t:"play", label:"Labs", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:300, items:[
@@ -156,8 +174,8 @@ window.PLAN = [
   ["d3c1","EBS (gp3/io2/st1/sc1) vs EFS vs FSx vs S3 — when each."]]}
 ]},
 
-{id:"d7", day:7, title:"First exam questions, and catch-up", quiz:"review",
- goal:"First contact with real exam-style questions. A low score is expected and fine. The rest of the day is for anything left open from Days 1–6.",
+{id:"d8", day:8, title:"First exam questions, and catch-up", quiz:"review",
+ goal:"First contact with real exam-style questions. A low score is expected and fine. The rest of the day is for anything left open from Days 1–7.",
  notesHint:"Your 3 weakest topics from the question set…",
  groups:[
  {t:"prep", label:"Exam Prep Plan, the free start", where:"① Skill Builder → My training → Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)", link:"epp", min:100, items:[
@@ -168,12 +186,12 @@ window.PLAN = [
   ["d7e6","Write down your 3 weakest topics in 📝 Day notes."]]},
  {t:"setup", label:"Housekeeping", min:30, items:[
   ["d7h2","In ③ your AWS account: <b>Billing and Cost Management</b> → <b>Bills</b> and <b>Credits</b> — confirm nothing unexpected is running.","Also check EC2, VPC (NAT gateways) and RDS in eu-west-1."],
-  ["d7h3","Go to <b>aws.training</b> → <b>Certification</b> → AWS Certification Account → <b>Schedule New Exam</b> → SAA-C03 → <b>Schedule at Pearson VUE</b>. Look at dates around Day 21, then close without paying.","Online from home or at a test centre. Just checking availability today."]]}
+  ["d7h3","Go to <b>aws.training</b> → <b>Certification</b> → AWS Certification Account → <b>Schedule New Exam</b> → SAA-C03 → <b>Schedule at Pearson VUE</b>. Look at dates around Day 22, then close without paying.","Online from home or at a test centre. Just checking availability today."]]}
 ]},
 
 {week: "Week 2 — Containers, security, hybrid and serverless"},
 
-{id:"d8", day:8, title:"Containers and object storage", quiz:"tags",
+{id:"d9", day:9, title:"Containers and object storage", quiz:"tags",
  goal:"First half of the longest course: containers, then S3 access control and data protection.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Designing a Containerized Architecture", link:"c4", min:180, items:[
@@ -188,7 +206,7 @@ window.PLAN = [
   ["d11c1","S3 Intelligent-Tiering; Glacier Instant / Flexible / Deep Archive."]]}
 ]},
 
-{id:"d9", day:9, title:"The edge and multi-Region databases", quiz:"tags",
+{id:"d10", day:10, title:"The edge and multi-Region databases", quiz:"tags",
  goal:"Second half of the course: CloudFront, Route 53, Global Accelerator, then Aurora and ElastiCache.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Designing a Containerized Architecture", link:"c4", min:210, items:[
@@ -205,7 +223,7 @@ window.PLAN = [
   ["d3c4","DynamoDB + DAX vs RDS + ElastiCache."]]}
 ]},
 
-{id:"d10", day:10, title:"Compliant, secure and governed", quiz:"tags",
+{id:"d11", day:11, title:"Compliant, secure and governed", quiz:"tags",
  goal:"Encryption, WAF and Shield, secrets, and the monitoring and governance services the exam likes to swap.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Designing a Compliant, Secure, and Governed Architecture", link:"c5", min:210, items:[
@@ -223,7 +241,7 @@ window.PLAN = [
   ["d8c3","Encryption at rest (KMS) vs in transit (ACM/TLS); where WAF attaches (ALB, CloudFront, API Gateway)."]]}
 ]},
 
-{id:"d11", day:11, title:"Hybrid architectures", quiz:"tags",
+{id:"d12", day:12, title:"Hybrid architectures", quiz:"tags",
  goal:"First the last lab of yesterday's course. Then connecting a data center to AWS: storage, endpoints, peering, Transit Gateway, Direct Connect, migration.",
  groups:[
  {t:"play", label:"Lab", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:60, items:[
@@ -240,17 +258,17 @@ window.PLAN = [
   ["d11c3","NAT gateway cost vs VPC endpoints; inter-AZ and internet data transfer costs."]]}
 ]},
 
-{id:"d12", day:12, title:"Hybrid hands-on, Terraform, catch-up", quiz:"review",
+{id:"d13", day:13, title:"Hybrid hands-on, Terraform, catch-up", quiz:"review",
  goal:"The two hybrid labs, one build of your own for the portfolio, and room to close anything left open this week.",
  groups:[
  {t:"play", label:"Labs", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:120, items:[
   ["l6a","AWS SimuLearn: <a href=\"https://skillbuilder.aws/learn/46NC4HQFUY/aws-simulearn-connecting-vpcs/J7QJJRTCTG\" target=\"_blank\" rel=\"noopener\"><b>Connecting VPCs</b></a>","Free, about 1 h."],
   ["l6b","AWS SimuLearn: <a href=\"https://skillbuilder.aws/learn/3SNCS7S5WY/aws-simulearn-securing-hybrid-access/PQH2FMASJA\" target=\"_blank\" rel=\"noopener\"><b>Securing Hybrid Access</b></a>","About 1 h."]]},
  {t:"build", label:"Build with Terraform", where:"③ Your own AWS account, signed in as your admin user (Day 1). Run Terraform from your PC with <code>AWS_PROFILE=lab</code>.", link:"own", min:120, items:[
-  ["d8b1","Rebuild the Day 3 VPC in Terraform + an S3 gateway endpoint + SSM interface endpoints. Push to a public GitHub repo.","<code>terraform destroy</code> at the end of the day. If Terraform can't read the <code>lab</code> profile, add a second profile whose only setting is <code>credential_process = aws configure export-credentials --profile lab --format process</code> and use that one."]]}
+  ["d8b1","Rebuild the Day 4 VPC in Terraform + an S3 gateway endpoint + SSM interface endpoints. Push to a public GitHub repo.","<code>terraform destroy</code> at the end of the day. If Terraform can't read the <code>lab</code> profile, add a second profile whose only setting is <code>credential_process = aws configure export-credentials --profile lab --format process</code> and use that one."]]}
 ]},
 
-{id:"d13", day:13, title:"Serverless and messaging", quiz:"tags",
+{id:"d14", day:14, title:"Serverless and messaging", quiz:"tags",
  goal:"Lambda, API Gateway, SQS and SNS: the decoupling answers of Domain 2.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Designing a Serverless Architecture with Event-Driven Microservices", link:"c7", min:180, items:[
@@ -264,7 +282,7 @@ window.PLAN = [
   ["d9c1","SQS Standard vs FIFO; visibility timeout; dead-letter queue."]]}
 ]},
 
-{id:"d14", day:14, title:"Secure, orchestrate and observe serverless", quiz:"tags",
+{id:"d15", day:15, title:"Secure, orchestrate and observe serverless", quiz:"tags",
  goal:"Second half of the serverless course, then a two-hour event-driven lab.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Designing a Serverless Architecture with Event-Driven Microservices", link:"c7", min:180, items:[
@@ -280,7 +298,7 @@ window.PLAN = [
 
 {week: "Week 3 — Data, exam prep and the exam"},
 
-{id:"d15", day:15, title:"Serverless labs and data-driven architectures", quiz:"tags",
+{id:"d16", day:16, title:"Serverless labs and data-driven architectures", quiz:"tags",
  goal:"Two short labs to close serverless, then the last lecture course.",
  groups:[
  {t:"play", label:"Labs", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:105, items:[
@@ -294,7 +312,7 @@ window.PLAN = [
   ["d6c3","Kinesis Data Streams vs Data Firehose vs SQS."]]}
 ]},
 
-{id:"d16", day:16, title:"Data labs and the wrap-up", quiz:"review",
+{id:"d17", day:17, title:"Data labs and the wrap-up", quiz:"review",
  goal:"The last three labs, the plan's summary, and a short read on the in-scope services no lecture covered. From tomorrow it is all exam preparation.",
  groups:[
  {t:"play", label:"Labs", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs). Each lab opens a temporary AWS sandbox: nothing runs in your own account.", link:"sa", min:180, items:[
@@ -312,7 +330,7 @@ window.PLAN = [
   ["d10c3","Athena vs Glue vs EMR vs Redshift; Kinesis family."]]}
 ]},
 
-{id:"d17", day:17, title:"Exam domains 1 and 2: secure, resilient (30% + 26%)", quiz:"dom:1,2",
+{id:"d18", day:18, title:"Exam domains 1 and 2: secure, resilient (30% + 26%)", quiz:"dom:1,2",
  goal:"The Domain Reviews are free. Domain Practice (exam-style questions and flashcards) and the SimuLearn labs need the subscription.",
  groups:[
  {t:"prep", label:"Exam Prep Plan: Domain 1", where:"① Skill Builder → My training → Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)", link:"epp", min:135, items:[
@@ -334,7 +352,7 @@ window.PLAN = [
   ["d9c2","DR strategies: backup & restore → pilot light → warm standby → multi-site active/active (RPO/RTO)."]]}
 ]},
 
-{id:"d18", day:18, title:"Exam domains 3 and 4: high-performing, cost-optimized (24% + 20%)", quiz:"dom:3,4",
+{id:"d19", day:19, title:"Exam domains 3 and 4: high-performing, cost-optimized (24% + 20%)", quiz:"dom:3,4",
  goal:"Largest number of services. Pace yourself.",
  groups:[
  {t:"prep", label:"Exam Prep Plan: Domain 3", where:"① Skill Builder → My training → Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)", link:"epp", min:140, items:[
@@ -359,7 +377,7 @@ window.PLAN = [
   ["d11c2","Compute Savings Plans vs EC2 Instance Savings Plans vs Reserved Instances vs Spot."]]}
 ]},
 
-{id:"d19", day:19, title:"Practice exam and the decision", quiz:"weak", decision:"d11p2", tools:["notebook","weak"],
+{id:"d20", day:20, title:"Practice exam and the decision", quiz:"weak", decision:"d11p2", tools:["notebook","weak"],
  goal:"Take the Official Practice Exam, decide, then turn every wrong answer into understanding.",
  notesHint:"Practice exam score, weakest domain, decision…",
  groups:[
@@ -367,13 +385,13 @@ window.PLAN = [
   ["d11p1","<b>Official Practice Exam</b>","65 questions, 130 minutes, scored like the real exam. No notes, in one sitting. Needs the subscription. Enter the scaled score below."],
   ["d11p2","<b>Decision</b> — see the verdict below.","The real exam's pass mark is 720 (scaled)."]]},
  {t:"setup", label:"Book the exam (if GO)", where:"④ aws.training → Certification → AWS Certification Account → Pearson VUE", link:"cert", min:15, items:[
-  ["d11b1","<b>Schedule New Exam</b> → AWS Certified Solutions Architect – Associate → <b>Schedule at Pearson VUE</b> → online or test centre → Day 21 → pay.","Reschedule (at most twice per appointment) or cancel free up to 24 h before. After a fail you must wait 14 days to retake."]]},
+  ["d11b1","<b>Schedule New Exam</b> → AWS Certified Solutions Architect – Associate → <b>Schedule at Pearson VUE</b> → online or test centre → Day 22 → pay.","Reschedule (at most twice per appointment) or cancel free up to 24 h before. After a fail you must wait 14 days to retake."]]},
  {t:"prep", label:"Review", where:"① Skill Builder → My training → Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)", link:"epp", min:120, items:[
   ["d12e1","Go through every wrong practice-exam answer: write why each wrong option is wrong."],
   ["d12e2","Re-watch the task statement reviews for your weakest domain (see 📊 Scores)."]]}
 ]},
 
-{id:"d20", day:20, title:"Weak areas, final pass, logistics", quiz:"exam", tools:["weak"],
+{id:"d21", day:21, title:"Weak areas, final pass, logistics", quiz:"exam", tools:["weak"],
  goal:"Consolidate. No new topics.",
  notesHint:"For each wrong answer: why the right one is right, why each wrong one is wrong…",
  groups:[
@@ -390,7 +408,7 @@ window.PLAN = [
   ["d13l3","Skill Builder → <b>Subscriptions Management</b> → <b>Cancel Subscription</b>, unless you want another month.","It renews every month and is billed to ③ your AWS account. After cancelling you keep the paid content until the end of the current billing period. Do it before the renewal date shown there."]]}
 ]},
 
-{id:"d21", day:21, title:"Exam", tools:["notebook"],
+{id:"d22", day:22, title:"Exam", tools:["notebook"],
  goal:"65 questions, 130 minutes, pass mark 720.",
  groups:[
  {t:"prep", label:"Exam day", min:200, items:[
@@ -401,7 +419,7 @@ window.PLAN = [
 ];
 
 // The mock exam unlocks when Days 1 to MOCK_AFTER are complete (the last day of new material).
-window.MOCK_AFTER = 16;
+window.MOCK_AFTER = 17;
 
 // Steps that ask for a result: the 📊 Scores field shown on that step's card (key = data-score in index.html).
 window.SCORE_AT = { d7e4: "qs7", d8e5: "b1", d9e4: "b2", d10e7: "b3", d11e6: "b4", d11p1: "pe", d13e2: "qs13" };

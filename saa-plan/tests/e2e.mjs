@@ -214,7 +214,7 @@ try {
   // ---------- a day without a quiz ----------
   if (!D1.quiz) {
     log("a day without a quiz is done with its last step");
-    await tickDays(page, [D1.day]);
+    await tickDays(page, P.days.filter(d => d.day < QA.day).map(d => d.day));   // every day in front of the first quiz day
     await page.reload();
     assert.equal(await page.getAttribute(`[data-day="${D1.id}"]`, "data-done"), "1");
     await openCard(page, D1.id);
@@ -618,7 +618,24 @@ try {
   assert.equal(await page.getAttribute(`[data-day="${QA.id}"]`, "data-quiz"), "1", "its steps are still done, the quiz is open again");
   await page.click("#b-snd");                          // any change saves the migrated copy
   const mig = await state(page);
-  assert.deepEqual([mig.planV, Object.keys(mig.quiz).length, mig.qs["q01-001"].seen, mig.inotes.d1a1, !!mig.ticks[QA.ids[0]]], [2, 0, 2, "kept", true]);
+  assert.deepEqual([mig.planV, Object.keys(mig.quiz).length, mig.qs["q01-001"].seen, mig.inotes.d1a1, !!mig.ticks[QA.ids[0]]], [3, 0, 2, "kept", true]);
+
+  log("progress saved under the 21-day plan: a day was put in front, so what was saved for a day moves down with it");
+  const wasDay = "d" + (QA.day - 1);                    // where this day sat in the 21-day plan
+  await page.evaluate(([k, was]) => {
+    const st = JSON.parse(localStorage.getItem(k));
+    st.planV = 2;
+    st.quiz = { [was]: { best: 29, passed: "2026-10-13", tries: [{ at: "2026-10-13", score: 29, n: 30 }] } };
+    st.dayDone = { [was]: "2026-10-13" };
+    st.notes = { [was]: "a note on the day that moved", d1: "a note on Day 1" };
+    st.log = { [was]: 42 };
+    localStorage.setItem(k, JSON.stringify(st));
+  }, [KEY, wasDay]);
+  await page.reload();
+  assert.equal(await page.getAttribute(`[data-day="${QA.id}"]`, "data-done"), "1", "the passed quiz went along with its day");
+  await page.click("#b-snd");
+  const sh = await state(page);
+  assert.deepEqual([sh.planV, sh.quiz[QA.id].best, sh.notes[QA.id], sh.notes.d1, sh.log[QA.id], wasDay in sh.quiz], [3, 29, "a note on the day that moved", "a note on Day 1", 42, false]);
 
   log("hostile import is sanitized; invalid import changes nothing");
   await openPanel(page, "practice");
