@@ -494,9 +494,9 @@ function renderFlow(moved) {
   // one dot per card, grouped like the day's blocks
   const dot = id => {
     const on = id === "quiz" ? quizOk(d) : done(id), t = stepTitle(id);
-    return `<button type="button" class="dot${on ? " on" : ""}${id === "quiz" ? " qd" : ""}" data-at="${id}"${id === at ? ' aria-current="step"' : ""} title="${esc(t)}" aria-label="${esc(`Step ${ids.indexOf(id) + 1}: ${t}${on ? " (done)" : ""}`)}"></button>`;
+    return `<button type="button" class="dot${on ? " on" : ""}${id === "quiz" ? " qd" : ""}${id === fxMark.pop ? " pop" : ""}" data-at="${id}"${id === at ? ' aria-current="step"' : ""} title="${esc(t)}" aria-label="${esc(`Step ${ids.indexOf(id) + 1}: ${t}${on ? " (done)" : ""}`)}"></button>`;
   };
-  document.getElementById("fl-strip").innerHTML = d.groups.map(g => `<span class="fl-g">${g.items.map(it => dot(it[0])).join("")}</span>`).join("") +
+  document.getElementById("fl-strip").innerHTML = d.groups.map(g => `<span class="fl-g${g.key === fxMark.wave ? " wave" : ""}">${g.items.map(it => dot(it[0])).join("")}</span>`).join("") +
     (hasQuiz(d) ? `<span class="fl-g">${dot("quiz")}</span>` : "");
   document.getElementById("fl-count").textContent = at === "done" ? "Day complete" : `Step ${i + 1} of ${ids.length}`;
 
@@ -668,6 +668,38 @@ function flip(id, open) {
 }
 
 // ---------- completing steps & celebrations ----------
+// The ladder, small to large: a step, a block of the day, the last step (the quiz opens), the day, the week, everything.
+const fxMark = { pop: "", wave: "" };   // the dot and the block to animate in the strip, for a moment
+let fxMarkT = 0;
+function markStrip(pop, wave) {
+  fxMark.pop = pop; fxMark.wave = wave || "";
+  clearTimeout(fxMarkT);
+  fxMarkT = setTimeout(() => { fxMark.pop = fxMark.wave = ""; }, 900);
+}
+// A long step (a lab, a lecture chunk) earns a bigger burst than a two-minute setup click.
+const longStep = g => (g.min || 0) / g.items.length >= 30;
+// the short line above the buttons: how far the day is
+function stepToast(d) {
+  const ids = dIds(d), n = ids.filter(done).length, left = ids.length - n;
+  const half = ids.length >= 4 && n === Math.ceil(ids.length / 2);
+  FX.toast(half ? `<b>Halfway through Day ${d.day}</b> · ${plural(left, "step")} to go`
+    : `<b>✓ ${n} of ${ids.length}</b> · ${left === 0 ? "every step done" : left === 1 ? "one more step" : `${left} steps to go`}`, half ? "half" : "");
+}
+function stepDone(d, g, el) {
+  FX.step(el, { n: dIds(d).filter(done).length, big: longStep(g) });
+  stepToast(d);
+}
+function blockDone(d, g, el) {
+  const n = d.groups.filter(groupDone).length;
+  stepToast(d);
+  if (itemsDone(d) && hasQuiz(d)) {
+    FX.quizOpen();
+    FX.banner("All steps done 🔓", `The Day ${d.day} quiz is open: ${QZ.DAILY} questions, pass at ${QZ.needed(QZ.DAILY)}.`, "block");
+  } else {
+    FX.block(el);
+    FX.banner(`${strip(g.label || TAGS[g.t])} ✅`, `Block ${n} of ${d.groups.length} done · about ${fmtH(dayLeft(d))} left today`, "block");
+  }
+}
 function setTick(id, val, srcEl) {
   const { d, g } = itemIndex[id];
   const week = weekOf(d);
@@ -681,8 +713,9 @@ function setTick(id, val, srcEl) {
     if (!was.a && DAYS.every(dayDone)) celebrate("all", d);
     else if (!was.w && week.every(dayDone)) celebrate("week", d);
     else if (!was.d && nowDay) celebrate("day", d);
-    else if (!was.g && groupDone(g)) FX.group(srcEl);
-    else FX.tick(srcEl);
+    else if (!was.g && groupDone(g)) blockDone(d, g, srcEl);
+    else stepDone(d, g, srcEl);
+    markStrip(id, !was.g && groupDone(g) ? g.key : "");
     const builds = d.groups.filter(x => x.t === "build");
     if (g.t === "build" && !was.g && builds.every(groupDone)) setTimeout(() => whenFree(() => openCleanup(d.id)), nowDay ? 3400 : 1100);
   }
@@ -706,6 +739,7 @@ function celebrate(kind, d) {
     FX.week(); FX.banner(`Week ${w + 1} complete 🏆`, (next ? `Next: ${strip(next)}.` : "Only the exam left.") + skTxt, "week");
   }
   else { FX.day(); FX.banner(`Day ${d.day} complete 🎉`, `${DAYS.filter(dayDone).length}/${DAYS.length} days done${skTxt}`, "day"); }
+  if ([3, 5, 7, 10, 14, 21].includes(sk)) setTimeout(() => FX.toast(`🔥 <b>${sk} days in a row</b>`, "combo"), 3400);
 }
 
 // ---------- scores ----------
@@ -799,6 +833,8 @@ function renderPractice() {
 // ---------- quizzes: shared ----------
 const qzDlg = document.getElementById("quiz"), qzBody = document.getElementById("qz-body");
 let sel = [];        // options picked for the current question, not yet checked
+let rightInRow = 0;  // right answers in a row in the quiz on screen (kept in memory only)
+const ROW_MARKS = [3, 5, 10, 15, 20, 25, 30];
 let intro = null;    // { title, html, go, goLabel } shown before a quiz or mock starts
 let drill = null;    // "Which service?" round, kept in memory only
 
@@ -858,6 +894,7 @@ function startRun(kind, of) {
   const ord = {};
   qs.forEach(q => { ord[q.id] = QZ.order(q); });
   const now = Date.now();
+  rightInRow = 0;
   S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "" };
   sel = [];
   save(); refresh(); openQuiz();
@@ -979,10 +1016,14 @@ function check() {
   sel = [];
   const ok = QZ.isRight(q, r.ans[id]);
   learn(q, ok);
-  FX.sound(ok ? "pop" : "miss");
   save(); renderQ();
   refocus('[data-qz="next"]');
-  qzBody.querySelector(".qz-verdict").scrollIntoView({ block: "nearest" });
+  const verdict = qzBody.querySelector(".qz-verdict");
+  verdict.scrollIntoView({ block: "nearest" });
+  rightInRow = ok ? rightInRow + 1 : 0;
+  if (!ok) FX.sound("miss");
+  else if (ROW_MARKS.includes(rightInRow)) { FX.combo(rightInRow, verdict); FX.toast(`<b>${rightInRow} in a row</b> 🔥`, "combo"); }
+  else { FX.sound("pop"); FX.sparkle(verdict); }
 }
 function nextQ() {
   const r = S.run;
@@ -1004,10 +1045,16 @@ function finishRun() {
     markDayDone(d);
     r.cel = !was.a && DAYS.every(dayDone) ? "all" : !was.w && weekOf(d).every(dayDone) ? "week" : !was.d && dayDone(d) ? "day" : "";
     r.mockNew = !was.m && mockOpen();
-    FX.sound(QZ.passed(r.score, r.ids.length) ? "chime" : "miss");
   }
   if (r.kind === "warm") S.warm[t] = "done";
   save(); refresh(); renderQuiz();
+  // the results are on screen: celebrate there (the day's own celebration follows when they are closed)
+  const n = r.ids.length, clean = r.score === n;
+  if (r.kind === "day") {
+    if (!QZ.passed(r.score, n)) FX.sound("miss");
+    else if (clean) { FX.perfect(); FX.toast("<b>Perfect score</b> 💯", "combo"); }
+    else FX.pass();
+  } else if (clean) { FX.sound("chime"); FX.sparkle(qzBody.querySelector(".qz-score")); }
   qzDlg.scrollTop = 0;
   focusMain();
 }
@@ -1093,6 +1140,7 @@ function finishMock(auto) {
   r.mins = Math.round((Math.min(Date.now(), r.end) - r.t0) / 60000);
   S.mocks.push({ at: today(), score: res.score, n: res.n, pct: res.pct, dom: res.dom, mins: r.mins });
   save(); refresh();
+  if (res.pct >= 80) setTimeout(() => FX.pass(), 300);   // a comfortable margin on a full mock exam
   if (qzDlg.open) { renderQuiz(); qzDlg.scrollTop = 0; focusMain(); }
   if (auto) { FX.banner("Time is up", "Your mock exam was submitted.", "info"); if (!qzDlg.open) whenFree(openQuiz); }
 }
@@ -1388,6 +1436,7 @@ flowEl.addEventListener("click", e => {
   if (cf) {
     const id = cf.dataset.cid;
     S.conf[id] = cf.dataset.conf;
+    if (cf.dataset.conf === "ok") FX.sparkle(cf);
     if (!done(id)) complete(id, cf);
     else { flip(id, false); save(); refresh(); }
   }
@@ -1561,6 +1610,7 @@ setInterval(() => {
     const next = S.timer.mode === "focus" ? "break" : "focus";
     FX.sound("timer");
     FX.banner(next === "break" ? "Break time ☕" : "Back to work 🎯", next === "break" ? "10 minutes. Stand up, drink water." : "50 minutes of focus.", "info");
+    if (next === "break") FX.sparkle(document.getElementById("timer"));   // a full focus block is something finished too
     tmSet(next);
     refresh();
   }

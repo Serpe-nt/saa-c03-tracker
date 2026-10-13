@@ -137,6 +137,29 @@ try {
   await page.reload();
   assert.equal(await hash(page), `#d1/${s1}`, "a reload stays on the card");
 
+  // ---------- something to see when a step and a block are finished ----------
+  log("finishing a step shows what is left; finishing a block of the day gets a banner");
+  const g0 = await page.evaluate(() => window.PLAN.find(d => d.id === "d1").groups[0].items.map(it => it[0]));
+  assert.ok(g0.length >= 2 && g0[0] === s1, "these checks expect Day 1 to open with a block of several steps");
+  await goHome(page);
+  await page.click("#b-fx");                                 // effects on for this part (the run starts with them off; the switch is on the overview)
+  assert.equal((await state(page)).settings.fx, true);
+  await openCard(page, D1.id, s1);
+  await complete(page);
+  await page.waitForSelector(".fx-toast.show");
+  assert.match(await page.textContent(".fx-toast"), new RegExp(`1 of ${n1}`), "the toast counts the steps of the day");
+  assert.ok(await page.evaluate(id => document.querySelector(`#fl-strip [data-at="${id}"]`).classList.contains("pop"), s1), "the finished step's dot pops");
+  for (let i = 1; i < g0.length; i++) await complete(page);
+  await page.waitForSelector(".fx-banner.k-block.show");
+  assert.match(await page.textContent(".fx-banner"), /Block 1 of \d+ done/);
+  assert.ok(await page.locator("#fl-strip .fl-g.wave").count() === 1, "the finished block's dots bounce");
+  await page.waitForTimeout(350);
+  await page.screenshot({ path: path.join(SHOTS, "02a-block-done.png") });
+  assert.ok(await page.locator("canvas.fx-canvas").count() === 1, "effects draw on a canvas");
+  await goHome(page);
+  await page.click("#b-fx");
+  assert.equal((await state(page)).settings.fx, false, "effects are off again for the rest of the run");
+
   log("the quiz card stays locked while steps are open, and lists them");
   await openCard(page, QA.id, "quiz");
   assert.ok(await page.locator("#fl-nav [data-quiz-start]").isDisabled());
@@ -148,6 +171,10 @@ try {
   log("a step card carries key points, AWS docs, exam topics and its own notes");
   await openCard(page, HELPDAY, HELP);
   assert.ok(await page.locator("#card .c-key li").count() >= 2, "key points");
+  if (await page.evaluate(id => !!window.KEYS[id].why, HELP)) {
+    assert.ok(await page.evaluate(() => { const w = document.querySelector("#card .c-why"), k = document.querySelector("#card .c-key"), where = document.querySelector("#card .c-w"); return !!w && w.compareDocumentPosition(k) & 4 && (!where || w.compareDocumentPosition(where) & 4); }), "why it exists comes before where to do it and before the details");
+    assert.ok(await page.locator("#card .c-key .k-list .k-l").count() >= 2, "labelled points");
+  }
   assert.ok(await page.locator("#card .c-tags li").count() >= 1, "exam topics");
   const links = await page.$$eval("#card .c-docs a", as => as.map(a => [a.href, a.target, a.rel]));
   assert.ok(links.length >= 1 && links.every(([h, t, r]) => /^https:\/\/(docs\.)?aws\.amazon\.com\//.test(h) && t === "_blank" && r.includes("noopener")), "AWS docs open in a new tab");
@@ -228,6 +255,7 @@ try {
       await page.keyboard.press("Enter");
     } else await page.click('#qz-body [data-qz="check"]');
     await page.waitForSelector("#qz-body .qz-verdict.ok");
+    if (i === 2) { await page.waitForSelector("#quiz .fx-toast.show"); assert.match(await page.textContent("#quiz .fx-toast"), /3 in a row/, "a streak of right answers is called out inside the quiz"); }
     if (i === 0) {
       assert.ok(await page.locator("#qz-body .qz-study .qz-refs li").count() >= 1, "feedback shows where to study");
       // every option is explained, and the explanation sits visibly inside its option
@@ -243,6 +271,7 @@ try {
   }
   await page.waitForSelector("#qz-body .qz-res.ok");
   assert.match(await page.textContent("#qz-body .qz-score"), /30/);
+  assert.match(await page.textContent("#quiz .fx-toast"), /Perfect score/);
   await page.screenshot({ path: path.join(SHOTS, "05-result-pass.png") });
   await page.click('#qz-body [data-qz="finish"]');
   await page.waitForFunction(h => location.hash === h, `#${QA.id}/done`, { timeout: 3000 });

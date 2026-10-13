@@ -36,6 +36,8 @@ Open http://localhost:8080
 
 - **Overview.** The first screen shows where you stand (steps, days, focus time, quiz accuracy, streak), the day to work on with one button (Start Day 1, Continue Day 3, Take the Day 3 quiz), and the days as tiles. Any tile opens its day.
 - **One step at a time.** A day opens as a single card with three buttons under it: Back, Mark complete, Next. Mark complete moves you to the next open step; Next skips a step without marking it, and the row of dots above the card shows what is still open. The arrow keys and Enter work too.
+- **Purpose first.** Each card opens with why the thing exists: the problem it was made to solve. Only then come where to do it and the details, as short labelled points.
+- **Something happens when you finish something.** A step gets a burst and a note that climbs through the day, a block of the day gets a banner and fireworks, and the day, the week and the whole plan get more. Right answers in a row and a perfect quiz are called out too. Effects and sounds each have a switch in the header.
 - **Everything for that step is on its card:** where to do it and the link, key points and the exam trap, the AWS pages to read, the exam topics it feeds with your accuracy so far, glossary terms, exam wording, your own notes, and three practice questions on exactly that step.
 - **The last card of a day is its quiz** (Days 2–20). Pass it and you get the day's summary and the button for the next day.
 - **The length of the plan is data.** Days, weeks and quizzes come from `plan.js`: add, remove or reorder days there and the page follows.
