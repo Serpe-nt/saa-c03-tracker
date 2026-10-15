@@ -266,6 +266,13 @@ try {
       }));
       assert.ok(inside.length >= 4 && inside.every(Boolean), "every option shows its explanation inside the option");
       await page.screenshot({ path: path.join(SHOTS, "04-feedback-right.png") });
+      // on a wide screen, where to study moves out of the card into the free space to its left
+      await page.setViewportSize({ width: 1600, height: 1000 });
+      await page.waitForTimeout(350);                      // the panel slides in
+      const [side, card] = await Promise.all(["#qz-body .qz-study", "#quiz"].map(s => page.$eval(s, el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top }; })));
+      assert.ok(side.r <= card.l - 8 && Math.abs(side.t - card.t) < 2, "on a wide screen, where to study sits left of the quiz card, level with its top");
+      await page.screenshot({ path: path.join(SHOTS, "04b-feedback-wide.png") });
+      await page.setViewportSize({ width: 1200, height: 900 });
     }
     await page.click('#qz-body [data-qz="next"]');
   }
