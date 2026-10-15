@@ -440,6 +440,13 @@ dialog.qz{width:min(780px,96vw);max-width:none;max-height:92vh;padding:0;overflo
 .ref-t{font-size:15px;margin:3px 0 0}
 .ref-a{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
 .qz-doc{font-size:14px;margin-top:8px}
+/* Wide screens: after an answer, "Where to study this" leaves the card for the free space to its left, top edge level
+   with the card's (--qzdh = the card's height, set in app.js), so the answers and Next fit without scrolling.
+   The card is 780px wide and centred; the panel keeps a 16px gap to it and to the screen edge. */
+@media (min-width:1360px){
+  #quiz .qz-side{position:fixed;top:max(4vh,calc(50vh - var(--qzdh,92vh) / 2));right:calc(50% + 406px);width:min(380px,calc(50% - 422px));max-height:92vh;overflow:auto;margin:0;padding:12px 16px 14px;background:var(--card);border:0;border-top:4px solid var(--quiz);border-radius:10px;box-shadow:var(--shadow);animation:qz-side .25s ease-out}
+}
+@keyframes qz-side{from{opacity:0;transform:translateX(18px)}}
 .qz-note{display:block;margin-top:12px;font-size:14px;font-weight:600}
 .qz-note input{display:block;width:100%;margin-top:4px;font:400 15px var(--body);padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--field);color:var(--text)}
 .qz-lead{font-size:17px;margin-top:0}

@@ -841,6 +841,8 @@ function renderPractice() {
 
 // ---------- quizzes: shared ----------
 const qzDlg = document.getElementById("quiz"), qzBody = document.getElementById("qz-body");
+// The card's height lets the study panel beside it line up with its top edge (style.css, .qz-side).
+new ResizeObserver(() => qzDlg.style.setProperty("--qzdh", qzDlg.offsetHeight + "px")).observe(qzDlg);
 let sel = [];        // options picked for the current question, not yet checked
 let rightInRow = 0;  // right answers in a row in the quiz on screen (kept in memory only)
 const ROW_MARKS = [3, 5, 10, 15, 20, 25, 30];
@@ -945,11 +947,12 @@ function refHTML(id, extra = "") {
     (g.where ? `<div class="where">${g.where}</div>` : "") +
     `<div class="ref-a">${url ? `<a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}<button type="button" class="sm" data-jump="${id}">Open step</button></div></li>`;
 }
-function studyHTML(q) {
+// side: the feedback on the question just answered; wide screens show it beside the quiz card (style.css, .qz-side).
+function studyHTML(q, side = false) {
   const refs = studyRefs(q);
   const doc = q.doc && DOCS[q.doc];
   if (!refs.length && !doc) return "";
-  return `<div class="qz-study"><div class="qz-sh">Where to study this</div><ul class="qz-refs">${refs.map(id => refHTML(id)).join("")}</ul>` +
+  return `<div class="qz-study${side ? " qz-side" : ""}"><div class="qz-sh">Where to study this</div><ul class="qz-refs">${refs.map(id => refHTML(id)).join("")}</ul>` +
     (doc ? `<div class="qz-doc">AWS page: <a href="${doc[1]}" target="_blank" rel="noopener">${doc[0]} ↗</a></div>` : "") + `</div>`;
 }
 const answerHTML = q => `<ul class="qz-ans">${q.a.map(i => `<li><b>✓ ${q.o[i]}</b><div class="qz-why">${q.x[i]}</div></li>`).join("")}</ul>`;
@@ -987,7 +990,7 @@ function renderQ() {
     const keyL = ord.map((oi, k) => q.a.includes(oi) ? LETTERS[k] : "").filter(Boolean).join(" and ");
     qzBody.innerHTML = `<div class="qz-q">${q.q}</div>` +
       `<div class="qz-verdict ${ok ? "ok" : "bad"}" role="status">${ok ? "✓ Correct." : `✗ Not quite. The answer is ${keyL}.`}</div>` +
-      fbHTML(q, ord, ans) + studyHTML(q) + (ok ? "" : noteHTML(q)) +
+      fbHTML(q, ord, ans) + studyHTML(q, true) + (ok ? "" : noteHTML(q)) +
       `<div class="qz-a"><button type="button" class="primary" data-qz="next">${r.i + 1 < r.ids.length ? "Next question →" : "See results"}</button></div>`;
   }
 }
