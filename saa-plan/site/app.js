@@ -569,6 +569,7 @@ function renderFlow(moved) {
     sideL.hidden = !side.l; sideR.hidden = !side.r;
     bodyEl.classList.toggle("no-l", !side.l); bodyEl.classList.toggle("no-r", !side.r);
     applyGlossary(cardEl);
+    dgMark(cardEl);
     if (answer) flip(at, true);
     if (moved) for (const el of [cardEl, sideL, sideR]) { el.classList.remove("in"); void el.offsetWidth; el.classList.add("in"); }
   }
@@ -629,6 +630,100 @@ const box = (kind, icon, title, body, cls = "") =>
 // A box that folds; whether it is open is remembered across cards, in this browser.
 const foldBox = (kind, icon, sec, title, n, body, openByDefault) =>
   `<details class="box b-${kind} c-fold" data-sec="${sec}"${(sec in ui ? ui[sec] : openByDefault) ? " open" : ""}><summary class="box-h"><span class="bi" aria-hidden="true">${icon}</span>${title} <span class="muted">${n}</span></summary>${body}</details>`;
+// ---------- course diagrams: one per lecture course, on the cards of the course (cN) and of its labs (lN) ----------
+const DGS = window.DIAGRAMS || {};
+const dgKey = id => { const m = /^[cl](\d+)[a-z]$/.exec(id); return m && DGS["c" + m[1]] && window.DG ? "c" + m[1] : ""; };
+let dgSel = { id: "", part: "" };   // the part whose detail is open on the card on screen
+// The parts this step is about: their tags meet the step's topics.
+const dgRel = (id, dg) => { const tags = stepTags(id); return Object.keys(dg.parts || {}).filter(p => (dg.parts[p].tags || []).some(t => tags.includes(t))); };
+function dgPartHTML(dg, pid) {
+  const p = (dg.parts || {})[pid];
+  if (!p) return `<p class="muted dg-hint">Click a part of the picture to see why it is there and what the exam asks about it.</p>`;
+  return `<h4 class="dg-pn">${esc(p.name)}</h4><p class="dg-pw txt">${p.why}</p>` +
+    ((p.k || []).length ? `<ul class="k-list">${p.k.map(([l, t]) => `<li><b class="k-l">${esc(l)}</b><span>${t}</span></li>`).join("")}</ul>` : "") +
+    (p.trap ? `<p class="dg-trap"><b>⚠️ Exam trap:</b> ${p.trap}</p>` : "");
+}
+// The picture with the step's parts as buttons and the open part explained under it (or beside it, in the larger view).
+function dgViewHTML(key, id, sel, big) {
+  const dg = DGS[key], rel = id ? dgRel(id, dg) : [];
+  const chips = rel.length ? `<p class="dg-rel"><span class="muted">This step:</span>${rel.map(p => `<button type="button" class="sm" data-dg-part="${esc(p)}">${esc(dg.parts[p].name)}</button>`).join("")}</p>` : "";
+  return `<div class="dg-box" data-dg="${key}" data-rel="${esc(rel.join(" "))}">${chips}<div class="dg-pic"><div class="dg-wrap">${DG.svg(dg, key + (big ? "-big" : ""))}</div>` +
+    (big ? "" : `<button type="button" class="sm dg-big" data-dg-big="${esc(id)}" title="Open the diagram larger">⤢ Larger</button>`) +
+    `</div><div class="dg-part" aria-live="polite" data-sel="${esc(sel)}">${dgPartHTML(dg, sel)}</div></div>`;
+}
+function dgHTML(id) {
+  const key = dgKey(id);
+  if (!key) return "";
+  const dg = DGS[key];
+  if (dgSel.id !== id) dgSel = { id, part: dgRel(id, dg)[0] || "" };
+  return foldBox("map", "🗺", "dg", "Course diagram", "", `<p class="dg-t"><b>${esc(dg.title)}</b></p><p class="dg-why txt">${dg.why}</p>${dgViewHTML(key, id, dgSel.part, false)}`, true);
+}
+// Mark the open part and the step's parts on the picture (after it is on screen).
+function dgMark(root) {
+  (root || document).querySelectorAll(".dg-box").forEach(b => {
+    const sel = b.querySelector(".dg-part").dataset.sel, rel = b.dataset.rel.split(" ");
+    b.querySelectorAll(".dg [data-part]").forEach(el => { el.classList.toggle("on", el.dataset.part === sel); el.classList.toggle("rel", rel.includes(el.dataset.part)); el.setAttribute("aria-pressed", el.dataset.part === sel); });
+    b.querySelectorAll("[data-dg-part]").forEach(el => el.setAttribute("aria-pressed", el.dataset.dgPart === sel));
+  });
+}
+function dgPick(b, pid) {
+  const part = b.querySelector(".dg-part");
+  part.dataset.sel = pid;
+  part.innerHTML = dgPartHTML(DGS[b.dataset.dg], pid);
+  applyGlossary(part);
+  if (cardEl.contains(b) || shDlg.dataset.kind === "dg") dgSel.part = pid;   // the card keeps the choice, also from the larger view
+  dgMark(b.parentNode);
+}
+function openDiagram(id) {
+  const key = dgKey(id);
+  if (!key) return;
+  shDlg.dataset.dg = id;
+  openSheet("dg");
+}
+function dgSheet() {
+  const id = shDlg.dataset.dg || "", key = dgKey(id);
+  if (!key) return ["🗺 Course diagram", ""];
+  return [`🗺 ${DGS[key].title}`, `<p class="muted dg-why txt">${DGS[key].why}</p>${dgViewHTML(key, id, dgSel.id === id ? dgSel.part : "", true)}`];
+}
+
+// ---------- look-alikes: services the exam sets against each other, side by side ----------
+const LA = window.LOOKALIKES || [], LA_BY = Object.create(null);
+LA.forEach(e => { LA_BY[e.id] = e; });
+const laRx = new Map();
+// a match word counts whole, with no letter or digit touching it (so "SSE-KMS" names KMS)
+const laWord = w => laRx.get(w) || laRx.set(w, new RegExp(`(?<![A-Za-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9])`, "i")).get(w);
+const laCols = (text, e) => e.match.map((ws, i) => (ws.some(w => laWord(w).test(text)) ? i : -1)).filter(i => i >= 0);
+// The tables a missed question links to: a right option names one service of the table and a wrong option another.
+// The options you picked count first; when they name none, any wrong option does.
+function laFor(q, picked) {
+  const wrongAll = q.o.map((_, i) => i).filter(i => !q.a.includes(i)), mine = (picked || []).filter(i => wrongAll.includes(i));
+  const hit = wrong => LA.filter(e => {
+    const rc = q.a.map(i => laCols(plainOf(q.o[i]), e)), wc = wrong.map(i => laCols(plainOf(q.o[i]), e));
+    return rc.some(r => wc.some(w => r.some(i => w.some(j => i !== j))));
+  });
+  const a = mine.length ? hit(mine) : [];
+  return a.length ? a : hit(wrongAll);
+}
+const laLinks = list => list.length ? `<div class="qz-la"><span>⚖️ Compare side by side:</span>${list.map(e => `<button type="button" class="link" data-look="${esc(e.id)}">${esc(e.title)}</button>`).join("")}</div>` : "";
+const laTag = tag => LA.filter(e => (e.tags || []).includes(tag));
+let laOn = "";   // the table a link opened: shown first and marked
+function lookHTML() {
+  const miss = Object.create(null);
+  for (const { q, b } of bookEntries()) if (!b.fixed) for (const e of laFor(q)) miss[e.id] = (miss[e.id] || 0) + 1;
+  return `<p class="muted">Services the exam sets against each other, row by row. A question you miss whose right and wrong answers name two services of one table links here; the number is your open notebook questions that do.</p>` +
+    `<div class="la-nav">${LA.map(e => `<button type="button" class="sm${e.id === laOn ? " on" : ""}" data-la-go="${esc(e.id)}">${esc(e.title)}${miss[e.id] ? ` <span class="pill warn">${miss[e.id]}</span>` : ""}</button>`).join("")}</div>` +
+    LA.map(e => `<section class="la${e.id === laOn ? " on" : ""}" id="la-${esc(e.id)}"><h3 class="sub-h">${esc(e.title)}</h3><p class="la-why">${e.why}</p>` +
+      `<table class="la-t"><thead><tr><th></th>${e.cols.map(c => `<th scope="col">${esc(c)}</th>`).join("")}</tr></thead><tbody>` +
+      e.rows.map((r, i) => `<tr${i === e.rows.length - 1 ? ' class="la-cue"' : ""}><th scope="row">${esc(r[0])}</th>${r.slice(1).map((c, k) => `<td data-col="${esc(e.cols[k])}">${c}</td>`).join("")}</tr>`).join("") +
+      `</tbody></table>${(e.docs || []).length ? `<p class="la-docs">AWS pages: ${e.docs.map(([t, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join(" · ")}</p>` : ""}</section>`).join("");
+}
+function openLook(id) {
+  laOn = LA_BY[id] ? id : "";
+  openSheet("look");
+  const el = laOn && document.getElementById("la-" + laOn);
+  if (el) el.scrollIntoView({ block: "start" });
+}
+
 function scoreFieldHTML(k) {
   const src = document.querySelector(`#scores [data-score="${k}"]`);
   if (!src) return "";
@@ -682,7 +777,7 @@ function stepCardHTML(id) {
     }
     if (kp.trap) h += box("trap", "⚠️", "Exam trap", `<p>${kp.trap}</p>`, "c-trap");
   }
-  return h;
+  return h + dgHTML(id);
 }
 // The two panels beside the card. l = "Look it up": the AWS pages and the terms. r = "On the exam": the exam topics
 // with your accuracy and a practice round, how the exam words these topics, and your own notes.
@@ -716,6 +811,8 @@ function sideHTML(id) {
   }
   if (cues.length) r += foldBox("cues", "🗣", "cues", "Exam wording on these topics", cues.length,
     `<ul class="cue-l">${cues.map(c => `<li><b>${esc(c[0])}</b><span>→ ${esc(c[1])}</span><span class="muted">${esc(c[2])}</span></li>`).join("")}</ul>`, true);
+  const las = LA.filter(e => (e.tags || []).some(t => tags.includes(t))).slice(0, 4);
+  if (las.length) r += box("look", "⚖️", "Look-alikes on these topics", `<ul class="c-la">${las.map(e => `<li><button type="button" class="link" data-look="${esc(e.id)}">${esc(e.title)}</button></li>`).join("")}</ul>`);
   r += `<label class="box b-notes c-notes"><span class="box-h"><span class="bi" aria-hidden="true">📝</span>My notes on this step <span class="saved" data-saved="${id}">saved</span></span>` +
     `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
   return { l: l && `<div class="side-t">Look it up</div>${l}`, r: `<div class="side-t">On the exam</div>${r}` };
@@ -992,6 +1089,8 @@ function renderPractice() {
       `<button type="button" data-sheet="weak">Show weak spots</button>`],
     ["🗣 Exam wording", "What phrases like “least operational overhead” usually point to.",
       `<button type="button" data-sheet="cues"${CUES.length ? "" : " disabled"}>Open cheat sheet</button>`],
+    ["⚖️ Look-alikes", `${plural(LA.length, "table")} of services that sound alike, side by side: SQS or SNS, ALB or NLB, EBS, EFS or S3…`,
+      `<button type="button" data-look${LA.length ? "" : " disabled"}>Compare them</button>`],
     ["🏅 Badges and level", (L => `Level ${L.n}, ${rankOf(L.n)}: ${L.to - L.x} XP to level ${L.n + 1}. ${Object.keys(S.ach).filter(id => ACH_BY[id]).length} of ${ACH.length} badges earned.`)(levelOf(xpTotal())),
       `<button type="button" data-sheet="badges">Show badges</button>`]
   ];
@@ -1116,12 +1215,13 @@ function refHTML(id, extra = "") {
     `<div class="ref-a">${url ? `<a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}<button type="button" class="sm" data-jump="${id}">Open step</button></div></li>`;
 }
 // side: the feedback on the question just answered; wide screens show it beside the quiz card (style.css, .qz-side).
-function studyHTML(q, side = false) {
-  const refs = studyRefs(q);
+// miss: the question was missed (picked = the options chosen, when known), so it links to its look-alike tables
+function studyHTML(q, side = false, miss = false, picked) {
+  const refs = studyRefs(q), las = miss ? laFor(q, picked) : [];
   const doc = q.doc && DOCS[q.doc];
-  if (!refs.length && !doc) return "";
+  if (!refs.length && !doc && !las.length) return "";
   return `<div class="qz-study${side ? " qz-side" : ""}"><div class="qz-sh">Where to study this</div><ul class="qz-refs">${refs.map(id => refHTML(id)).join("")}</ul>` +
-    (doc ? `<div class="qz-doc">AWS page: <a href="${doc[1]}" target="_blank" rel="noopener">${doc[0]} ↗</a></div>` : "") + `</div>`;
+    (doc ? `<div class="qz-doc">AWS page: <a href="${doc[1]}" target="_blank" rel="noopener">${doc[0]} ↗</a></div>` : "") + laLinks(las) + `</div>`;
 }
 const answerHTML = q => `<ul class="qz-ans">${q.a.map(i => `<li><b>✓ ${q.o[i]}</b><div class="qz-why">${q.x[i]}</div></li>`).join("")}</ul>`;
 const noteHTML = q => `<label class="qz-note">Why did you miss it? One line for your notebook.<input type="text" maxlength="300" data-note="${q.id}" value="${esc((S.book[q.id] || {}).note || "")}" placeholder="e.g. mixed up gateway and interface endpoints"></label>`;
@@ -1187,7 +1287,7 @@ function renderQ() {
     const main = to < 0 ? "See results" : to === r.i + 1 ? "Next question →" : `Continue at question ${to + 1} →`;
     qzBody.innerHTML = mapHTML(r) + `<div class="qz-q">${q.q}</div>` +
       `<div class="qz-verdict ${ok ? "ok" : "bad"}${fresh ? " fresh" : ""}" role="status">${ok ? "✓ Correct." : `✗ Not quite. The answer is ${keyL}.`}${fresh === "xp" ? `<span class="xp-up">+${XP.right} XP</span>` : ""}</div>` +
-      fbHTML(q, ord, ans, fresh) + studyHTML(q, true) + (ok ? "" : noteHTML(q)) +
+      fbHTML(q, ord, ans, fresh) + studyHTML(q, true, !ok, ans) + (ok ? "" : noteHTML(q)) +
       `<div class="qz-a qz-nav">${prev}${to === r.i + 1 ? "" : skip}<button type="button" class="primary" data-qz="next">${main}</button></div>`;
   }
   fresh = false; comboFx = "";
@@ -1461,7 +1561,7 @@ function renderMockResult() {
     `<p class="muted">The real exam reports a scaled score from 100 to 1000 (720 to pass), and AWS doesn't publish how right answers map to it, so treat this percentage as a rough guide. Aim for 80% or more here.${prev.length ? ` Earlier mocks: ${prev.join(", ")}.` : ""}</p>` +
     `<div class="dom-bars">${res.dom.map(([a, n], i) => bar(`D${i + 1} ${doms[i]}`, pct(a, n), `${a}/${n}`)).join("")}</div>` +
     `<div class="mk-rev-h"><h3 class="sub-h">Review</h3><label class="chk"><input type="checkbox" data-only${r.only ? " checked" : ""}> Only the ones I got wrong</label></div>` +
-    `<ol class="qz-missed">${list.map(x => `<li value="${x.i + 1}" class="${x.ok ? "right" : "wrong"}"><details><summary>${x.ok ? "✓" : "✗"} ${x.q.q}</summary>${fbHTML(x.q, r.ord[x.q.id] || QZ.order(x.q), r.ans[x.q.id] || [])}${studyHTML(x.q)}</details></li>`).join("") || "<li>Nothing wrong. 🎉</li>"}</ol>` +
+    `<ol class="qz-missed">${list.map(x => `<li value="${x.i + 1}" class="${x.ok ? "right" : "wrong"}"><details><summary>${x.ok ? "✓" : "✗"} ${x.q.q}</summary>${fbHTML(x.q, r.ord[x.q.id] || QZ.order(x.q), r.ans[x.q.id] || [])}${studyHTML(x.q, false, !x.ok, r.ans[x.q.id])}</details></li>`).join("") || "<li>Nothing wrong. 🎉</li>"}</ol>` +
     `<div class="qz-a"><button type="button" class="primary" data-qz="finish">Close</button></div>`;
   hookGif();
 }
@@ -1566,7 +1666,7 @@ qzDlg.addEventListener("change", e => {
 });
 // Listen on the document: re-rendering removes the focused button, which drops focus to <body>.
 document.addEventListener("keydown", e => {
-  if (!qzDlg.open || brkDlg.open || e.target.matches("input,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!qzDlg.open || brkDlg.open || shDlg.open || e.target.matches("input,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (drill) {
     const n = k.length === 1 ? Math.max("1234".indexOf(k), "abcd".indexOf(k)) : -1;
@@ -1627,9 +1727,10 @@ function openSheet(kind) {
 function renderSheet() {
   const kind = shDlg.dataset.kind;
   const [title, html] = kind === "notebook" ? ["📓 Wrong-answer notebook", notebookHTML()] : kind === "weak" ? ["📈 Weak spots", weakHTML()]
-    : kind === "daynotes" ? dayNotesHTML() : kind === "badges" ? ["🏅 Badges and level", badgesHTML()] : ["🗣 Exam wording", cuesHTML()];
+    : kind === "daynotes" ? dayNotesHTML() : kind === "badges" ? ["🏅 Badges and level", badgesHTML()] : kind === "look" ? ["⚖️ Look-alikes", lookHTML()] : kind === "dg" ? dgSheet() : ["🗣 Exam wording", cuesHTML()];
   document.getElementById("sh-title").textContent = title;
   shBody.innerHTML = html;
+  if (kind === "dg") { dgMark(shBody); applyGlossary(shBody); }
 }
 // Notes for the day on screen, plus the notes written on its single steps.
 function dayNotesHTML() {
@@ -1655,7 +1756,7 @@ function notebookHTML() {
   return `<div class="seg">${[["open", `Open (${open.length})`], ["fixed", `Fixed (${fixed.length})`], ["all", `All (${all.length})`]].map(([k, l]) => `<button type="button" data-nb="${k}" aria-pressed="${nbFilter === k}">${l}</button>`).join("")}<button type="button" class="nb-exp" data-nb-export>Export as Markdown</button></div>` +
     `<p class="muted">Fixed means you answered it right after missing it. ${weakDay ? `Day ${weakDay.day} and the` : "The"} morning of the exam ${weakDay ? "are" : "is"} for this list.</p>` +
     `<ol class="qz-missed nb">${list.map(({ q, b }) => `<li class="${b.fixed ? "right" : "wrong"}"><details><summary>${q.q}<span class="nb-m">${q.tags.map(esc).join(", ")}. Missed ${b.misses}×${b.fixed ? ", answered right since" : ""}.</span></summary>` +
-      `${answerHTML(q)}<label class="qz-note">Why I missed it<input type="text" maxlength="300" data-note="${q.id}" value="${esc(b.note || "")}"></label>${studyHTML(q)}</details></li>`).join("") || `<li class="muted">Nothing here.</li>`}</ol>`;
+      `${answerHTML(q)}<label class="qz-note">Why I missed it<input type="text" maxlength="300" data-note="${q.id}" value="${esc(b.note || "")}"></label>${studyHTML(q, false, true)}</details></li>`).join("") || `<li class="muted">Nothing here.</li>`}</ol>`;
 }
 function exportNotebook() {
   const md = ["# SAA-C03 wrong-answer notebook", "", `Exported ${fmtD(new Date())}.`, ""];
@@ -1679,7 +1780,7 @@ function weakHTML() {
   if (dom.some(x => x[1])) h += `<h3 class="sub-h">By exam domain</h3><div class="dom-bars">${dom.map(([a, n], i) => n ? bar(`D${i + 1} ${DOMAINS[i]}`, pct(a, n), `${pct(a, n)}%`) : "").join("")}</div>`;
   if (w.length) h += `<h3 class="sub-h">By topic, weakest first</h3><p class="muted">Share of answers right, counting every attempt. Open a topic to see where to study it.</p>` +
     `<ul class="wk">${w.map(t => `<li><details><summary><span class="wk-t">${esc(t.tag)}</span><span class="tr"><span class="fi${t.acc < 0.7 ? " low" : ""}" style="width:${Math.round(t.acc * 100)}%"></span></span><span class="wk-n">${t.right}/${t.seen}</span></summary>` +
-      `<ul class="qz-refs">${tagRefs(t.tag).map(id => refHTML(id)).join("")}</ul></details></li>`).join("")}</ul>`;
+      `<ul class="qz-refs">${tagRefs(t.tag).map(id => refHTML(id)).join("")}</ul>${laLinks(laTag(t.tag))}</details></li>`).join("")}</ul>`;
   if (shaky.length) h += `<h3 class="sub-h">Self-checks you marked shaky</h3><ul class="qz-refs">${shaky.map(id => refHTML(id)).join("")}</ul>`;
   if (kshaky.length) h += `<h3 class="sub-h">Key points you marked shaky in "Test me"</h3><ul class="qz-refs">${kshaky.map(([id, label]) => refHTML(id, `<span class="pill warn">${label}</span>`)).join("")}</ul>`;
   return h;
@@ -1711,6 +1812,14 @@ function srBuild() {
   }
   for (const k of Object.keys(GLOSS)) out.push({ kind: "Term", where: "", title: k, text: `${k}: ${GLOSS[k]}`, go: ["term", k], full: true });
   for (const c of CUES) out.push({ kind: "Exam wording", where: "", title: c[0], text: `${c[0]}: ${c[1]}. ${c[2]}`, go: ["cues"] });
+  for (const e of LA) out.push({ kind: "Look-alikes", where: "", title: e.title, text: plainOf(`${e.title}. ${e.why} ${e.rows.map(r => r.join(" ")).join(" ")}`), go: ["look", e.id] });
+  for (const key in DGS) {
+    const first = Object.keys(itemIndex).find(id => dgKey(id) === key);
+    if (first) for (const pid in DGS[key].parts || {}) {
+      const p = DGS[key].parts[pid];
+      out.push({ kind: "Diagram", where: `Day ${itemIndex[first].d.day}`, title: p.name, text: plainOf(`${p.name}: ${p.why} ${(p.k || []).map(x => x.join(": ")).join(" ")} ${p.trap || ""}`), go: ["part", first, pid] });
+    }
+  }
   return out;
 }
 // What you wrote, read fresh on every search: step notes, day notes, the notebook.
@@ -1774,6 +1883,8 @@ function srOpen(i) {
   if (k === "step") jumpTo(v);
   else if (k === "day") { const d = dayOf(v); setView(d.id, landing(d), true); openSheet("daynotes"); }
   else if (k === "book") { nbFilter = "all"; openSheet("notebook"); }
+  else if (k === "look") openLook(v);
+  else if (k === "part") { dgSel = { id: v, part: e.go[2] }; ui.dg = true; saveUI(); jumpTo(v); const m = cardEl.querySelector(".b-map"); if (m) m.scrollIntoView({ block: "start" }); }
   else openSheet("cues");
 }
 srQ.addEventListener("input", () => { srAt = 0; srRender(); });
@@ -1835,9 +1946,14 @@ shDlg.addEventListener("click", e => {
   if (e.target.closest("[data-nb-export]")) { exportNotebook(); return; }
   const j = e.target.closest("[data-jump]");
   if (j) { shDlg.close(); jumpTo(j.dataset.jump); return; }
+  const lg = e.target.closest("[data-la-go]");
+  if (lg) { laOn = lg.dataset.laGo; shBody.querySelectorAll(".la.on,.la-nav .on").forEach(x => x.classList.remove("on")); lg.classList.add("on"); const el = document.getElementById("la-" + laOn); if (el) { el.classList.add("on"); el.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); } return; }
   if (e.target.closest("[data-sh-close]")) shDlg.close();
 });
-shDlg.addEventListener("close", runPending);
+shDlg.addEventListener("close", () => {
+  if (shDlg.dataset.kind === "dg" && view.day) renderFlow(false);   // the card shows the part chosen in the larger view
+  runPending();
+});
 let noteT = 0;
 document.addEventListener("input", e => {
   const id = e.target.dataset && e.target.dataset.note;
@@ -1914,7 +2030,7 @@ document.addEventListener("keydown", e => {
   if ((e.key === "f" || e.key === "F") && !e.repeat) { e.preventDefault(); toggleFocusView(); return; }
   if (e.key === "ArrowLeft") b = nav.querySelector("[data-back]");
   else if (e.key === "ArrowRight") b = nav.querySelector("[data-next]");
-  else if (e.key === "Enter" && !e.repeat && !e.target.closest("button,a,summary")) b = nav.querySelector("[data-main]");
+  else if (e.key === "Enter" && !e.repeat && !e.target.closest("button,a,summary,[role=button]")) b = nav.querySelector("[data-main]");
   if (b && !b.disabled) { e.preventDefault(); b.click(); }
 });
 // Day notes and step notes save as you type.
@@ -1939,6 +2055,19 @@ document.getElementById("next").addEventListener("click", e => {
   if (!w) return;
   if (w.dataset.warm === "skip") { S.warm[today()] = "skip"; save(); refresh(); }
   else { FX.unlock(); startRun("warm"); }
+});
+// a look-alike table (from a miss, a card's panel, weak spots, the overview), and a part of a course diagram
+document.addEventListener("click", e => {
+  const l = e.target.closest("[data-look]");
+  if (l) { openLook(l.dataset.look); return; }
+  const p = e.target.closest(".dg-box [data-part],.dg-box [data-dg-part]");
+  if (p) { dgPick(p.closest(".dg-box"), p.dataset.part || p.dataset.dgPart); return; }
+  const big = e.target.closest("[data-dg-big]");
+  if (big) openDiagram(big.dataset.dgBig);
+});
+document.addEventListener("keydown", e => {
+  const p = (e.key === "Enter" || e.key === " ") && e.target.closest && e.target.closest(".dg-box [data-part]");
+  if (p) { e.preventDefault(); dgPick(p.closest(".dg-box"), p.dataset.part); }
 });
 // buttons that can appear anywhere: overview, cards, practice panel, slip banner, dialogs
 document.addEventListener("click", e => {

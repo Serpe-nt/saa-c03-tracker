@@ -687,6 +687,62 @@ dialog.qz{width:min(780px,96vw);max-width:none;max-height:92vh;padding:0;overflo
 .dg .hot:hover rect,.dg .hot:focus rect,.dg .hot.on rect{stroke:var(--accent);stroke-width:2.4}
 .dg .dg-node.hot.on rect{fill:color-mix(in srgb,var(--accent) 12%,var(--card))}
 .dg .hot:focus{outline:none}
+.dg .hot:focus-visible rect{stroke:var(--accent);stroke-width:3}
+.dg .hot.rel rect{stroke:var(--watch);stroke-width:2.2}
+.dg .hot.on rect{stroke:var(--accent);stroke-width:2.6}
+/* on the card: the picture, the step's parts as buttons, and the open part explained under it */
+.b-map{--edge:var(--build)}
+.b-map>.dg-t{margin:2px 0;font-size:15.5px}
+.b-map>.dg-why{font-size:14.5px;color:var(--muted);margin:0 0 8px}
+.dg-rel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px;font-size:14px}
+.dg-pic{position:relative}
+.dg-big{position:absolute;top:8px;right:8px}
+.dg-rel button[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--card))}
+.dg-wrap{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;overflow-x:auto}
+@media (max-width:760px){.dg-wrap .dg{min-width:680px}}   /* readable on a phone: the picture scrolls sideways */
+/* the larger view (a sheet): the picture with the open part beside it */
+#sheet[data-kind="dg"]{width:min(1440px,98vw)}
+#sheet[data-kind="dg"] .dg-why{margin:0 0 10px}
+@media (min-width:1000px){
+  #sheet[data-kind="dg"] .dg-box{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+  #sheet[data-kind="dg"] .dg-rel{grid-column:1/-1}
+  #sheet[data-kind="dg"] .dg-part{margin-top:0;position:sticky;top:0;max-height:calc(92vh - 90px);overflow:auto}
+  #sheet[data-kind="dg"] .dg-part .k-list li{grid-template-columns:1fr}
+}
+.dg-part{margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--card);border:1px solid var(--line)}
+.dg-pn{font:700 16px var(--display);margin:0 0 4px}
+.dg-pw{margin:0 0 6px;font-size:15px}
+.dg-part .k-list{list-style:none;margin:0;padding:0;font-size:14.5px}
+.dg-trap{margin:8px 0 0;font-size:14.5px;padding:8px 10px;border-radius:6px;background:color-mix(in srgb,var(--warn) 10%,var(--card))}
+.dg-hint{margin:0;font-size:14px}
+
+/* ---------- look-alikes (lookalikes.js): the sheet, and the links from misses, panels and weak spots ---------- */
+.b-look{--edge:var(--play)}
+.c-la{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14.5px}
+.qz-la{margin-top:8px;font-size:14px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+#sheet[data-kind="look"]{width:min(1100px,96vw)}
+.la-nav{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.la-nav button{font-size:13.5px}
+.la-nav button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--card))}
+.la{margin-top:18px;padding-top:6px;border-top:1px solid var(--line);scroll-margin-top:70px}
+.la.on>h3{color:var(--accent)}
+.la.on .la-t{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 45%,transparent)}
+.la-why{font-size:14.5px;color:var(--muted);margin:2px 0 8px}
+.la-t{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed;border-radius:6px}
+.la-t th,.la-t td{border:1px solid var(--line);padding:7px 9px;vertical-align:top;text-align:left}
+.la-t thead th{background:var(--field);font:700 15px var(--display)}
+.la-t thead th:first-child{width:118px}
+.la-t tbody th{font-weight:700;font-size:13.5px;color:var(--muted);background:var(--field)}
+.la-t .la-cue td{background:color-mix(in srgb,var(--accent) 8%,var(--card))}
+.la-docs{font-size:13.5px;margin:6px 0 0}
+@media (max-width:760px){
+  .la-t,.la-t tbody,.la-t tr,.la-t th,.la-t td{display:block;width:auto}
+  .la-t thead{display:none}
+  .la-t tr{margin:8px 0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .la-t th,.la-t td{border:0}
+  .la-t td{border-top:1px solid var(--line)}
+  .la-t td::before{content:attr(data-col);display:block;font-weight:700;font-size:13px;color:var(--text)}
+}
 
 /* text size (Settings, this browser only): the reading parts grow, the frame around them stays */
 :root[data-size="l"] :is(#card,.side,#sh-body,#brk-body),:root[data-size="l"] #qz-body>:not(.qz-side){zoom:1.1}

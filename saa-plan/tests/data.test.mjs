@@ -323,3 +323,21 @@ test("look-alikes: shape, rows that line up with the columns, tags, links", () =
     assert.ok(Array.isArray(e.docs || []) && (e.docs || []).length <= 3 && (e.docs || []).every(d => /^https:\/\/(docs\.)?aws\.amazon\.com\//.test(d[1])), `${at}: up to 3 AWS docs`);
   }
 });
+
+// The same rule as laFor() in app.js: a right option names one column's service and a wrong option another,
+// each match word whole (no letter or digit touching it). Guards the match words: a table nothing links to is never seen.
+test("look-alikes: missed questions link to every table", () => {
+  const rx = w => new RegExp(`(?<![A-Za-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9])`, "i");
+  const plain = t => String(t).replace(/<[^>]+>/g, " ");
+  const linked = new Set();
+  for (const e of W.LOOKALIKES || []) {
+    const cols = t => e.match.map((ws, i) => (ws.some(w => rx(w).test(plain(t))) ? i : -1)).filter(i => i >= 0);
+    let n = 0;
+    for (const q of W.QUIZ) {
+      const rc = q.a.map(i => cols(q.o[i])), wc = q.o.map((o, i) => (q.a.includes(i) ? [] : cols(o)));
+      if (rc.some(r => wc.some(w => r.some(i => w.some(j => i !== j))))) { n++; linked.add(q.id); }
+    }
+    assert.ok(n >= 3, `LOOKALIKES ${e.id}: only ${n} questions link to it`);
+  }
+  assert.ok(linked.size >= 150, `only ${linked.size} questions link to a look-alike table`);
+});

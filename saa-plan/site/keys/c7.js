@@ -47,7 +47,7 @@ Object.assign(window.KEYS, {
       ["Lambda as consumer", "Lambda reads a queue through an event source mapping. Its maximum concurrency setting caps how many invocations run at once, which protects a database behind the consumer."],
       ["Ordered fan-out", "Fan-out that must keep the order of messages needs an SNS FIFO topic with SQS FIFO queues."]
     ],
-    trap: "Consumers that share one queue do not each see every message. Without a queue in between, SNS discards a message once its delivery retries are exhausted. A standard queue can deliver a message twice, so make consumers idempotent.",
+    trap: "Consumers that share one queue do not each see every message. SNS discards a message once its delivery retries are exhausted, unless the subscription has a dead-letter queue. A standard queue can deliver a message twice, so make consumers idempotent.",
     docs: [
       ["Amazon SQS standard queues", "https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/standard-queues.html"],
       ["Fanout Amazon SNS notifications to Amazon SQS queues for asynchronous processing", "https://docs.aws.amazon.com/sns/latest/dg/sns-sqs-as-subscriber.html"],
