@@ -200,6 +200,9 @@ try {
     assert.ok(await page.evaluate(() => document.querySelector('#card details[data-sec="terms"]').open), "an opened helper list stays open on the next card");
 
   log("step practice: three questions on this step");
+  // a tampered GIF pointer in this browser's preferences must not break the results
+  await page.evaluate(() => { const u = JSON.parse(localStorage.getItem("saa-plan-v2-ui") || "{}"); u.gif = { ace: -1, pass: -1, fail: "x" }; localStorage.setItem("saa-plan-v2-ui", JSON.stringify(u)); });
+  await page.reload();
   await openCard(page, HELPDAY, HELP);
   await page.click(`#card [data-step-quiz="${HELP}"]`);
   let s = await state(page);
@@ -323,7 +326,9 @@ try {
   }
   await page.waitForSelector("#qz-body .qz-res.ok");
   assert.match(await page.textContent("#qz-body .qz-score"), /30/);
-  assert.match(await page.textContent("#quiz .fx-badges"), /Perfect score/);
+  // badges take turns (two on screen at a time), so "Perfect score" may come after the last streak badge
+  await page.waitForFunction(() => /Perfect score/.test(document.querySelector("#quiz .fx-badges").textContent), null, { timeout: 8000 });
+  assert.ok(await page.locator("#quiz .fx-badge:not(.out)").count() <= 2, "at most two badges on screen at once");
   const g2 = await gifOn(page);
   assert.ok(g2 && g2.o === "ace" && g2.id !== g1.id, "the next ace result shows the next GIF in the rotation");
   await page.waitForTimeout(1400);                         // the stars and the XP bar settle
@@ -387,6 +392,7 @@ try {
     const st = JSON.parse(localStorage.getItem(k)), d = window.PLAN.find(x => x.id === id);
     return window.QZ.dayPool(d, window.QZ.topics(window.PLAN, window.STEP_TAGS), window.QUIZ).map(q => q.id).filter(q => !st.qs[q]);
   }, [KEY, QB.id]);
+  const pre = await state(page);
   await page.click('#qz-body [data-qz="retake"]');
   const second = (await state(page)).run.ids;
   const fresh = second.filter(id => unseen.includes(id)).length;
@@ -408,6 +414,14 @@ try {
     await page.click('#qz-body [data-qz="next"]');
   }
   await page.waitForSelector("#qz-body .qz-res.ok");
+  {
+    // XP only for a right answer that teaches something: the first time, after a miss, or when due for review
+    const after = (await state(page)).qs, t = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+    const repeats = second.filter(id => pre.qs[id] && pre.qs[id].last && !(pre.srs[id] && pre.srs[id].due <= t));
+    console.log(`  XP rule: ${repeats.length} repeats answered right again`);
+    assert.ok(repeats.length > 0 && repeats.every(id => after[id].right === pre.qs[id].right + 1 && after[id].xp === pre.qs[id].xp), "right again on a question already right (not due) earns no more XP");
+    assert.ok(second.filter(id => !pre.qs[id]).every(id => after[id].xp === 1), "a first right answer earns XP");
+  }
   await page.click('#qz-body [data-qz="finish"]');
   assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-done"), "1");
 
@@ -633,6 +647,22 @@ try {
     st = await serverState(old.page);
     assert.ok(st.doc.notes.d13 === "old note" && st.doc.inotes.d13l1 === "passport is in the drawer" && st.doc.ticks[e3] && st.doc.notes[LAST.id] === "note from device two", "old local progress and server progress both kept");
     await old.ctx.close();
+
+    log("a device that earns badges at startup doesn't overwrite newer settings from another device");
+    const a1 = await newPage(), b1 = await newPage();
+    await a1.page.goto(BASE); await b1.page.goto(BASE);
+    await a1.page.waitForTimeout(800); await b1.page.waitForTimeout(800);       // both have the server copy
+    await b1.page.evaluate(k => { const x = JSON.parse(localStorage.getItem(k)); x.ach = {}; localStorage.setItem(k, JSON.stringify(x)); }, KEY);   // as a copy from before badges
+    await a1.page.click("#b-set");
+    await a1.page.fill("#s-exam", "2026-12-01");
+    await a1.page.click('#settings button[value="save"]');
+    await a1.page.waitForTimeout(1500);                                          // device one pushed a newer copy
+    await b1.page.reload();
+    await b1.page.waitForTimeout(2000);
+    st = await serverState(b1.page);
+    assert.equal(st.doc.settings.exam, "2026-12-01", "device one's exam date survives device two's startup");
+    assert.ok(Object.keys(st.doc.ach).length >= 5, "and the badges are still there");
+    await a1.ctx.close(); await b1.ctx.close();
   }
 
   log("mock with a retired question still submits when time is up");
@@ -710,18 +740,25 @@ try {
     inotes: { d1a1: 5, d1a2: "<img src=x id=pwn4>" }, notes: { d1: "<img src=x id=pwn5>" },
     ach: { "<b id=pwn6>": "2026-10-12", first: "<img src=x id=pwn7>" }, rowBest: "<i id=pwn8>",
     timer: { mode: "<b>", running: true, at: "x", up: -5, left: 1e9 } };
-  await page.setInputFiles("#s-file", { name: "evil.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(evil)) });
+  // "__proto__" as a key only survives as text: an object literal would set the prototype instead
+  const evilText = JSON.stringify({ ...evil, qs: { "q01-001": { seen: 1, right: 1e40 }, "q01-002": { seen: 5, right: -3 } } })
+    .replace(/^\{/, '{"__proto__":{"zz":5},').replace('"ach":{', '"ach":{"__proto__":{"where":"<img src=x id=pwn9>"},');
+  await page.setInputFiles("#s-file", { name: "evil.json", mimeType: "application/json", buffer: Buffer.from(evilText) });
   await page.waitForTimeout(500);
   const ev = await state(page);
   assert.deepEqual([kind(ev.quiz), ev.drill.best, ev.settings.portal, ev.mocks[0].pct, ev.book["q01-001"].misses, kind(ev.inotes.d1a1)], ["object", 0, "", 0, 1, "undefined"]);
-  assert.deepEqual([ev.ach.first, ev.rowBest, ev.timer.mode, ev.timer.up, ev.timer.left], [undefined, 0, "focus", 0, 3000], "badges, record and timer validated");
+  // the markup date is dropped; the file's one right answer then earns "First one right" again, quietly, with a real date
+  assert.deepEqual([/^\d{4}-\d{2}-\d{2}$/.test(ev.ach.first), ev.rowBest, ev.timer.mode, ev.timer.up, ev.timer.left], [true, 0, "focus", 0, 3000], "badges, record and timer validated");
+  assert.deepEqual(await page.evaluate(() => [({}).zz, ({}).where]), [undefined, undefined], "a __proto__ key never reaches Object.prototype");
+  assert.deepEqual([ev.qs["q01-001"].right, ev.qs["q01-002"].right], [1, 0], "answer counts are clamped: right is between 0 and seen");
+  assert.match(await page.textContent("#stats .st-lv"), /Level\s*\d+/, "the level still renders (no endless loop, no NaN)");
   await openPanel(page, "practice");
   await page.click('#pr-grid [data-sheet="notebook"]');
   assert.equal(await page.locator("#pwn, #pwn2, #pwn3").count(), 0, "no injected markup");
   await page.click("#sheet [data-sh-close]");
   await page.click('#pr-grid [data-sheet="badges"]');
   assert.ok(await page.locator("#sh-body .ach li").count() >= 10, "the badges sheet lists every badge");
-  assert.equal(await page.locator("#pwn6, #pwn7, #pwn8").count(), 0, "no injected markup from badges");
+  assert.equal(await page.locator("#pwn6, #pwn7, #pwn8, #pwn9").count(), 0, "no injected markup from badges");
   await page.click("#sheet [data-sh-close]");
   assert.ok(await page.locator("#next .hero-t").count() === 1, "page still renders after the import");
   await openCard(page, "d1", "d1a2");
@@ -745,11 +782,19 @@ try {
   await page.reload();
   await page.evaluate(() => { window.__snd = []; const f = window.FX.sound; window.FX.sound = (n, a) => { window.__snd.push(n); return f(n, a); }; });
   const nags = () => page.evaluate(() => window.__snd.filter(n => n === "nag").length);
+  // the pop-up ignores clicks in its first 400 ms (a click meant for what was under the pointer)
+  const brk = async a => { await page.clock.fastForward(450); await page.click(`#brk [data-brk="${a}"]`); };
   await page.clock.fastForward(5000);
   await page.waitForSelector("#brk[open]");
   assert.match(await page.textContent("#brk"), /Focus block done/);
+  assert.ok(await page.evaluate(() => document.activeElement.id === "brk-t"), "the keyboard goes to the pop-up's heading, not a button");
   await page.screenshot({ path: path.join(SHOTS, "19-break-offer.png") });
-  await page.click('#brk [data-brk="rest"]');
+  await page.reload();                                                      // the prompt waits for an answer, also after a reload
+  await page.evaluate(() => { window.__snd = []; const f = window.FX.sound; window.FX.sound = (n, a) => { window.__snd.push(n); return f(n, a); }; });
+  await page.clock.fastForward(1500);
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /Focus block done/, "the prompt comes back after a reload");
+  await brk("rest");
   let tmS = (await state(page)).timer;
   assert.ok(tmS.mode === "rest" && tmS.running && !(await page.locator("#brk[open]").count()), "Start break starts an open-ended break");
   await page.clock.fastForward(5 * 60000);
@@ -764,16 +809,78 @@ try {
   await page.clock.fastForward(60000);
   assert.equal(await nags(), 2, "a reminder every minute past 10");
   assert.equal(await page.locator("dialog[open]").count(), 1, "the pop-up is up already: the reminder is the sound alone, nothing stacks");
-  await page.click('#brk [data-brk="later"]');
+  await brk("later");
   await page.clock.fastForward(60000);
   await page.waitForSelector("#brk[open]");
   assert.equal(await nags(), 3, "dismissed: the next minute brings the pop-up back");
-  await page.click('#brk [data-brk="focus"]');
+  await brk("pause");
+  assert.match(await page.textContent("#timer .tm-mode"), /Break, paused/);
+  await page.clock.fastForward(3 * 60000);
+  assert.equal(await nags(), 3, "a paused break doesn't remind");
+  await page.click('#timer [data-tm="toggle"]');                         // resume the overdue break: it reminds at once
+  await page.clock.fastForward(1500);
+  await page.waitForSelector("#brk[open]");
+  assert.equal(await nags(), 4);
+  await brk("focus");
   tmS = (await state(page)).timer;
   const nowMs = await page.evaluate(() => Date.now());
   assert.ok(tmS.mode === "focus" && tmS.running && Math.abs(tmS.endAt - nowMs - 50 * 60000) < 5000 && !(await page.locator("#brk[open]").count()), "Start focus starts the next 50 minutes");
   await page.clock.fastForward(3 * 60000);
-  assert.equal(await nags(), 3, "no reminders during focus");
+  assert.equal(await nags(), 4, "no reminders during focus");
+  await ctx.close();
+
+  log("the timer's pop-ups wait while the drill or the mock exam runs; the reminder sound doesn't");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.clock.install();
+  await page.goto(BASE);
+  await setState(page, s => {
+    s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false };
+    s.timer = { mode: "rest", running: true, at: Date.now() - 9.5 * 60000, up: 0, min: false };
+    s.run = { kind: "mock", day: "", ids: ["m1-001", "m1-002", "m2-003"], ord: {}, ans: {}, flag: {}, i: 0, t0: Date.now(), end: Date.now() + 7800000, done: false, view: "" };
+  });
+  await page.reload();
+  await page.evaluate(() => { window.__snd = []; const f = window.FX.sound; window.FX.sound = (n, a) => { window.__snd.push(n); return f(n, a); }; });
+  const nags2 = () => page.evaluate(() => window.__snd.filter(n => n === "nag").length);
+  await openPanel(page, "practice");
+  await page.click('#pr-grid [data-drill]');
+  await page.waitForSelector("#qz-body .dr-req");
+  await page.clock.fastForward(40000);                                  // the break passes 10 minutes during the drill
+  assert.equal(await page.locator("#brk[open]").count(), 0, "no pop-up over the running drill");
+  assert.equal(await nags2(), 1, "the reminder sound still plays");
+  await page.clock.fastForward(25000);                                  // the drill is over: its results aren't timed
+  await page.waitForSelector("#brk[open]");
+  await page.clock.fastForward(450);
+  await page.click('#brk [data-brk="later"]');
+  await page.click('#quiz [data-qz="close"]');
+  await page.click('#pr-grid [data-mock]');                             // resume the mock exam
+  await page.waitForSelector("#qz-body .qz-o");
+  await page.clock.fastForward(60000);
+  assert.equal(await page.locator("#brk[open]").count(), 0, "no pop-up over the mock exam");
+  assert.equal(await nags2(), 2, "the next minute's reminder is the sound alone");
+  await page.click('#quiz .qz-x');                                       // close the mock (its clock keeps running)
+  await page.clock.fastForward(1500);
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /Break is over/, "the held reminder comes up once the mock is closed");
+  await ctx.close();
+
+  log("two tabs: the focus-block prompt shows in both, and answering it in one closes it in the other");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.goto(BASE);
+  await setState(page, s => {
+    s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false };
+    s.timer = { mode: "focus", running: true, endAt: Date.now() + 2500, left: 3000, from: 3000, min: false };
+  });
+  await page.reload();
+  const tab2 = track(await ctx.newPage());
+  await tab2.goto(BASE);
+  await page.waitForSelector("#brk[open]", { timeout: 6000 });
+  await tab2.waitForSelector("#brk[open]", { timeout: 6000 });
+  await page.waitForTimeout(450);
+  await page.click('#brk [data-brk="rest"]');
+  await tab2.waitForSelector("#brk:not([open])", { state: "attached", timeout: 4000 });
+  assert.equal((await state(tab2)).timer.mode, "rest", "the other tab follows: the break is on");
   await ctx.close();
 
   if (errors.length) throw new Error("console errors:\n" + errors.join("\n"));

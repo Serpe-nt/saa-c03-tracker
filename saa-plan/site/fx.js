@@ -5,6 +5,7 @@ window.FX = (() => {
   let cv = null, ctx = null, W = 0, H = 0, raf = 0;
   let parts = [], rockets = [], rings = [];
   let actx = null, bEl = null, bT = 0, tEl = null, tT = 0, bdWrap = null;
+  const bdQ = [];   // badges waiting for a free place
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
   const COLORS = ["#ff9900", "#ffc061", "#0972d3", "#5aa9ff", "#8a3ffc", "#b58cff", "#1fbf5f", "#ff5c8a", "#ffe066"];
   const GOLD = ["#ffe066", "#ffc061", "#ff9900", "#fff3b0", "#ffffff"];
@@ -226,16 +227,24 @@ window.FX = (() => {
     tT = setTimeout(() => tEl.classList.remove("show"), 2100);
   }
   // A badge drops in at the top of the screen: right answers in a row, a record, a level, a badge earned.
-  // They stack (at most three) and float away after a few seconds. tier: bronze | silver | gold | epic | level.
-  // Like the banner, it carries information, so it shows with effects off too (without the stars).
+  // Two at most are on screen; the rest wait their turn, so each one is seen for its full three seconds.
+  // tier: bronze | silver | gold | epic | level. Like the banner, it carries information, so it shows with
+  // effects off too (without the stars).
   function badge(icon, title, sub = "", tier = "gold") {
+    bdQ.push([icon, title, sub, tier]);
+    bdNext();
+  }
+  function bdNext() {
     if (!bdWrap) { bdWrap = document.createElement("div"); bdWrap.className = "fx-badges"; bdWrap.setAttribute("role", "status"); }
-    if (bdWrap.parentNode !== host()) host().appendChild(bdWrap);
+    // the badges on screen belonged to the dialog that has closed: don't bring them back over the page
+    if (bdWrap.parentNode !== host()) { bdWrap.replaceChildren(); host().appendChild(bdWrap); }
+    while (bdQ.length && bdWrap.querySelectorAll(".fx-badge:not(.out)").length < 2) bdShow(...bdQ.shift());
+  }
+  function bdShow(icon, title, sub, tier) {
     const el = document.createElement("div");
     el.className = "fx-badge k-" + tier;
     el.innerHTML = `<span class="bd-i">${icon}</span><span class="bd-x"><span class="bd-t">${title}</span>${sub ? `<span class="bd-s">${sub}</span>` : ""}</span>`;
     bdWrap.appendChild(el);
-    while (bdWrap.children.length > 3) bdWrap.firstChild.remove();
     // stars burst from the medal once it has landed
     setTimeout(() => {
       if (!el.isConnected || !motion()) return;
@@ -244,7 +253,7 @@ window.FX = (() => {
       ring(p.x, p.y, tier === "epic" ? "#b58cff" : "#ffe066");
       stars(p.x, p.y, tier === "epic" || tier === "level" ? 26 : 14, { speed: 6.5, gravity: 0.14, ttl: [30, 60], size: [5, 11], colors: tier === "epic" ? ["#b58cff", "#8a3ffc", "#ffe066", "#ffffff"] : GOLD });
     }, 420);
-    setTimeout(() => el.classList.add("out"), 3000);
+    setTimeout(() => { el.classList.add("out"); bdNext(); }, 3000);
     setTimeout(() => el.remove(), 3500);
   }
 

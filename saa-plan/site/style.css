@@ -80,13 +80,14 @@ button.ghost[aria-pressed="false"]{opacity:.6}
 
 /* ---------- overview: numbers in title-block cells, overall bar ---------- */
 .stats{margin:0 0 14px}
-.st-grid{display:grid;grid-template-columns:repeat(6,1fr);color:var(--chalk);border:solid rgba(234,243,255,.75);border-width:1.5px 0 0 1.5px}
+.st-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));color:var(--chalk);border:solid rgba(234,243,255,.75);border-width:1.5px 0 0 1.5px}
 .st{padding:8px 14px;border:solid rgba(234,243,255,.45);border-width:0 1px 1px 0}
 .st b{display:block;font:600 22px/1.15 var(--display);margin-top:2px;white-space:nowrap}
 .st small{font:500 15px var(--display);color:var(--chalk-dim)}
 /* the level: a cell like the others that opens badges and level; the bar is the way to the next level */
 button.st-lv{display:block;text-align:left;font:inherit;color:inherit;background:none;border-radius:0;cursor:pointer}
 button.st-lv:hover{background:rgba(234,243,255,.08)}
+.st{min-width:0}
 .st-lv b{overflow:hidden;text-overflow:ellipsis}
 .xpbar{display:block;height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:5px}
 .xpbar>span{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--watch),#8a3ffc);transition:width .4s}
@@ -377,7 +378,7 @@ dialog .fx-toast{bottom:26px}
   .tb-cell:nth-child(2){border-left:0}
   .tb-cell b{font-size:18px}
   .tb-tools{grid-column:1/-1;justify-content:flex-start}
-  .st-grid{grid-template-columns:repeat(3,1fr)}
+  .st-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .st{padding:7px 10px}
   .st b{font-size:18px}
   .next{padding:12px 14px 16px}
@@ -400,7 +401,7 @@ dialog .fx-toast{bottom:26px}
   body.in-flow .timer{bottom:72px}
   .tm-time{font-size:30px}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 
 /* ---------- quizzes, mock exam, practice ---------- */
 :root{--quiz:#0e7c86;--quiz-soft:#e2f4f5}
@@ -574,7 +575,7 @@ dialog.qz{width:min(780px,96vw);max-width:none;max-height:92vh;padding:0;overflo
 /* ---------- quiz results: the GIF, stars, level ---------- */
 .qz-res.has-gif{display:grid;grid-template-columns:1fr auto;gap:12px 18px;align-items:center}
 .qz-gif{margin:0;display:grid;gap:3px;justify-items:end}
-.qz-gif img{display:block;height:170px;width:auto;max-width:min(300px,80vw);object-fit:cover;border-radius:8px;box-shadow:0 6px 18px rgba(4,22,48,.35);background:var(--hover);animation:gif-in .5s cubic-bezier(.2,1.5,.4,1)}
+.qz-gif img{display:block;height:170px;width:min(260px,80vw);object-fit:cover;border-radius:8px;box-shadow:0 6px 18px rgba(4,22,48,.35);background:var(--hover);animation:gif-in .5s cubic-bezier(.2,1.5,.4,1)}
 .qz-gif figcaption{font-size:11px;color:var(--muted)}
 @keyframes gif-in{from{opacity:0;transform:scale(.7) rotate(3deg)}}
 .qz-rw{display:flex;gap:10px 18px;align-items:center;flex-wrap:wrap;margin:10px 0 4px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--field)}
@@ -607,8 +608,11 @@ dialog.qz{width:min(780px,96vw);max-width:none;max-height:92vh;padding:0;overflo
 .ach-x b{font:700 16px var(--display)}
 .ach-x .muted{font-size:12.5px}
 @media (max-width:640px){
-  .bd-t{font-size:19px}
-  .bd-i{width:40px;height:40px;font-size:21px}
+  .fx-badges{top:8px;gap:5px}
+  .fx-badge{gap:9px;padding:4px 16px 4px 5px}
+  .bd-t{font-size:17px}
+  .bd-s{font-size:12px}
+  .bd-i{width:32px;height:32px;font-size:17px}
   .qz-res.has-gif{grid-template-columns:1fr}
   .qz-gif{justify-items:center}
   .qz-gif img{height:150px}
