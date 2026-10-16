@@ -35,7 +35,7 @@ browser ─ index.html loads, in order:
 | `log` | `{dayId: minutes}` | focus-timer time credited to the day being worked on |
 | `warm` | `{date: "done"\|"skip"}` | warm-up handled that day |
 | `slips`, `slipSkip` | `[{from, n}]`, date | schedule shifts; "Not now" date |
-| `drill` | `{best, runs}` | "Which service?" record |
+| `drill` | `{best, runs, rev, lives, day}` | "Which service?" records: `best` in 60 seconds, `rev` in reverse, `lives` in three lives, `day` = date → the daily five's first result (0–5); `runs` counts finished drills of every kind |
 | `ach` | `{badgeId: "YYYY-MM-DD"}` | badges earned, with the date (see "XP, levels and badges") |
 | `rowBest` | number | the most quiz answers right in a row, ever |
 | `xpDay` | `{date: {x, at, hit}}` | the XP total when the day was first seen (today's XP = total − `x`), when that was stamped, and whether the daily goal was reached; newest 120 dates |
@@ -159,6 +159,10 @@ A focus block counts down from 50 minutes and logs its minutes to the day it was
 6. **Results.** Rendering results sets `run.seen = true`. Closing the dialog calls `finishResults()`, which clears the run and then celebrates; that order matters because the canvas sits below the modal. If the pass completed the day on screen, it then moves to the day's summary card. If a finished run was never on screen (time ran out behind the drill, or a reload), the close handler and boot reopen it first, so results are never lost.
 
 The drill keeps its state in memory only (`drill`), runs in the same dialog, and must not close the dialog when restarting: a late `close` event would stop the new drill. The close handler starts with `if (qzDlg.open) return`.
+
+**Drill modes** (`DRILL_MODES`; the owner chose the three new ones): *60 seconds* (a requirement, four services), *Reverse* (60 seconds, a service and four requirements; the wrong ones are the requirements of the services it is confused with, `it[2]`, then of its neighbours in the list, `revOpts`), *Three lives* (no clock, until the third miss) and *Daily five* (five items drawn with a seeded shuffle of the date, the same all day and on every device; the first try is the day's result, `drill.day[date]`, and a run of days shows on the result). Each has its own best on the practice card; the drill's badge stays with the 60-second mode.
+
+**The mock exam screen** works like an exam screen (the owner asked for it): ⚐ flag for review; click a word of the question to highlight it, drag over several to highlight them all (or clear them when all were highlighted; `mkWords()` numbers the words of the question in reading order, `run.hl[id]` keeps the numbers); ⊘ beside each option, or Shift + its number, strikes it out (`run.x[id]`; picking a struck option brings it back, striking the picked one unpicks it); the clock is always in the header, turns red in the last 10 minutes and says so with a toast at 10 minutes and at 1 minute (once each per tab, `mkWarned`); the review screen filters to the flagged or the unanswered questions (`gridF`). Highlights and strike-outs are part of the run, so they survive a reload and are cleaned like the rest of it (`cleanRun`).
 
 **Dialog queue.** `whenFree(fn)` runs `fn` now if no `<dialog>` is open, otherwise queues it. Every dialog's `close` calls `runPending()`.
 

@@ -26,7 +26,7 @@ const DEF = {
   warm: {},    // date → "done" | "skip"
   slips: [],   // schedule shifts: [{ from: day, n: days }]
   slipSkip: "",
-  drill: { best: 0, runs: 0 },
+  drill: { best: 0, runs: 0, rev: 0, lives: 0, day: {} },   // bests: 60 seconds, reverse, three lives; day: date → daily five result
   ach: {},     // badge id → date earned
   rowBest: 0,  // most quiz answers right in a row, ever
   xpDay: {},   // date → { x: total XP when the day was first seen, at: when that was stamped, hit: daily goal reached }
@@ -145,7 +145,9 @@ function clean(s) {
   for (const k in s.log) s.log[k] = Math.min(s.log[k], 24 * 60);
   keep(s.warm, v => v === "done" || v === "skip");
   s.slips = s.slips.filter(x => isObj(x) && Number.isInteger(x.from) && Number.isInteger(x.n) && x.n > 0 && x.n < 100).map(x => ({ from: x.from, n: x.n }));
-  s.drill = { best: num0(s.drill.best), runs: num0(s.drill.runs) };
+  s.drill = { best: int0(s.drill.best, 0, 1e4), runs: int0(s.drill.runs, 0, 1e6), rev: int0(s.drill.rev, 0, 1e4), lives: int0(s.drill.lives, 0, 1e4), day: isObj(s.drill.day) ? s.drill.day : {} };
+  for (const k of Object.keys(s.drill.day)) if (!isDay(k) || !Number.isInteger(s.drill.day[k]) || s.drill.day[k] < 0 || s.drill.day[k] > 5) delete s.drill.day[k];
+  pruneDates(s.drill.day);
   keep(s.ach, isDay);
   s.rowBest = int0(s.rowBest, 0, 1000);
   keep(s.xpDay, isObj);
@@ -199,7 +201,10 @@ function cleanRun(r) {
     row: int0(r.row, 0, r.ids.length), rowMax: int0(r.rowMax, 0, r.ids.length), best0: int0(r.best0, 0, 1000), xp0: num0(r.xp0, -1), rec: !!r.rec,   // rec: "New record" said in this run
     xp1: num0(r.xp1, -1), gif: typeof r.gif === "string" && /^[A-Za-z0-9]{1,32}$/.test(r.gif) ? r.gif : ""   // XP and the GIF at the finish
   };
+  out.x = {}; out.hl = {};   // mock exam: options struck out, words highlighted (indexes), per question
   for (const id of r.ids) {
+    if (isObj(r.x) && ints(r.x[id])) out.x[id] = r.x[id].slice(0, 6);
+    if (isObj(r.hl) && ints(r.hl[id])) out.hl[id] = r.hl[id].filter(i => i >= 0 && i < 2000).slice(0, 400);
     if (isObj(r.ord) && ints(r.ord[id])) out.ord[id] = r.ord[id];
     if (isObj(r.ans) && ints(r.ans[id])) out.ans[id] = r.ans[id];
     if (isObj(r.flag) && r.flag[id]) out.flag[id] = 1;
@@ -1387,8 +1392,9 @@ function renderPractice() {
       ? `${QZ.MOCK.n} questions in ${QZ.MOCK.minutes} minutes, results at the end like the real exam. Each attempt draws different questions.${last ? ` Last: ${last.pct}% on ${fmtD(parseDate(last.at))}.` : ""}`
       : `Unlocks when Days 1–${MOCK_AFTER} are complete (${left} to go): the lectures and labs.`,
       `<button type="button" data-mock${mockOpen() || liveMock ? ' class="primary"' : " disabled"}>${liveMock ? `Resume (${clock(S.run.end - Date.now())} left)` : "Start mock exam"}</button>`],
-    ["⚡ Which service?", `60 seconds of quick picks: a requirement, four services, choose one.${S.drill.best ? ` Your best: ${S.drill.best}.` : ""}`,
-      `<button type="button" data-drill${DRILL.length ? "" : " disabled"}>Start drill</button>`],
+    ["⚡ Which service?", `Quick picks between services, four ways.${S.drill.day[t] != null ? ` Today's five: ${S.drill.day[t]} of 5.` : ""}`,
+      `<div class="dr-modes">${Object.entries(DRILL_MODES).map(([k, m]) => { const b = { go: S.drill.best, rev: S.drill.rev, lives: S.drill.lives }[k];
+        return `<button type="button"${k === "go" ? " data-drill" : ` data-drill-mode="${k}"`}${DRILL.length ? "" : " disabled"} title="${esc(m.t)}: ${esc(m.d)}">${m.b}${b ? ` <small>best ${b}</small>` : k === "day" && S.drill.day[t] != null ? ` <small>✓ ${S.drill.day[t]}/5</small>` : ""}</button>`; }).join("")}</div>`],
     ["📓 Wrong-answer notebook", book.length ? `${open} open, ${book.length - open} fixed.` : "Every question you miss lands here with your one-line note.",
       `<button type="button" data-sheet="notebook">Open notebook</button>`],
     ["📈 Weak spots", weak ? `Weakest topic so far: ${esc(weak.tag)} (${pct(weak.right, weak.seen)}% right).` : "Fills in as you answer questions.",
@@ -1478,7 +1484,7 @@ function startRun(kind, of) {
   const ord = {};
   qs.forEach(q => { ord[q.id] = QZ.order(q); });
   const now = Date.now();
-  S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "",
+  S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, x: {}, hl: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "",
     row: 0, rowMax: 0, best0: S.rowBest, xp0: xpTotal(), rec: false };
   picks = {};
   save(); refresh(); openQuiz();
@@ -1633,6 +1639,7 @@ function pick(oi) {
     else if (cur.length < q.a.length) next = cur.concat(oi);
     else return;
     if (next.length) r.ans[id] = next; else delete r.ans[id];
+    if (r.x[id] && next.includes(oi)) { r.x[id] = r.x[id].filter(x => x !== oi); if (!r.x[id].length) delete r.x[id]; }   // picking an option brings it back
     save(); renderMockQ(); refocus(`[data-o="${oi}"]`);
     return;
   }
@@ -1816,25 +1823,87 @@ function finishResults() {
 }
 
 // ---------- mock exam (no feedback until the end) ----------
+// The mock exam screen works like an exam screen: strike out the options you have ruled out, highlight the words
+// that carry the requirement, flag questions for review, the clock always in view (red in the last 10 minutes).
+const mkClock = r => `<span id="mk-time" class="mk-time${r.end - Date.now() < 600000 ? " low" : ""}">⏱ ${clock(r.end - Date.now())}</span> left`;
 function renderMockQ() {
-  const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), mine = r.ans[id] || [];
+  const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), mine = r.ans[id] || [], xs = r.x[id] || [];
   r.ord[id] = ord;
   const answered = r.ids.filter(k => (r.ans[k] || []).length).length;
-  head("Mock exam", [`Question ${r.i + 1} of ${r.ids.length}`, `<span id="mk-time">${clock(r.end - Date.now())}</span> left`, `${answered} answered`], answered / r.ids.length * 100);
-  const last = r.i + 1 >= r.ids.length;
-  qzBody.innerHTML = `<div class="qz-q">${q.q}</div>${optsHTML(q, ord, mine)}` +
+  head("Mock exam", [`Question ${r.i + 1} of ${r.ids.length}`, mkClock(r), `${answered} answered`], answered / r.ids.length * 100);
+  const last = r.i + 1 >= r.ids.length, multi = q.a.length > 1;
+  qzBody.innerHTML = `<div class="mk-tools"><button type="button" data-qz="flag" class="flagb" aria-pressed="${!!r.flag[id]}">${r.flag[id] ? "⚑ Flagged for review" : "⚐ Flag for review"}</button>` +
+    `<span class="muted mk-hint">🖍 Click or drag over words to highlight them. Shift + 1–${ord.length} or ⊘ strikes an option out.</span></div>` +
+    `<div class="qz-q mk-q">${q.q}</div>` +
+    `<div class="qz-opts mk-opts${multi ? " multi" : ""}">${ord.map((oi, k) => `<div class="mk-row${xs.includes(oi) ? " x" : ""}">` +
+      `<button type="button" class="qz-o${mine.includes(oi) ? " on" : ""}" data-o="${oi}" aria-pressed="${mine.includes(oi)}"><span class="qz-l">${LETTERS[k]}</span><span class="qz-t">${q.o[oi]}</span></button>` +
+      `<button type="button" class="mk-x" data-qz="strike" data-x="${oi}" aria-pressed="${xs.includes(oi)}" title="${xs.includes(oi) ? "Bring this option back" : "Strike this option out"}" aria-label="${xs.includes(oi) ? "Bring back" : "Strike out"} option ${LETTERS[k]}">⊘</button></div>`).join("")}</div>` +
     `<div class="qz-a mk-a"><button type="button" data-qz="prev"${r.i ? "" : " disabled"}>← Previous</button>` +
-    `<button type="button" data-qz="flag" class="flagb" aria-pressed="${!!r.flag[id]}">${r.flag[id] ? "⚑ Flagged" : "⚐ Flag for review"}</button>` +
     `<button type="button" data-qz="grid">Review all</button>` +
     `<button type="button" class="primary" data-qz="${last ? "grid" : "mnext"}">${last ? "Review and finish" : "Next →"}</button></div>`;
+  mkWords();
 }
+// Wrap every word of the question in a span (numbered in reading order) and mark the highlighted ones.
+function mkWords() {
+  const qEl = qzBody.querySelector(".mk-q"), r = S.run, hl = new Set(r.hl[r.ids[r.i]] || []);
+  if (!qEl) return;
+  const walker = document.createTreeWalker(qEl, NodeFilter.SHOW_TEXT), nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  let n = 0;
+  for (const t of nodes) {
+    const parts = t.nodeValue.split(/(\s+)/), frag = document.createDocumentFragment();
+    for (const p of parts) {
+      if (!p) continue;
+      if (/^\s+$/.test(p)) { frag.append(p); continue; }
+      const w = document.createElement("span");
+      w.className = "w" + (hl.has(n) ? " hl" : ""); w.dataset.w = n++; w.textContent = p;
+      frag.append(w);
+    }
+    t.replaceWith(frag);
+  }
+}
+// A click on a word toggles it; a drag over several marks them all (or clears them, when all were marked).
+function mkHighlight(from, to) {
+  const r = S.run, id = r.ids[r.i], set = new Set(r.hl[id] || []), lo = Math.min(from, to), hi = Math.max(from, to);
+  const all = [];
+  for (let i = lo; i <= hi; i++) all.push(i);
+  const off = all.every(i => set.has(i));
+  all.forEach(i => (off ? set.delete(i) : set.add(i)));
+  r.hl[id] = [...set].sort((a, b) => a - b);
+  if (!r.hl[id].length) delete r.hl[id];
+  save();
+  qzBody.querySelectorAll(".mk-q .w").forEach(w => w.classList.toggle("hl", set.has(+w.dataset.w)));
+}
+function mkStrike(oi) {
+  const r = S.run, id = r.ids[r.i], xs = new Set(r.x[id] || []);
+  if (xs.has(oi)) xs.delete(oi);
+  else { xs.add(oi); if ((r.ans[id] || []).includes(oi)) { r.ans[id] = r.ans[id].filter(x => x !== oi); if (!r.ans[id].length) delete r.ans[id]; } }   // a struck option is no longer picked
+  r.x[id] = [...xs];
+  if (!r.x[id].length) delete r.x[id];
+  save(); renderMockQ(); refocus(`[data-x="${oi}"]`);
+}
+let gridF = "";   // the review screen's filter: "", "flag" or "open"
+// Highlighting: press on a word, release on the same word (toggle) or another one (the words between).
+let mkDown = -1;
+qzBody.addEventListener("pointerdown", e => { const w = e.target.closest(".mk-q .w"); mkDown = w ? +w.dataset.w : -1; });
+qzBody.addEventListener("pointerup", e => {
+  if (mkDown < 0) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY), w = el && el.closest(".mk-q .w"), from = mkDown;
+  mkDown = -1;
+  if (!w || !S.run || S.run.kind !== "mock" || S.run.done) return;
+  mkHighlight(from, +w.dataset.w);
+  const sel = getSelection();
+  if (sel) sel.removeAllRanges();
+});
 function renderGrid() {
   const r = S.run;
   const un = r.ids.filter(k => !(r.ans[k] || []).length).length;
   const fl = r.ids.filter(k => r.flag[k]).length;
-  head("Mock exam", ["Review", `<span id="mk-time">${clock(r.end - Date.now())}</span> left`], (r.ids.length - un) / r.ids.length * 100);
+  head("Mock exam", ["Review", mkClock(r)], (r.ids.length - un) / r.ids.length * 100);
+  const show = k => (gridF === "flag" ? !!r.flag[k] : gridF === "open" ? !(r.ans[k] || []).length : true);
   qzBody.innerHTML = `<p>${r.ids.length - un} of ${r.ids.length} answered${fl ? `, ${fl} flagged` : ""}. Pick a number to go back to it.</p>` +
-    `<div class="mk-grid">${r.ids.map((k, i) => `<button type="button" data-go="${i}" class="${(r.ans[k] || []).length ? "ans" : ""}${r.flag[k] ? " flag" : ""}">${i + 1}</button>`).join("")}</div>` +
+    `<div class="seg mk-f" role="group" aria-label="Show">${[["", `All (${r.ids.length})`], ["flag", `Flagged (${fl})`], ["open", `Not answered (${un})`]].map(([k, l]) => `<button type="button" data-grid-f="${k}" aria-pressed="${gridF === k}">${l}</button>`).join("")}</div>` +
+    `<div class="mk-grid">${r.ids.map((k, i) => show(k) ? `<button type="button" data-go="${i}" class="${(r.ans[k] || []).length ? "ans" : ""}${r.flag[k] ? " flag" : ""}">${i + 1}</button>` : "").join("") || `<p class="muted">None.</p>`}</div>` +
     `<div class="mk-key"><span class="ans">Answered</span><span class="flag">Flagged</span><span>Not answered</span></div>` +
     `<div class="qz-a"><button type="button" data-qz="back">Back to the questions</button><button type="button" class="primary" data-qz="finish-mock">Finish exam</button></div>`;
 }
@@ -1881,23 +1950,52 @@ function renderMockResult() {
 }
 
 // ---------- "Which service?" drill ----------
-function startDrill() {
+// The "Which service?" drill, four ways (the owner chose the three new ones):
+//   go:    60 seconds, a requirement and four services
+//   rev:   60 seconds, a service and four requirements: which one is it for?
+//   lives: no clock, until the third miss
+//   day:   the same five for everyone on a date, once a day; the first try is the day's result
+const DRILL_MODES = {
+  go: { t: "60 seconds", b: "⏱ 60 s", d: "A requirement, four services." },
+  rev: { t: "Reverse", b: "🔁 Reverse", d: "A service, four requirements: which one is it for?" },
+  lives: { t: "Three lives", b: "❤ 3 lives", d: "No clock. Keep going until your third miss." },
+  day: { t: "Daily five", b: "📅 Daily five", d: "Today's five, the same all day. Your first try counts." }
+};
+// A seeded shuffle, so the daily five are the same five all day.
+function seeded(arr, seed) {
+  let h = 2166136261;
+  for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; const j = h % (i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+// Reverse mode: the wrong requirements come from the services that this one is usually confused with, then from its neighbours in the list.
+function revOpts(it) {
+  const k = DRILL.indexOf(it), out = [];
+  for (const w of it[2]) { const x = DRILL.find(d => d[1] === w); if (x && !out.includes(x[0])) out.push(x[0]); }
+  for (let d = 1; out.length < 3 && d < DRILL.length; d++) for (const j of [k - d, k + d]) { const x = DRILL[j]; if (x && x !== it && out.length < 3 && !out.includes(x[0])) out.push(x[0]); }
+  return QZ.shuffle([it[0], ...out.slice(0, 3)]);
+}
+function startDrill(mode = "go") {
   if (!DRILL.length) return;
+  if (!DRILL_MODES[mode]) mode = "go";
   intro = null;
   stopDrill();
-  drill = { end: Date.now() + 60000, items: QZ.shuffle(DRILL), i: 0, score: 0, n: 0, missed: [], lock: false, done: false, opts: [] };
+  const t = today();
+  drill = { mode, end: mode === "go" || mode === "rev" ? Date.now() + 60000 : 0, lives: 3, items: mode === "day" ? seeded(DRILL, t).slice(0, 5) : QZ.shuffle(DRILL), i: 0, score: 0, n: 0, missed: [], lock: false, done: false, opts: [], date: t };
   drillNext();
   if (!qzDlg.open) qzDlg.showModal();
   focusMain();
-  drill.timer = setInterval(drillTick, 200);
+  if (drill.end) drill.timer = setInterval(drillTick, 200);
 }
+const drillAns = it => (drill.mode === "rev" ? it[0] : it[1]);
 function drillNext() {
   const it = drill.items[drill.i % drill.items.length];
-  drill.opts = QZ.shuffle([it[1], ...it[2]]);
+  drill.opts = drill.mode === "rev" ? revOpts(it) : QZ.shuffle([it[1], ...it[2]]);
   renderDrill();
 }
 function drillTick() {
-  if (!drill || drill.done) return;
+  if (!drill || drill.done || !drill.end) return;
   const left = drill.end - Date.now();
   if (left <= 0) return drillEnd();
   const el = document.getElementById("dr-time");
@@ -1906,25 +2004,38 @@ function drillTick() {
 }
 function drillPick(k) {
   if (!drill || drill.lock || drill.done) return;
-  const it = drill.items[drill.i % drill.items.length], ok = drill.opts[k] === it[1];
+  const it = drill.items[drill.i % drill.items.length], ok = drill.opts[k] === drillAns(it);
   drill.n++;
-  if (ok) drill.score++; else drill.missed.push(it);
+  if (ok) drill.score++; else { drill.missed.push(it); drill.lives--; }
   drill.lock = true;
   qzBody.querySelectorAll("[data-dr]").forEach((b, i) => {
-    if (drill.opts[i] === it[1]) b.classList.add("right");
+    if (drill.opts[i] === drillAns(it)) b.classList.add("right");
     else if (i === k) b.classList.add("wrong");
   });
   const sc = document.getElementById("dr-score");
   if (sc) sc.textContent = `Score ${drill.score}`;
+  const lv = document.getElementById("dr-lives");
+  if (lv) lv.innerHTML = livesHTML();
   FX.sound(ok ? "pop" : "miss");
-  setTimeout(() => { if (!drill || drill.done) return; drill.lock = false; drill.i++; drillNext(); }, ok ? 350 : 1200);
+  const over = (drill.mode === "lives" && drill.lives <= 0) || (drill.mode === "day" && drill.n >= drill.items.length);
+  setTimeout(() => { if (!drill || drill.done) return; if (over) return drillEnd(); drill.lock = false; drill.i++; drillNext(); }, ok ? 350 : 1200);
+}
+const livesHTML = () => [0, 1, 2].map(i => `<span class="${i < drill.lives ? "on" : ""}" aria-hidden="true">${i < drill.lives ? "❤" : "♡"}</span>`).join("") + `<span class="sr">${plural(Math.max(0, drill.lives), "life", "lives")} left</span>`;
+// Days in a row with the daily five done, up to today (or yesterday, while today's is still open).
+function dailyRun() {
+  const d = midnight();
+  if (!(iso(d) in S.drill.day)) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (iso(d) in S.drill.day) { n++; d.setDate(d.getDate() - 1); }
+  return n;
 }
 function drillEnd() {
   drill.done = true;
   clearInterval(drill.timer);
   S.drill.runs++;
-  drill.best = drill.score > S.drill.best;
-  if (drill.best) S.drill.best = drill.score;
+  const key = { go: "best", rev: "rev", lives: "lives" }[drill.mode];
+  if (key) { drill.best = drill.score > S.drill[key]; if (drill.best) S.drill[key] = drill.score; }
+  else { drill.first = !(drill.date in S.drill.day); if (drill.first) S.drill.day[drill.date] = drill.score; }
   const got = award();
   save(); renderDrill(); renderPractice();
   FX.sound("chime");
@@ -1932,16 +2043,21 @@ function drillEnd() {
 }
 function stopDrill() { if (drill) clearInterval(drill.timer); drill = null; }
 function renderDrill() {
+  const m = DRILL_MODES[drill.mode], title = drill.mode === "go" ? "Which service?" : `Which service? ${m.t}`;
   if (!drill.done) {
-    const it = drill.items[drill.i % drill.items.length];
-    head("Which service?", [`<span id="dr-time">${Math.ceil((drill.end - Date.now()) / 1000)} s</span>`, `<span id="dr-score">Score ${drill.score}</span>`], 100 - (drill.end - Date.now()) / 600);
-    qzBody.innerHTML = `<div class="dr-req">${esc(it[0])}</div><div class="qz-opts dr-opts">${drill.opts.map((o, k) => `<button type="button" class="qz-o" data-dr="${k}"><span class="qz-l">${k + 1}</span><span class="qz-t">${esc(o)}</span></button>`).join("")}</div><p class="muted">Keys 1–4 work too.</p>`;
+    const it = drill.items[drill.i % drill.items.length], rev = drill.mode === "rev";
+    const meta = drill.end ? [`<span id="dr-time">${Math.ceil((drill.end - Date.now()) / 1000)} s</span>`] : drill.mode === "lives" ? [`<span id="dr-lives" class="dr-lives">${livesHTML()}</span>`] : [`${drill.n + 1} of ${drill.items.length}`];
+    head(title, [...meta, `<span id="dr-score">Score ${drill.score}</span>`], drill.end ? 100 - (drill.end - Date.now()) / 600 : drill.mode === "day" ? drill.n / drill.items.length * 100 : 0);
+    qzBody.innerHTML = `<div class="dr-req${rev ? " dr-svc" : ""}">${rev ? `<span class="muted">What is this one for?</span>` : ""}${esc(rev ? it[1] : it[0])}</div>` +
+      `<div class="qz-opts dr-opts${rev ? " dr-long" : ""}">${drill.opts.map((o, k) => `<button type="button" class="qz-o" data-dr="${k}"><span class="qz-l">${k + 1}</span><span class="qz-t">${esc(o)}</span></button>`).join("")}</div><p class="muted">Keys 1–4 work too.</p>`;
     return;
   }
-  head("Which service?", ["Time is up"], 100);
-  qzBody.innerHTML = `<div class="qz-res ok"><div class="qz-score">${drill.score} <small>right of ${drill.n}</small></div><div>${drill.best ? "New personal best. 🎉" : `Your best: ${S.drill.best}.`}</div></div>` +
+  const best = drill.mode === "day" ? "" : drill.best ? "New personal best. 🎉" : `Your best: ${S.drill[{ go: "best", rev: "rev", lives: "lives" }[drill.mode]]}.`;
+  const day = drill.mode === "day" ? (drill.first ? `Today's result. ${dailyRun() > 1 ? `🔥 ${dailyRun()} days in a row.` : "Come back tomorrow for the next five."}` : `Today's result stays ${S.drill.day[drill.date]} of 5: only the first try counts.`) : "";
+  head(title, [drill.mode === "lives" ? "Out of lives" : drill.mode === "day" ? "Done" : "Time is up"], 100);
+  qzBody.innerHTML = `<div class="qz-res ok"><div class="qz-score">${drill.score} <small>right of ${drill.n}</small></div><div>${best}${day}</div></div>` +
     (drill.missed.length ? `<h3 class="sub-h">Missed</h3><ul class="dr-missed">${drill.missed.map(it => `<li><div>${esc(it[0])}</div><div><b>${esc(it[1])}</b>: ${esc(it[3])}</div></li>`).join("")}</ul>` : "") +
-    `<div class="qz-a"><button type="button" data-qz="close">Close</button><button type="button" class="primary" data-drill>Play again</button></div>`;
+    `<div class="qz-a"><button type="button" data-qz="close">Close</button>${drill.mode === "day" ? "" : `<button type="button" class="primary" data-drill-mode="${drill.mode}">Play again</button>`}</div>`;
 }
 
 // ---------- quiz dialog events ----------
@@ -1957,6 +2073,8 @@ qzDlg.addEventListener("click", e => {
   }
   const j = e.target.closest("[data-jump]");
   if (j) { qzDlg.close(); jumpTo(j.dataset.jump); return; }
+  const gf = e.target.closest("[data-grid-f]");
+  if (gf) { gridF = gf.dataset.gridF; renderGrid(); return; }
   const b = e.target.closest("[data-qz]");
   if (!b) return;
   const a = b.dataset.qz, r = S.run;
@@ -1971,6 +2089,7 @@ qzDlg.addEventListener("click", e => {
   else if (a === "skip") goQ(r.i + 1);
   else if (a === "mnext") { r.i = Math.min(r.ids.length - 1, r.i + 1); save(); renderMockQ(); qzDlg.scrollTop = 0; mockFocus(a); }
   else if (a === "flag") { const id = r.ids[r.i]; if (r.flag[id]) delete r.flag[id]; else r.flag[id] = 1; save(); renderMockQ(); mockFocus(a); }
+  else if (a === "strike") mkStrike(+b.dataset.x);
   else if (a === "grid") { r.view = "grid"; save(); renderGrid(); qzDlg.scrollTop = 0; }
   else if (a === "back") { r.view = ""; save(); renderMockQ(); }
   else if (a === "finish-mock") finishMock(false);
@@ -1991,6 +2110,11 @@ document.addEventListener("keydown", e => {
   if (intro || !r || r.done) return;
   // Enter on a focused control (Previous, Flag, Open ↗, Open step) presses that control.
   if (k === "enter" && e.target.closest("button,a") && !e.target.closest(".qz-o")) return;
+  if (r.kind === "mock" && e.shiftKey && /^Digit[1-5]$/.test(e.code)) {
+    const x = qzBody.querySelectorAll(".mk-x")[+e.code.slice(5) - 1];
+    if (x) { e.preventDefault(); x.click(); }
+    return;
+  }
   const n = k.length === 1 ? Math.max("12345".indexOf(k), "abcde".indexOf(k)) : -1;
   if (n >= 0) {
     const opt = qzBody.querySelectorAll(".qz-opts .qz-o")[n];
@@ -2020,13 +2144,16 @@ qzDlg.addEventListener("close", () => {
   else refresh();
   runPending();
 });
+let mkWarned = "";
 // mock exam clock: tick the display, submit when time is up (even with the dialog closed)
 setInterval(() => {
   const r = S.run;
   if (!r || r.kind !== "mock" || r.done) return;
   if (Date.now() >= r.end) return finishMock(true);
-  const el = document.getElementById("mk-time");
-  if (el && qzDlg.open) el.textContent = clock(r.end - Date.now());
+  const el = document.getElementById("mk-time"), left = r.end - Date.now();
+  if (el && qzDlg.open) { el.textContent = `⏱ ${clock(left)}`; el.classList.toggle("low", left < 600000); }
+  // like the exam, a word when 10 minutes and 1 minute are left (once each, in this tab)
+  for (const m of [10, 1]) if (left < m * 60000 && left > m * 60000 - 5000 && mkWarned !== `${r.t0}:${m}`) { mkWarned = `${r.t0}:${m}`; FX.toast(`⏱ <b>${m === 1 ? "1 minute" : "10 minutes"} left</b> in the mock exam`, "warn"); }
 }, 1000);
 
 // ---------- notebook, weak spots, cheat sheet, day notes ----------
@@ -2417,13 +2544,14 @@ document.addEventListener("keydown", e => {
 });
 // buttons that can appear anywhere: overview, cards, practice panel, slip banner, dialogs
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-quiz-start],[data-review],[data-mock],[data-drill],[data-sheet],[data-slip]");
+  const t = e.target.closest("[data-quiz-start],[data-review],[data-mock],[data-drill],[data-drill-mode],[data-sheet],[data-slip]");
   if (!t || t.disabled) return;
   FX.unlock();
   if (t.dataset.quizStart) startRun("day", t.dataset.quizStart);
   else if ("review" in t.dataset) startRun("review");
   else if ("mock" in t.dataset) { if (mockOpen() || (S.run && S.run.kind === "mock")) promptMock(); }
   else if ("drill" in t.dataset) startDrill();
+  else if (t.dataset.drillMode) startDrill(t.dataset.drillMode);
   else if (t.dataset.sheet) openSheet(t.dataset.sheet);
   else if (t.dataset.slip) applySlip(t.dataset.slip);
 });
@@ -2755,7 +2883,8 @@ function mergeDocs(local, remote) {
   const mk = x => `${x.at}|${x.score}|${x.pct}|${x.mins}`, have = new Set(m.mocks.map(mk));
   m.mocks = m.mocks.concat(older.mocks.filter(x => !have.has(mk(x)))).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
   for (const k in older.log) m.log[k] = Math.max(m.log[k] || 0, older.log[k]);
-  m.drill = { best: Math.max(m.drill.best, older.drill.best), runs: Math.max(m.drill.runs, older.drill.runs) };
+  m.drill = { best: Math.max(m.drill.best, older.drill.best), runs: Math.max(m.drill.runs, older.drill.runs), rev: Math.max(m.drill.rev, older.drill.rev),
+    lives: Math.max(m.drill.lives, older.drill.lives), day: { ...older.drill.day, ...m.drill.day } };
   for (const k in older.ach) if (!m.ach[k] || older.ach[k] < m.ach[k]) m.ach[k] = older.ach[k];
   m.rowBest = Math.max(m.rowBest, older.rowBest);
   for (const id in older.book) if (m.book[id] && !m.book[id].why && older.book[id].why) m.book[id].why = older.book[id].why;

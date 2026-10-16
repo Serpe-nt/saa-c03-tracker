@@ -881,3 +881,31 @@ dialog.srch{width:min(720px,96vw);border-top-color:var(--watch)}
 .tr-tab th:first-child{text-align:left;font-weight:500}
 .tr-tab thead th{font-weight:700}
 @media (max-width:900px){.tr-grid{grid-template-columns:1fr}}
+
+/* ---------- the mock exam screen: strike-outs, highlights, the clock ---------- */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mk-tools{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin:0 0 10px}
+.mk-hint{font-size:13px}
+.mk-q{user-select:text;cursor:text}
+.mk-q .w{border-radius:2px;cursor:pointer}
+.mk-q .w.hl{background:#ffe27a;color:#1d1a05;box-shadow:0 0 0 1px #ffe27a}
+.mk-opts{display:grid;gap:8px}
+.mk-row{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:6px;align-items:stretch}
+.mk-row .qz-o{margin:0}
+.mk-x{padding:0;font-size:18px;color:var(--muted)}
+.mk-x[aria-pressed="true"]{color:var(--bad);border-color:var(--bad)}
+.mk-row.x .qz-t{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:var(--bad)}
+.mk-row.x .qz-o{opacity:.55}
+.mk-time{font-variant-numeric:tabular-nums}
+.mk-time.low{color:var(--bad);font-weight:700}
+.mk-f{margin:6px 0 4px}
+
+/* ---------- drill modes ---------- */
+.dr-modes{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dr-modes button{font-size:13.5px;padding:6px 8px}
+.dr-modes small{color:var(--muted);font-weight:400}
+.dr-lives span{color:var(--bad);font-size:16px;letter-spacing:2px}
+.dr-lives span:not(.on){color:var(--muted)}
+.dr-svc{display:grid;gap:2px;font-size:26px}
+.dr-svc .muted{font:400 14px var(--body)}
+.dr-long .qz-t{font-size:15px;line-height:1.35}
