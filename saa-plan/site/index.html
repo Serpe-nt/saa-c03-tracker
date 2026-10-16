@@ -112,9 +112,19 @@
   <div class="bar"><div id="bar"></div></div>
 </section>
 
+<section id="today" class="today" aria-label="Today's goal and this week's challenges" hidden></section>
+
 <nav id="links" class="links" aria-label="Quick links"></nav>
 
 <div id="map" class="map"></div>
+
+<details class="panel" id="progress" open>
+  <summary>📈 Readiness and trends</summary>
+  <div class="pg-grid">
+    <section aria-labelledby="ready-h"><h3 class="sub-h" id="ready-h">Exam readiness by domain</h3><div id="ready" class="ready"></div></section>
+    <section aria-labelledby="trends-h"><h3 class="sub-h" id="trends-h">Day by day</h3><div id="trends" class="trends"></div></section>
+  </div>
+</details>
 
 <details class="panel" id="places">
   <summary>🗺 Where things happen: 4 separate places</summary>
@@ -258,6 +268,8 @@
     <label class="chk"><input type="checkbox" id="s-fx"> Visual effects</label>
     <label class="chk"><input type="checkbox" id="s-snd"> Sounds</label>
     <label class="chk"><input type="checkbox" id="s-gif"> South Park GIFs on quiz results (loaded from GIPHY)</label>
+    <label class="field">Daily XP goal <small>The ring on the overview. A day's quiz with its steps is worth about 400.</small>
+      <select id="s-goal"><option>100</option><option>150</option><option>200</option><option>300</option><option>400</option><option>600</option></select></label>
     <div class="s-disp">
       <label class="field">Theme <small>This browser only.</small>
         <select id="s-theme"><option value="">Follow the system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>

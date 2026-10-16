@@ -29,7 +29,11 @@ const DEF = {
   drill: { best: 0, runs: 0 },
   ach: {},     // badge id → date earned
   rowBest: 0,  // most quiz answers right in a row, ever
-  settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true, gif: true },
+  xpDay: {},   // date → { x: total XP when the day was first seen, at: when that was stamped, hit: daily goal reached }
+  week: { key: "", at: 0, ids: [], base: {} },   // this week's challenges: Monday's date, when stamped, their ids, the counters at the start
+  chal: {},    // "<Monday>:<challenge id>" → date completed (+CHAL_XP each)
+  daily: {},   // date → device id → { a: answers, r: right, f: focus minutes }: the trends on the overview
+  settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true, gif: true, goal: 200 },
   // Focus (mode "focus") counts down: endAt, left, from. The break (mode "rest") has no set length and counts up:
   // at = when it last started running, up = seconds banked before a pause.
   // ts = when the timer last changed (merges keep the later one), day = the day a focus block credits, ask = the "done" prompt waits.
@@ -44,6 +48,31 @@ const DOMAINS = ["Secure", "Resilient", "High-performing", "Cost"];
 const QUIZ_MIN = 30;
 const NOTE_MAX = 2000;
 const LETTERS = "ABCDE";
+
+// Weekly challenges (see "daily goal, weekly challenges"): each measures a counter from the week's start.
+// can: whether the plan still leaves room for it, checked when the week's three are drawn.
+const CHAL_XP = 50;
+const CHAL = [
+  { id: "ans", i: "📝", k: "a", n: 150, t: n => `Answer ${n} quiz questions` },
+  { id: "right", i: "✅", k: "r", n: 120, t: n => `Get ${n} answers right` },
+  { id: "xp", i: "⭐", k: "x", n: 2000, t: n => `Earn ${n.toLocaleString("en-GB")} XP` },
+  { id: "days", i: "📅", k: "d", n: 4, t: n => `Complete ${n} days of the plan`, can: () => DAYS.filter(d => !dayDone(d)).length >= 4 },
+  { id: "steps", i: "👣", k: "s", n: 40, t: n => `Complete ${n} steps`, can: () => Object.keys(itemIndex).filter(id => !S.ticks[id]).length >= 40 },
+  { id: "focus", i: "⏱", k: "f", n: 15 * 60, t: n => `Log ${n / 60} hours of focus`, fmt: m => fmtH(m) },
+  { id: "fix", i: "🛠", k: "fix", n: 8, t: n => `Fix ${n} notebook questions`, can: () => Object.values(S.book).filter(b => !b.fixed).length >= 8 },
+  { id: "warm", i: "☕", k: "w", n: 4, t: n => `Do the morning warm-up on ${n} days`, can: () => Object.keys(S.srs).length >= 5 },
+  { id: "drill", i: "⚡", k: "dr", n: 3, t: n => `Run the “Which service?” drill ${n} times` },
+  { id: "recall", i: "🧠", k: "k", n: 20, t: n => `Mark ${n} key points “Got it” in Test me` }
+];
+const CHAL_BY = Object.assign(Object.create(null), Object.fromEntries(CHAL.map(c => [c.id, c])));
+const CHAL_KEYS = [...new Set(CHAL.map(c => c.k))];
+const GOALS = [100, 150, 200, 300, 400, 600];   // daily XP goals to choose from in Settings
+// One-click reasons for a miss (S.book[id].why), and what helps with each.
+const WHY = [["know", "🤷", "Didn't know it"], ["mix", "🔀", "Mixed up two services"], ["read", "👓", "Misread the question"],
+  ["word", "🔑", "Missed a key word"], ["rush", "⏩", "Rushed or changed my answer"]];
+const WHY_BY = Object.assign(Object.create(null), Object.fromEntries(WHY.map(w => [w[0], w])));
+// Keep the newest 120 dates of a date-keyed map.
+const pruneDates = m => { const ks = Object.keys(m).sort(); for (const k of ks.slice(0, Math.max(0, ks.length - 120))) delete m[k]; };
 
 // ---------- state ----------
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -106,7 +135,7 @@ function clean(s) {
   keep(s.srs, v => isObj(v) && isDay(v.due));
   for (const k in s.srs) s.srs[k] = { step: num0(s.srs[k].step), due: s.srs[k].due };
   keep(s.book, isObj);
-  for (const k in s.book) { const b = s.book[k]; s.book[k] = { at: str0(b.at), misses: num0(b.misses, 1), note: str0(b.note).slice(0, 300), fixed: !!b.fixed }; }
+  for (const k in s.book) { const b = s.book[k]; s.book[k] = { at: str0(b.at), misses: num0(b.misses, 1), note: str0(b.note).slice(0, 300), fixed: !!b.fixed, why: WHY_BY[b.why] ? b.why : "" }; }
   s.mocks = s.mocks.filter(isObj).map(m => ({ at: str0(m.at), score: num0(m.score), n: num0(m.n), pct: num0(m.pct), mins: num0(m.mins),
     dom: Array.isArray(m.dom) ? m.dom.slice(0, 4).map(x => (Array.isArray(x) ? [num0(x[0]), num0(x[1])] : [0, 0])) : [] }));
   keep(s.conf, v => v === "ok" || v === "shaky");
@@ -119,6 +148,24 @@ function clean(s) {
   s.drill = { best: num0(s.drill.best), runs: num0(s.drill.runs) };
   keep(s.ach, isDay);
   s.rowBest = int0(s.rowBest, 0, 1000);
+  keep(s.xpDay, isObj);
+  for (const k of Object.keys(s.xpDay)) { const e = s.xpDay[k]; if (!isDay(k)) delete s.xpDay[k]; else s.xpDay[k] = { x: int0(e.x, 0, 1e9), at: num0(e.at), hit: !!e.hit }; }
+  const w = s.week;
+  s.week = isDay(w.key) ? { key: w.key, at: num0(w.at), ids: (Array.isArray(w.ids) ? w.ids : []).filter(id => CHAL_BY[id]).slice(0, 3), base: {} } : { key: "", at: 0, ids: [], base: {} };
+  if (isObj(w.base)) for (const k of CHAL_KEYS) if (typeof w.base[k] === "number" && isFinite(w.base[k])) s.week.base[k] = w.base[k];
+  for (const k of Object.keys(s.chal)) { const m = /^(\d{4}-\d{2}-\d{2}):([a-z]+)$/.exec(k); if (!m || !isDay(m[1]) || !CHAL_BY[m[2]] || !isDay(s.chal[k])) delete s.chal[k]; }
+  for (const k of Object.keys(s.daily)) {
+    const day = s.daily[k];
+    if (!isDay(k) || !isObj(day)) { delete s.daily[k]; continue; }
+    for (const dev of Object.keys(day)) {
+      const e = day[dev];
+      if (!/^[a-z0-9]{1,12}$/.test(dev) || !isObj(e)) { delete day[dev]; continue; }
+      const a = int0(e.a, 0, 1e5);
+      day[dev] = { a, r: int0(e.r, 0, a), f: Math.min(24 * 60, Math.max(0, num0(e.f))) };
+    }
+  }
+  pruneDates(s.xpDay); pruneDates(s.daily);
+  s.settings.goal = GOALS.includes(s.settings.goal) ? s.settings.goal : DEF.settings.goal;
   if (!ISO.test(s.settings.start)) s.settings.start = DEF.settings.start;
   if (s.settings.exam && !ISO.test(s.settings.exam)) s.settings.exam = "";
   if (!/^https?:\/\//i.test(s.settings.portal)) s.settings.portal = "";
@@ -445,9 +492,13 @@ function refresh() {
   if (daysToExam >= 0) st.push(`<span>${daysToExam ? `Exam in <b>${plural(daysToExam, "day")}</b>` : "<b>Exam today</b>"}</span>`);
   document.getElementById("status").innerHTML = st.join("");
 
+  if (stamp()) save();
   renderSlip();
   renderNext(ti);
   renderStats(dn, total);
+  renderToday();
+  renderReady();
+  renderTrends();
   renderMap(ti);
   renderScores();
   renderPractice();
@@ -966,7 +1017,7 @@ function xpTotal() {
   x += XP.step * Object.keys(S.ticks).filter(id => itemIndex[id]).length;
   x += XP.pass * DAYS.filter(d => S.quiz[d.id] && S.quiz[d.id].passed).length;
   for (const id in S.ach) if (ACH_BY[id]) x += ACH_BY[id].xp;
-  return x;
+  return x + CHAL_XP * Object.keys(S.chal).length;
 }
 function levelOf(x) {
   x = Number.isFinite(x) && x > 0 ? Math.min(x, 1e12) : 0;
@@ -1004,11 +1055,266 @@ let lvShown = 0;   // the highest level on screen so far; only a level above it 
 const syncLevel = () => { lvShown = Math.max(lvShown, levelOf(xpTotal()).n); };
 // New badges, then a new level, each as a badge at the top of the screen.
 function showGains(got, delay = 0) {
-  got.forEach((a, k) => setTimeout(() => { FX.sound("unlock"); FX.badge(a.i, a.t, `New badge, +${a.xp} XP`, "gold"); }, delay + k * 650));
+  const all = got.map(a => [a.i, a.t, `New badge, +${a.xp} XP`, "gold"]).concat(checkGoals());
+  all.forEach(([i, t, sub, tier], k) => setTimeout(() => { FX.sound("unlock"); FX.badge(i, t, sub, tier); }, delay + k * 650));
   const n = levelOf(xpTotal()).n, was = lvShown;
-  if (was && n > was) setTimeout(() => { FX.sound("level"); FX.badge("⭐", `Level ${n}`, rankOf(n) !== rankOf(was) ? `New title: ${rankOf(n)}` : rankOf(n), "level"); }, delay + got.length * 650);
+  if (was && n > was) setTimeout(() => { FX.sound("level"); FX.badge("⭐", `Level ${n}`, rankOf(n) !== rankOf(was) ? `New title: ${rankOf(n)}` : rankOf(n), "level"); }, delay + all.length * 650);
   lvShown = Math.max(lvShown, n);
 }
+
+// ---------- daily goal, weekly challenges ----------
+// Today's XP is the total now minus the total when the day was first seen (S.xpDay). Days and weeks are stamped only
+// after the first sync was tried (ready), so a copy that is behind doesn't stamp a starting point that is too low.
+let ready = false;
+const DEV = (() => { if (!/^[a-z0-9]{1,12}$/.test(str0(ui.dev))) { ui.dev = Math.random().toString(36).slice(2, 10) || "dev"; saveUI(); } return ui.dev; })();
+// This device's counts for today (answers, right, focus minutes), created on first use.
+function dailyNow() {
+  const day = S.daily[today()] || (S.daily[today()] = {});
+  return day[DEV] || (day[DEV] = { a: 0, r: 0, f: 0 });
+}
+const weekKey = (d = new Date()) => { const m = new Date(d.getFullYear(), d.getMonth(), d.getDate()); m.setDate(m.getDate() - (m.getDay() + 6) % 7); return iso(m); };
+// The counters the challenges measure, as totals so far.
+function counters() {
+  let a = 0, r = 0;
+  for (const id in S.qs) { a += S.qs[id].seen; r += S.qs[id].right; }
+  return { a, r, x: xpTotal(), d: DAYS.filter(dayDone).length, s: Object.keys(S.ticks).filter(id => itemIndex[id]).length,
+    f: Math.round(Object.values(S.log).reduce((x, y) => x + y, 0)), fix: Object.values(S.book).filter(b => b.fixed).length,
+    w: Object.values(S.warm).filter(v => v === "done").length, dr: S.drill.runs, k: Object.values(S.kconf).filter(v => v === "ok").length };
+}
+// Three a week, one from each group, drawn from the week's date so every device draws the same.
+function pickChal(key) {
+  let h = 7;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return [["ans", "right", "xp"], ["days", "steps", "focus"], ["fix", "warm", "drill", "recall"]].map((g, gi) => {
+    const ok = g.filter(id => !CHAL_BY[id].can || CHAL_BY[id].can());
+    return ok.length ? ok[(h >>> (gi * 5)) % ok.length] : "";
+  }).filter(Boolean);
+}
+// Stamp today's and this week's starting points, once each. True when something changed.
+function stamp() {
+  if (!ready) return false;
+  let ch = false;
+  const t = today(), wk = weekKey();
+  if (!S.xpDay[t]) { S.xpDay[t] = { x: xpTotal(), at: Date.now(), hit: false }; pruneDates(S.xpDay); ch = true; }
+  if (S.week.key !== wk) { S.week = { key: wk, at: Date.now(), ids: pickChal(wk), base: counters() }; ch = true; }
+  return ch;
+}
+const xpToday = () => { const e = S.xpDay[today()]; return e ? Math.max(0, xpTotal() - e.x) : 0; };
+const chalDone = id => !!S.chal[`${S.week.key}:${id}`];
+const chalProg = (id, c = counters()) => { const k = CHAL_BY[id].k; return Math.max(0, c[k] - num0(S.week.base[k], c[k])); };
+// Days in a row the goal was reached, up to today (or yesterday, while today's is still open).
+function goalStreak() {
+  const d = midnight();
+  if (!(S.xpDay[iso(d)] || {}).hit) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while ((S.xpDay[iso(d)] || {}).hit) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+// After XP or a counter changed: the daily goal and the week's challenges, each announced once. Returns badges to show.
+function checkGoals() {
+  const e = S.xpDay[today()];
+  if (!ready || !e) return [];
+  const out = [];
+  if (!e.hit && xpToday() >= S.settings.goal) { e.hit = true; const gs = goalStreak(); out.push(["🎯", "Daily goal reached", `${S.settings.goal} XP today${gs > 1 ? `, ${gs} days in a row` : ""}`, "silver"]); }
+  const c = counters();
+  for (const id of S.week.ids) {
+    const ch = CHAL_BY[id];
+    if (chalDone(id) || chalProg(id, c) < ch.n) continue;
+    S.chal[`${S.week.key}:${id}`] = today();
+    out.push(["🏆", "Weekly challenge done", `${ch.t(ch.n)}, +${CHAL_XP} XP`, "epic"]);
+  }
+  if (out.length) save();
+  return out;
+}
+function renderToday() {
+  const el = document.getElementById("today");
+  if (!ready || !S.xpDay[today()]) { el.hidden = true; return; }
+  el.hidden = false;
+  const goal = S.settings.goal, x = xpToday(), hit = x >= goal, gs = goalStreak(), R = 34, C = 2 * Math.PI * R;
+  // a meter: the fill is the share of the goal, the track a lighter step of the same colour
+  const ring = `<svg class="ring" viewBox="0 0 84 84" aria-hidden="true"><circle class="ring-t" cx="42" cy="42" r="${R}"/>` +
+    `<circle class="ring-f" cx="42" cy="42" r="${R}" stroke-dasharray="${(Math.min(1, x / goal) * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 42 42)"/></svg>`;
+  const c = counters(), sun = parseDate(S.week.key); sun.setDate(sun.getDate() + 6);
+  const rows = S.week.ids.map(id => {
+    const ch = CHAL_BY[id], n = Math.min(ch.n, chalDone(id) ? ch.n : chalProg(id, c)), done = n >= ch.n, f = ch.fmt || (v => v.toLocaleString("en-GB"));
+    return `<li class="${done ? "done" : ""}"><span class="ch-i" aria-hidden="true">${ch.i}</span><span class="ch-t">${ch.t(ch.n)}</span>` +
+      `<span class="ch-m"><span class="mt" role="meter" aria-valuemin="0" aria-valuemax="${ch.n}" aria-valuenow="${n}" aria-label="${esc(ch.t(ch.n))}"><span style="width:${pct(n, ch.n)}%"></span></span>` +
+      `<span class="ch-n">${done ? "✓ Done" : `${f(n)} / ${f(ch.n)}`}</span></span></li>`;
+  }).join("");
+  el.innerHTML = `<div class="td-goal${hit ? " hit" : ""}" role="group" aria-label="Today's goal: ${x} of ${goal} XP">${ring}` +
+    `<div class="ring-v"><b>${x.toLocaleString("en-GB")}</b><small>of ${goal} XP</small></div>` +
+    `<div class="td-x"><h3>Today's goal</h3><p>${hit ? "Reached 🎯" : `${goal - x} XP to go`}</p>` +
+    `<p class="muted">${gs > 1 ? `Reached ${gs} days in a row.` : hit ? "Reached today. Keep it up tomorrow for a run of days." : "Right answers, steps, passed quizzes and challenges count."} <button type="button" class="link" data-goal-set>Change</button></p></div></div>` +
+    `<div class="td-ch"><h3>This week's challenges <span class="muted">+${CHAL_XP} XP each, until ${fmtD(sun)}</span></h3><ul>${rows || `<li class="muted">None this week.</li>`}</ul></div>`;
+}
+
+// ---------- readiness and trends (overview) ----------
+const MIN_MET = 15;                 // answers a domain needs before its readiness means something
+const READY = 80, CLOSE = 70;       // readiness bands: ready, close, not yet
+const DOM_W = [30, 26, 24, 20];     // exam guide weights
+// Per domain: the questions met so far, and how many of them were right at the last answer.
+function readiness() {
+  const r = DOMAINS.map(() => ({ met: 0, ok: 0, all: 0 }));
+  for (const q of BANK) { const d = r[q.dom - 1], s = S.qs[q.id]; d.all++; if (s && s.seen) { d.met++; if (s.last) d.ok++; } }
+  return r.map(d => ({ ...d, acc: d.met ? Math.round(d.ok / d.met * 100) : 0 }));
+}
+// The weakest topic of the weakest domain (with enough answers), and the step that teaches it.
+function studyNext(rd) {
+  const dom = rd.map((d, i) => ({ ...d, i })).filter(d => d.met >= MIN_MET).sort((a, b) => a.acc - b.acc)[0];
+  if (!dom) return null;
+  const w = QZ.weakTags(BANK.filter(q => q.dom === dom.i + 1), S.qs, 3).find(t => tagRefs(t.tag).length);
+  return w ? { dom: dom.i + 1, tag: w.tag, right: w.right, seen: w.seen, step: tagRefs(w.tag)[0] } : null;
+}
+const band = a => (a >= READY ? ["ok", "✓", "Ready"] : a >= CLOSE ? ["warn", "◐", "Close"] : ["bad", "✗", "Not yet"]);
+function whyCounts() {
+  const n = Object.create(null);
+  for (const id in S.book) if (QBY[id] && S.book[id].why) n[S.book[id].why] = (n[S.book[id].why] || 0) + 1;
+  return WHY.map(w => [w, n[w[0]] || 0]).filter(x => x[1]).sort((a, b) => b[1] - a[1]);
+}
+const WHY_TIP = {
+  know: () => "Go back to the step that teaches it: every miss lists the steps under it.",
+  mix: () => `Put the two services side by side: <button type="button" class="link" data-look>the look-alikes</button>.`,
+  read: () => "Read the question's last sentence first: it says what is asked. Then read the scenario for the requirements.",
+  word: () => `Learn what the requirement words point to (least cost, least operational overhead…): <button type="button" class="link" data-sheet="cues">exam wording</button>.`,
+  rush: () => "Read every option before you pick one, and change an answer only for a reason you can name."
+};
+// Why you miss: one bar per reason, most common first, with what helps against the top one.
+function whyPatternHTML() {
+  const wc = whyCounts();
+  if (!wc.length) return `<p class="muted">Mark why you missed a question (the buttons under a wrong answer, or in the notebook) and the pattern shows here.</p>`;
+  const max = wc[0][1], all = wc.reduce((a, x) => a + x[1], 0);
+  return `<ul class="why-bars">${wc.map(([w, n]) => `<li><span class="wb-l">${w[1]} ${esc(w[2])}</span><span class="wb-t"><span style="width:${(n / max * 100).toFixed(1)}%"></span></span><span class="wb-n">${n}</span></li>`).join("")}</ul>` +
+    `<p class="why-tip"><b>Most often: ${esc(wc[0][0][2].toLowerCase())}</b> (${wc[0][1]} of ${all}). ${WHY_TIP[wc[0][0][0]]()}</p>`;
+}
+function renderReady() {
+  const rd = readiness(), el = document.getElementById("ready");
+  const total = rd.reduce((a, d) => a + d.met, 0);
+  if (total < 10) { el.innerHTML = `<p class="muted">Fills in as you answer quiz questions: how many of each exam domain's questions you would get right now.</p>`; return; }
+  const full = rd.every(d => d.met >= MIN_MET), all = full ? Math.round(rd.reduce((a, d, i) => a + d.acc * DOM_W[i], 0) / 100) : 0;
+  let h = `<div class="rd-head">${full ? `<div class="rd-all"><b>${all}%</b><span class="muted">weighted like the exam (30 / 26 / 24 / 20)</span></div>` : `<p class="muted">An overall figure needs ${MIN_MET} answers in each domain.</p>`}` +
+    `<p class="muted rd-how">Of the questions you have met in a domain, the share you got right at your last answer. Ready from ${READY}%.</p></div><ul class="rd-list">`;
+  rd.forEach((d, i) => {
+    const few = d.met < MIN_MET, [cls, ic, lb] = band(d.acc);
+    h += `<li class="${few ? "few" : cls}"><span class="rd-n">D${i + 1} ${DOMAINS[i]}</span>` +
+      `<span class="mt" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${d.acc}" aria-label="Domain ${i + 1} ${DOMAINS[i]}"><span style="width:${d.acc}%"></span><i style="left:${READY}%"></i></span>` +
+      `<span class="rd-v">${d.met ? `${d.acc}%` : "–"}</span><span class="rd-s">${few ? `${d.met} of ${MIN_MET} answers` : `${ic} ${lb}`}</span>` +
+      `<span class="rd-c muted">${d.met} of ${d.all} questions met</span></li>`;
+  });
+  h += `</ul>`;
+  const nx = studyNext(rd);
+  if (nx) {
+    const { d, it } = itemIndex[nx.step];
+    h += `<div class="rd-next"><span class="rd-nk">📍 Study this next</span><p><b>${esc(nx.tag)}</b> in D${nx.dom} ${DOMAINS[nx.dom - 1]}: ${nx.right} of ${nx.seen} answers right. Day ${d.day} teaches it: ${it[1]}</p>` +
+      `<div class="row"><button type="button" data-jump="${nx.step}">Open the step</button><button type="button" data-step-quiz="${nx.step}">Try 3 questions on it</button>${laTag(nx.tag).length ? `<button type="button" data-look="${esc(laTag(nx.tag)[0].id)}">⚖️ ${esc(laTag(nx.tag)[0].title)}</button>` : ""}</div></div>`;
+  }
+  h += `<h3 class="sub-h">Why you miss</h3>${whyPatternHTML()}`;
+  el.innerHTML = h;
+}
+
+// Trends: answers right, focus time and XP per day. One series per chart, so the title names it; values on hover
+// or with the arrow keys, and all of them in the table view.
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const shortD = k => { const d = parseDate(k); return `${d.getDate()} ${MON[d.getMonth()]}`; };
+// XP on a day: the next stamped day's starting total (or today's total) minus this day's.
+function xpOn(k) {
+  const e = S.xpDay[k];
+  if (!e) return null;
+  const next = Object.keys(S.xpDay).sort().find(x => x > k);
+  return Math.max(0, (next ? S.xpDay[next].x : xpTotal()) - e.x);
+}
+function trendData(n) {
+  const out = [], d = midnight(), first = Object.keys(S.daily).sort()[0] || today();
+  // before the per-day counts existed: day quizzes and mock exams only
+  const old = {};
+  for (const q of Object.values(S.quiz)) for (const t of q.tries) if (t.at && t.at < first) { const o = old[t.at.slice(0, 10)] || (old[t.at.slice(0, 10)] = [0, 0]); o[0] += t.n; o[1] += t.score; }
+  for (const m of S.mocks) if (m.at && m.at < first) { const o = old[m.at.slice(0, 10)] || (old[m.at.slice(0, 10)] = [0, 0]); o[0] += m.n; o[1] += m.score; }
+  d.setDate(d.getDate() - (n - 1));
+  for (let i = 0; i < n; i++, d.setDate(d.getDate() + 1)) {
+    const k = iso(d), day = S.daily[k] || {};
+    let a = 0, r = 0, f = 0;
+    for (const dev in day) { a += day[dev].a; r += day[dev].r; f += day[dev].f; }
+    if (!a && old[k]) [a, r] = old[k];
+    out.push({ k, a, r, f: Math.round(f), x: xpOn(k), old: !!old[k] && k < first });
+  }
+  return out;
+}
+const niceMax = v => { if (v <= 0) return 1; const p = 10 ** Math.floor(Math.log10(v)), m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; };
+// One chart as SVG: kind "line" (percent, gaps where a day has no answers) or "col"; ref = a labelled reference line.
+function chartSVG(data, val, { kind, max, ref, refLabel, unit, per = 1 }) {
+  const W = 320, H = 150, L = 34, R = 10, T = 12, B = 22, pw = W - L - R, ph = H - T - B, n = data.length, bw = pw / n;
+  // per: the axis steps in whole units of this size (60: hours for minutes)
+  const vs = data.map(val), top = max || niceMax(Math.max(ref || 0, ...vs.filter(v => v != null)) / per) * per;
+  const y = v => T + ph - (v / top) * ph, x = i => L + bw * i + bw / 2;
+  let g = "";
+  for (const t of [0, top / 2, top]) g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/><text class="ax" x="${L - 5}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${unit(t, true)}</text>`;
+  for (const i of [0, Math.floor((n - 1) / 2), n - 1]) g += `<text class="ax" x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${shortD(data[i].k)}</text>`;
+  // the reference line's label sits at the left end: the recent days, on the right, are the ones read most
+  if (ref) g += `<line class="ref" x1="${L}" x2="${W - R}" y1="${y(ref).toFixed(1)}" y2="${y(ref).toFixed(1)}"/><text class="ref-t" x="${L + 4}" y="${(y(ref) - 4).toFixed(1)}">${refLabel}</text>`;
+  if (kind === "col") {
+    const w = Math.min(24, Math.max(2, bw - 2));
+    vs.forEach((v, i) => {
+      if (!v) return;
+      const h = Math.max(1, (v / top) * ph), x0 = x(i) - w / 2, y0 = T + ph - h, r = Math.min(4, w / 2, h);
+      g += `<path class="mk" d="M${x0.toFixed(1)} ${(T + ph).toFixed(1)}V${(y0 + r).toFixed(1)}q0 -${r} ${r} -${r}h${(w - 2 * r).toFixed(1)}q${r} 0 ${r} ${r}V${(T + ph).toFixed(1)}z"/>`;
+    });
+  } else {
+    let path = "", on = false;
+    vs.forEach((v, i) => { if (v == null) { on = false; return; } path += `${on ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`; on = true; });
+    g += `<path class="ln" d="${path}"/>`;
+    vs.forEach((v, i) => { if (v != null) g += `<circle class="dot" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4"/>`; });
+  }
+  // the last value is labelled; the rest are on hover, with the keys, and in the table
+  const li = vs.map((v, i) => (v ? i : -1)).filter(i => i >= 0).pop();
+  if (li != null) { const t = unit(vs[li]), hw = t.length * 3; g += `<text class="lab" x="${Math.min(x(li), W - 2 - hw).toFixed(1)}" y="${(y(vs[li]) - 8).toFixed(1)}" text-anchor="middle">${t}</text>`; }
+  g += `<line class="xh" x1="0" x2="0" y1="${T}" y2="${T + ph}" visibility="hidden"/>`;
+  data.forEach((_, i) => { g += `<rect class="hit" data-i="${i}" x="${(L + bw * i).toFixed(1)}" y="${T}" width="${bw.toFixed(1)}" height="${ph}"/>`; });
+  return `<svg class="ch" viewBox="0 0 ${W} ${H}" aria-hidden="true">${g}</svg>`;
+}
+const pctU = (v, ax) => `${Math.round(v)}%`;
+const minU = (v, ax) => (v >= 60 || ax ? `${Math.round(v / 6) / 10} h` : `${Math.round(v)} min`);   // axis ticks fall on whole or half hours (per: 60)
+const xpU = v => `${Math.round(v)}`;
+const TRENDS = [
+  { id: "acc", t: "Answers right, per day", val: d => (d.a ? Math.round(d.r / d.a * 100) : null), o: { kind: "line", max: 100, ref: 90, refLabel: "90% pass mark", unit: pctU },
+    tip: d => (d.a ? [`${Math.round(d.r / d.a * 100)}%`, `${d.r} of ${d.a} right${d.old ? " (day quizzes and mocks)" : ""}`] : ["–", "no answers"]) },
+  { id: "focus", t: "Focus time, per day", val: d => d.f, o: { kind: "col", unit: minU, per: 60 }, tip: d => [d.f ? fmtH(d.f) : "–", "focus logged"] },
+  { id: "xp", t: "XP, per day", val: d => d.x || 0, o: { kind: "col", ref: 0, refLabel: "", unit: xpU }, tip: d => [d.x == null ? "–" : `${d.x} XP`, d.x == null ? "app not opened" : d.x >= S.settings.goal ? "goal reached" : `goal ${S.settings.goal}`] }
+];
+let trendCache = [];
+function renderTrends() {
+  const n = ui.trend === 30 ? 30 : 14, data = trendCache = trendData(n), el = document.getElementById("trends");
+  TRENDS[2].o.ref = S.settings.goal; TRENDS[2].o.refLabel = `goal ${S.settings.goal}`;
+  const empty = !data.some(d => d.a || d.f || d.x);
+  const ctl = `<div class="tr-ctl" role="group" aria-label="Range">${[14, 30].map(k => `<button type="button" class="sm" data-trend="${k}" aria-pressed="${n === k}">Last ${k} days</button>`).join("")}` +
+    `<button type="button" class="sm" data-trend-table aria-pressed="${!!ui.trendTable}">${ui.trendTable ? "Show charts" : "Show as table"}</button></div>`;
+  if (empty) { el.innerHTML = ctl + `<p class="muted">Nothing in these days yet. Answers, focus time and XP show here per day.</p>`; return; }
+  if (ui.trendTable) {
+    el.innerHTML = ctl + `<div class="tr-tw"><table class="tr-tab"><thead><tr><th scope="col">Day</th><th scope="col">Answers</th><th scope="col">Right</th><th scope="col">Focus</th><th scope="col">XP</th></tr></thead><tbody>` +
+      data.slice().reverse().map(d => `<tr><th scope="row">${esc(fmtD(parseDate(d.k)))}</th><td>${d.a || "–"}</td><td>${d.a ? `${Math.round(d.r / d.a * 100)}%` : "–"}</td><td>${d.f ? fmtH(d.f) : "–"}</td><td>${d.x == null ? "–" : d.x}</td></tr>`).join("") + `</tbody></table></div>`;
+    return;
+  }
+  el.innerHTML = ctl + `<div class="tr-grid">${TRENDS.map(c => `<figure class="tr" data-chart="${c.id}" tabindex="0" aria-label="${esc(c.t)}. Use the arrow keys to read each day.">` +
+    `<figcaption>${esc(c.t)}</figcaption>${chartSVG(data, c.val, c.o)}<div class="tt" hidden></div></figure>`).join("")}</div>`;
+}
+// The hover layer: one tooltip per chart, a hairline on the day under the pointer (or chosen with the arrow keys).
+function trendShow(fig, i) {
+  const c = TRENDS.find(t => t.id === fig.dataset.chart), d = trendCache[i];
+  if (!c || !d) return;
+  fig.dataset.i = i;
+  const hit = fig.querySelector(`.hit[data-i="${i}"]`), xh = fig.querySelector(".xh"), svg = fig.querySelector("svg");
+  const cx = +hit.getAttribute("x") + +hit.getAttribute("width") / 2;
+  xh.setAttribute("x1", cx); xh.setAttribute("x2", cx); xh.setAttribute("visibility", "visible");
+  const tt = fig.querySelector(".tt"), [v, sub] = c.tip(d);
+  tt.replaceChildren();
+  const b = document.createElement("b"); b.textContent = v;
+  const s1 = document.createElement("span"); s1.textContent = sub;
+  const s2 = document.createElement("span"); s2.className = "muted"; s2.textContent = fmtD(parseDate(d.k));
+  tt.append(b, s1, s2);
+  tt.hidden = false;
+  const box = svg.getBoundingClientRect(), fx = (cx / 320) * box.width + (box.left - fig.getBoundingClientRect().left);
+  // beside the hairline, on the side with room, so it doesn't sit on the marks of that day
+  tt.style.left = `${fx + 10 + tt.offsetWidth <= fig.clientWidth ? fx + 10 : Math.max(0, fx - 10 - tt.offsetWidth)}px`;
+}
+function trendHide(fig) { fig.querySelector(".tt").hidden = true; fig.querySelector(".xh").setAttribute("visibility", "hidden"); }
 
 // ---------- scores ----------
 function num(k) { const v = S.scores[k]; return v === "" || v == null || isNaN(+v) ? null : +v; }
@@ -1224,7 +1530,13 @@ function studyHTML(q, side = false, miss = false, picked) {
     (doc ? `<div class="qz-doc">AWS page: <a href="${doc[1]}" target="_blank" rel="noopener">${doc[0]} ↗</a></div>` : "") + laLinks(las) + `</div>`;
 }
 const answerHTML = q => `<ul class="qz-ans">${q.a.map(i => `<li><b>✓ ${q.o[i]}</b><div class="qz-why">${q.x[i]}</div></li>`).join("")}</ul>`;
-const noteHTML = q => `<label class="qz-note">Why did you miss it? One line for your notebook.<input type="text" maxlength="300" data-note="${q.id}" value="${esc((S.book[q.id] || {}).note || "")}" placeholder="e.g. mixed up gateway and interface endpoints"></label>`;
+// One click says why a question was missed; the weak spots and the overview show the pattern.
+const whyHTML = q => {
+  const b = S.book[q.id];
+  if (!b) return "";
+  return `<div class="why-r" role="group" aria-label="Why did you miss it?"><span class="why-k">Why did you miss it?</span>${WHY.map(([k, i, t]) => `<button type="button" class="sm" data-why="${k}" data-wq="${esc(q.id)}" aria-pressed="${b.why === k}">${i} ${t}</button>`).join("")}</div>`;
+};
+const noteHTML = q => `<label class="qz-note">A line for your notebook, if you like.<input type="text" maxlength="300" data-note="${q.id}" value="${esc((S.book[q.id] || {}).note || "")}" placeholder="e.g. mixed up gateway and interface endpoints"></label>`;
 const optsHTML = (q, ord, on) => `<div class="qz-opts">${ord.map((oi, k) => `<button type="button" class="qz-o${on.includes(oi) ? " on" : ""}" data-o="${oi}" aria-pressed="${on.includes(oi)}"><span class="qz-l">${LETTERS[k]}</span><span class="qz-t">${q.o[oi]}</span></button>`).join("")}</div>`;
 
 // Record an answer everywhere it matters: stats, spaced repetition, notebook.
@@ -1234,6 +1546,8 @@ function learn(q, ok) {
   const t = today(), s = S.qs[q.id], due = !!(S.srs[q.id] && S.srs[q.id].due <= t);
   const earns = ok && (!s || !s.right || !s.last || due);
   QZ.record(S.qs, q.id, ok, t);
+  const dl = dailyNow();
+  dl.a++; if (ok) dl.r++;
   const e = S.qs[q.id];
   e.xp = Math.min(e.right, (e.xp || 0) + (earns ? 1 : 0));
   if (ok) {
@@ -1241,7 +1555,7 @@ function learn(q, ok) {
     if (S.book[q.id]) S.book[q.id].fixed = true;
   } else {
     QZ.srsMiss(S.srs, q.id, t);
-    const b = S.book[q.id] || (S.book[q.id] = { at: t, misses: 0, note: "", fixed: false });
+    const b = S.book[q.id] || (S.book[q.id] = { at: t, misses: 0, note: "", fixed: false, why: "" });
     b.misses++; b.at = t; b.fixed = false;
   }
   return earns;
@@ -1287,7 +1601,7 @@ function renderQ() {
     const main = to < 0 ? "See results" : to === r.i + 1 ? "Next question →" : `Continue at question ${to + 1} →`;
     qzBody.innerHTML = mapHTML(r) + `<div class="qz-q">${q.q}</div>` +
       `<div class="qz-verdict ${ok ? "ok" : "bad"}${fresh ? " fresh" : ""}" role="status">${ok ? "✓ Correct." : `✗ Not quite. The answer is ${keyL}.`}${fresh === "xp" ? `<span class="xp-up">+${XP.right} XP</span>` : ""}</div>` +
-      fbHTML(q, ord, ans, fresh) + studyHTML(q, true, !ok, ans) + (ok ? "" : noteHTML(q)) +
+      fbHTML(q, ord, ans, fresh) + studyHTML(q, true, !ok, ans) + (ok ? "" : whyHTML(q) + noteHTML(q)) +
       `<div class="qz-a qz-nav">${prev}${to === r.i + 1 ? "" : skip}<button type="button" class="primary" data-qz="next">${main}</button></div>`;
   }
   fresh = false; comboFx = "";
@@ -1411,7 +1725,7 @@ function missedHTML(missed) {
   missed.forEach(q => { const id = studyRefs(q)[0]; if (id) refs[id] = (refs[id] || 0) + 1; });
   const order = Object.keys(refs).sort((a, b) => refs[b] - refs[a]);
   return `<h3 class="sub-h">Go back to</h3><ul class="qz-refs">${order.map(id => refHTML(id, `<span class="pill warn">${plural(refs[id], "miss", "misses")}</span>`)).join("")}</ul>` +
-    `<h3 class="sub-h">Questions you missed</h3><ol class="qz-missed">${missed.map(q => `<li><details><summary>${q.q}</summary>${answerHTML(q)}</details></li>`).join("")}</ol>`;
+    `<h3 class="sub-h">Questions you missed</h3><ol class="qz-missed">${missed.map(q => `<li><details><summary>${q.q}</summary>${answerHTML(q)}${whyHTML(q)}</details></li>`).join("")}</ol>`;
 }
 // How a finished quiz went: "ace" (every answer right), "pass" or "fail". The bar is the pass mark on a day quiz,
 // 72% on a mock exam (where its results call it close to the line), 60% on a review, warm-up or step practice.
@@ -1561,7 +1875,7 @@ function renderMockResult() {
     `<p class="muted">The real exam reports a scaled score from 100 to 1000 (720 to pass), and AWS doesn't publish how right answers map to it, so treat this percentage as a rough guide. Aim for 80% or more here.${prev.length ? ` Earlier mocks: ${prev.join(", ")}.` : ""}</p>` +
     `<div class="dom-bars">${res.dom.map(([a, n], i) => bar(`D${i + 1} ${doms[i]}`, pct(a, n), `${a}/${n}`)).join("")}</div>` +
     `<div class="mk-rev-h"><h3 class="sub-h">Review</h3><label class="chk"><input type="checkbox" data-only${r.only ? " checked" : ""}> Only the ones I got wrong</label></div>` +
-    `<ol class="qz-missed">${list.map(x => `<li value="${x.i + 1}" class="${x.ok ? "right" : "wrong"}"><details><summary>${x.ok ? "✓" : "✗"} ${x.q.q}</summary>${fbHTML(x.q, r.ord[x.q.id] || QZ.order(x.q), r.ans[x.q.id] || [])}${studyHTML(x.q, false, !x.ok, r.ans[x.q.id])}</details></li>`).join("") || "<li>Nothing wrong. 🎉</li>"}</ol>` +
+    `<ol class="qz-missed">${list.map(x => `<li value="${x.i + 1}" class="${x.ok ? "right" : "wrong"}"><details><summary>${x.ok ? "✓" : "✗"} ${x.q.q}</summary>${fbHTML(x.q, r.ord[x.q.id] || QZ.order(x.q), r.ans[x.q.id] || [])}${x.ok ? "" : whyHTML(x.q)}${studyHTML(x.q, false, !x.ok, r.ans[x.q.id])}</details></li>`).join("") || "<li>Nothing wrong. 🎉</li>"}</ol>` +
     `<div class="qz-a"><button type="button" class="primary" data-qz="finish">Close</button></div>`;
   hookGif();
 }
@@ -1756,7 +2070,7 @@ function notebookHTML() {
   return `<div class="seg">${[["open", `Open (${open.length})`], ["fixed", `Fixed (${fixed.length})`], ["all", `All (${all.length})`]].map(([k, l]) => `<button type="button" data-nb="${k}" aria-pressed="${nbFilter === k}">${l}</button>`).join("")}<button type="button" class="nb-exp" data-nb-export>Export as Markdown</button></div>` +
     `<p class="muted">Fixed means you answered it right after missing it. ${weakDay ? `Day ${weakDay.day} and the` : "The"} morning of the exam ${weakDay ? "are" : "is"} for this list.</p>` +
     `<ol class="qz-missed nb">${list.map(({ q, b }) => `<li class="${b.fixed ? "right" : "wrong"}"><details><summary>${q.q}<span class="nb-m">${q.tags.map(esc).join(", ")}. Missed ${b.misses}×${b.fixed ? ", answered right since" : ""}.</span></summary>` +
-      `${answerHTML(q)}<label class="qz-note">Why I missed it<input type="text" maxlength="300" data-note="${q.id}" value="${esc(b.note || "")}"></label>${studyHTML(q, false, true)}</details></li>`).join("") || `<li class="muted">Nothing here.</li>`}</ol>`;
+      `${answerHTML(q)}${whyHTML(q)}<label class="qz-note">My note<input type="text" maxlength="300" data-note="${q.id}" value="${esc(b.note || "")}"></label>${studyHTML(q, false, true)}</details></li>`).join("") || `<li class="muted">Nothing here.</li>`}</ol>`;
 }
 function exportNotebook() {
   const md = ["# SAA-C03 wrong-answer notebook", "", `Exported ${fmtD(new Date())}.`, ""];
@@ -1775,8 +2089,8 @@ function weakHTML() {
   const w = QZ.weakTags(BANK, S.qs), dom = QZ.domainAcc(BANK, S.qs);
   const shaky = Object.keys(S.conf).filter(id => S.conf[id] === "shaky" && itemIndex[id]);
   const kshaky = Object.keys(S.kconf).filter(k => S.kconf[k] === "shaky").map(k => { const [id, i] = k.split(":"); const p = ((KEYS[id] || {}).k || [])[+i]; return itemIndex[id] && Array.isArray(p) ? [id, p[0]] : null; }).filter(Boolean);
-  if (!w.length && !shaky.length && !kshaky.length) return `<p class="muted">Nothing yet. This fills in as you answer quiz questions and mark self-checks as shaky.</p>`;
-  let h = "";
+  if (!w.length && !shaky.length && !kshaky.length && !whyCounts().length) return `<p class="muted">Nothing yet. This fills in as you answer quiz questions and mark self-checks as shaky.</p>`;
+  let h = `<h3 class="sub-h">Why you miss</h3>${whyPatternHTML()}`;
   if (dom.some(x => x[1])) h += `<h3 class="sub-h">By exam domain</h3><div class="dom-bars">${dom.map(([a, n], i) => n ? bar(`D${i + 1} ${DOMAINS[i]}`, pct(a, n), `${pct(a, n)}%`) : "").join("")}</div>`;
   if (w.length) h += `<h3 class="sub-h">By topic, weakest first</h3><p class="muted">Share of answers right, counting every attempt. Open a topic to see where to study it.</p>` +
     `<ul class="wk">${w.map(t => `<li><details><summary><span class="wk-t">${esc(t.tag)}</span><span class="tr"><span class="fi${t.acc < 0.7 ? " low" : ""}" style="width:${Math.round(t.acc * 100)}%"></span></span><span class="wk-n">${t.right}/${t.seen}</span></summary>` +
@@ -2056,6 +2370,38 @@ document.getElementById("next").addEventListener("click", e => {
   if (w.dataset.warm === "skip") { S.warm[today()] = "skip"; save(); refresh(); }
   else { FX.unlock(); startRun("warm"); }
 });
+// reasons for a miss, the trends' range and table, "Change" on the daily goal, practice on the overview's "study this next"
+document.addEventListener("click", e => {
+  const wy = e.target.closest("[data-why]");
+  if (wy) {
+    const b = S.book[wy.dataset.wq];
+    if (!b) return;
+    b.why = b.why === wy.dataset.why ? "" : wy.dataset.why;
+    save();
+    document.querySelectorAll(`[data-wq="${CSS.escape(wy.dataset.wq)}"]`).forEach(x => x.setAttribute("aria-pressed", x.dataset.why === b.why));
+    renderReady();
+    return;
+  }
+  const tr = e.target.closest("[data-trend],[data-trend-table]");
+  if (tr) { if (tr.dataset.trend) ui.trend = +tr.dataset.trend; else ui.trendTable = !ui.trendTable; saveUI(); renderTrends(); return; }
+  if (e.target.closest("[data-goal-set]")) { document.getElementById("b-set").click(); setTimeout(() => document.getElementById("s-goal").focus(), 0); return; }
+  const sq = e.target.closest("#home [data-step-quiz]");
+  if (sq) { FX.unlock(); startRun("step", sq.dataset.stepQuiz); return; }
+  const jp = e.target.closest("#home [data-jump]");
+  if (jp) jumpTo(jp.dataset.jump);
+});
+const trEl = document.getElementById("trends");
+trEl.addEventListener("pointermove", e => { const h = e.target.closest(".hit"); if (h) trendShow(h.closest(".tr"), +h.dataset.i); });
+trEl.addEventListener("pointerout", e => { const f = e.target.closest(".tr"); if (f && !f.contains(e.relatedTarget) && document.activeElement !== f) trendHide(f); });
+trEl.addEventListener("focusin", e => { const f = e.target.closest(".tr"); if (f) trendShow(f, f.dataset.i ? +f.dataset.i : trendCache.length - 1); });
+trEl.addEventListener("focusout", e => { const f = e.target.closest(".tr"); if (f) trendHide(f); });
+trEl.addEventListener("keydown", e => {
+  const f = e.target.closest(".tr");
+  if (!f || (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End")) return;
+  e.preventDefault();
+  const i = +(f.dataset.i ?? trendCache.length - 1), n = trendCache.length - 1;
+  trendShow(f, e.key === "Home" ? 0 : e.key === "End" ? n : Math.max(0, Math.min(n, i + (e.key === "ArrowRight" ? 1 : -1))));
+});
 // a look-alike table (from a miss, a card's panel, weak spots, the overview), and a part of a course diagram
 document.addEventListener("click", e => {
   const l = e.target.closest("[data-look]");
@@ -2112,6 +2458,7 @@ document.getElementById("b-set").onclick = () => {
   document.getElementById("s-fx").checked = S.settings.fx;
   document.getElementById("s-snd").checked = S.settings.sound;
   document.getElementById("s-gif").checked = S.settings.gif;
+  document.getElementById("s-goal").value = String(S.settings.goal);
   document.getElementById("s-theme").value = ui.theme === "light" || ui.theme === "dark" ? ui.theme : "";
   document.getElementById("s-size").value = ui.size === "l" || ui.size === "xl" ? ui.size : "";
   renderSettingsInfo();
@@ -2129,6 +2476,8 @@ setDlg.addEventListener("close", () => {
   S.settings.fx = document.getElementById("s-fx").checked;
   S.settings.sound = document.getElementById("s-snd").checked;
   S.settings.gif = document.getElementById("s-gif").checked;
+  const goal = +document.getElementById("s-goal").value;
+  if (GOALS.includes(goal)) S.settings.goal = goal;
   ui.theme = document.getElementById("s-theme").value; ui.size = document.getElementById("s-size").value;
   saveUI(); applyDisplay();
   save(); rebuild();
@@ -2189,6 +2538,8 @@ function logFocus() {
   const d = dayOf(t.day) || workDay();
   if (sec < 30 || !d) return;
   S.log[d.id] = (S.log[d.id] || 0) + sec / 60;
+  const dl = dailyNow();
+  dl.f = Math.min(24 * 60, dl.f + sec / 60);
 }
 function tmRender() {
   const t = S.timer, rest = t.mode === "rest", s = rest ? restUp() : tmLeft(), over = rest && t.running && s >= REST_NAG, away = !rest && t.running && t.away > 0;
@@ -2407,6 +2758,20 @@ function mergeDocs(local, remote) {
   m.drill = { best: Math.max(m.drill.best, older.drill.best), runs: Math.max(m.drill.runs, older.drill.runs) };
   for (const k in older.ach) if (!m.ach[k] || older.ach[k] < m.ach[k]) m.ach[k] = older.ach[k];
   m.rowBest = Math.max(m.rowBest, older.rowBest);
+  for (const id in older.book) if (m.book[id] && !m.book[id].why && older.book[id].why) m.book[id].why = older.book[id].why;
+  // a day's and a week's starting point: the copy that stamped it first (a copy behind on sync stamps a lower total later)
+  for (const k in older.xpDay) {
+    const o = older.xpDay[k], n = m.xpDay[k];
+    if (!n || (o.at && o.at < n.at)) m.xpDay[k] = { ...o, hit: o.hit || !!(n && n.hit) };
+    else if (o.hit) n.hit = true;
+  }
+  if (older.week.key > m.week.key || (older.week.key === m.week.key && older.week.at && older.week.at < m.week.at)) m.week = clone(older.week);
+  for (const k in older.chal) if (!m.chal[k] || older.chal[k] < m.chal[k]) m.chal[k] = older.chal[k];
+  // each device counts its own answers and focus per day; the copy that counted more for a device is the newer one
+  for (const k in older.daily) {
+    const n = m.daily[k] || (m.daily[k] = {});
+    for (const dev in older.daily[k]) { const o = older.daily[k][dev]; if (!n[dev] || o.a + o.f > n[dev].a + n[dev].f) n[dev] = o; }
+  }
   if (older.timer.ts > newer.timer.ts) m.timer = clone(older.timer);   // the timer that changed last, not the copy that saved last
   m.run = local.run || remote.run;      // the run on this screen stays
   m.savedAt = Date.now();
@@ -2444,13 +2809,18 @@ async function push() {
   sync.busy = false;
   if (sync.again) { sync.again = false; push(); }
 }
+// The first try (answered or not) makes the day's and the week's starting points safe to stamp.
+function markReady() { if (ready) return; ready = true; if (stamp()) save(); refresh(); showGains([], 600); }
 async function pull() {
   let cur;
   try {
     const r = await fetch("api/state", { cache: "no-store" });
-    if (!r.ok || !(r.headers.get("Content-Type") || "").includes("application/json")) return;
+    if (!r.ok || !(r.headers.get("Content-Type") || "").includes("application/json")) return markReady();
     cur = await r.json();
-  } catch (e) { return; }
+  } catch (e) { return markReady(); }
+  try { await pullApply(cur); } finally { markReady(); }
+}
+async function pullApply(cur) {
   sync.on = true;
   if (cur.rev === sync.rev) { if (sync.dirty) push(); return; }
   if (!isObj(cur.doc)) { sync.rev = cur.rev; push(); return; }   // empty server: upload this copy
