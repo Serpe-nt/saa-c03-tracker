@@ -79,6 +79,7 @@
   <div class="tb-tools">
     <button id="b-fx" class="ghost" title="Visual effects"></button>
     <button id="b-snd" class="ghost" title="Sounds"></button>
+    <button id="b-search" class="ghost" title="Search (Ctrl+K)">🔍 Search</button>
     <button id="b-set" class="ghost">⚙ Settings</button>
   </div>
 </header>
@@ -253,6 +254,12 @@
     <label class="chk"><input type="checkbox" id="s-fx"> Visual effects</label>
     <label class="chk"><input type="checkbox" id="s-snd"> Sounds</label>
     <label class="chk"><input type="checkbox" id="s-gif"> South Park GIFs on quiz results (loaded from GIPHY)</label>
+    <div class="s-disp">
+      <label class="field">Theme <small>This browser only.</small>
+        <select id="s-theme"><option value="">Follow the system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+      <label class="field">Text size <small>Cards, panels and quizzes.</small>
+        <select id="s-size"><option value="">Normal</option><option value="l">Larger</option><option value="xl">Largest</option></select></label>
+    </div>
     <div class="row">
       <button type="button" id="s-export">Export progress</button>
       <button type="button" id="s-import">Import…</button>
@@ -265,6 +272,16 @@
       <button value="save" class="primary">Save</button>
     </div>
   </form>
+</dialog>
+
+<!-- Search: key points, steps, terms, your notes and the notebook (Ctrl+K) -->
+<dialog id="search" class="qz srch" aria-labelledby="sr-title">
+  <div class="qz-h"><h2 id="sr-title">🔍 Search</h2><button type="button" class="qz-x" data-sr-close aria-label="Close">✕</button></div>
+  <div class="qz-body">
+    <input type="search" id="sr-q" autocomplete="off" spellcheck="false" placeholder="Key points, steps, terms, your notes, the notebook…" aria-controls="sr-list">
+    <ul id="sr-list" class="sr-list" role="listbox" aria-label="Results"></ul>
+    <p class="muted sr-hint">↑ and ↓ move, Enter opens, Esc closes. Every word you type must appear.</p>
+  </div>
 </dialog>
 
 <!-- Break reminder: a focus block ended, or the break has run past 10 minutes. Last in the page: it can open over the quiz. -->
@@ -290,6 +307,16 @@
 <script src="quiz/mock2.js"></script>
 <script src="extras.js"></script>
 <script src="gifs.js"></script>
+<script src="lookalikes.js"></script>
+<script src="diagrams/c1.js"></script>
+<script src="diagrams/c2.js"></script>
+<script src="diagrams/c3.js"></script>
+<script src="diagrams/c4.js"></script>
+<script src="diagrams/c5.js"></script>
+<script src="diagrams/c6.js"></script>
+<script src="diagrams/c7.js"></script>
+<script src="diagrams/c8.js"></script>
+<script src="diagram.js"></script>
 <script src="keys/d01.js"></script>
 <script src="keys/d02.js"></script>
 <script src="keys/d03.js"></script>

@@ -20,6 +20,7 @@ Read before changing things:
 - `site/quiz/meta.js` – DATA ONLY: `window.QUIZ = []`, `window.QTAGS` (allowed topic tags), `window.DOCS` (AWS FAQ links)
 - `site/quiz/d01.js … d15.js` (no d07), `mock1.js`, `mock2.js` – DATA ONLY: question pools pushed onto `window.QUIZ`. The number is a pool, not a plan day: pools 1–6 are foundation level, 8–15 exam level
 - `site/gifs.js` – DATA ONLY: `window.GIFS`, South Park GIFs for the quiz results by outcome (`ace`, `pass`, `fail`; at least 5 each, `[GIPHY id, description]`), loaded from media.giphy.com
+- `site/diagrams/c1.js … c8.js` – DATA ONLY: `window.DIAGRAMS`, one clickable blueprint diagram per lecture course (areas, nodes, links, parts); drawn by `site/diagram.js` (`window.DG.svg`). `site/lookalikes.js` – DATA ONLY: `window.LOOKALIKES`, look-alike services side by side. Format and rules for both: `docs/diagrams.md`
 - `site/extras.js` – DATA ONLY: `window.CARDS` (self-check model answers by item id), `window.DRILL`, `window.CUES`, `window.CUE_TAGS` (which quiz topics each exam-wording phrase belongs to)
 - `site/keys/*.js` – DATA ONLY: `window.KEYS`, key points per step (`{why, k: [[label, text], …], trap, docs: [[title, url]]}` by item id). The file follows the id: `dNN.js` for ids that start with `dN`, `cN.js` for lecture course N (`cN…`) and its labs (`lN…`), `r1.js` for the reading block
 - `site/qcore.js` – `window.QZ`: quiz logic without DOM (the topics each day teaches, picking, shuffling, grading, spaced repetition, weak spots); unit-tested in Node
@@ -27,8 +28,8 @@ Read before changing things:
 - `site/app.js` – page logic: state, views (overview / day flow, mirrored in the URL hash), step cards, quizzes (day/review/warm-up/step practice, with Previous/Next), XP/levels/badges, results GIFs, mock exam, drill, notebook, weak spots, model answers, slip guard, scores/verdict, day and step notes, cleanup dialog, focus timer (50-minute focus, open-ended break with reminders) + time log, settings, export/import, server sync
 - `server/` – Go 1.26+ module: `main.go` (static files, `/api/state`, `/healthz`, security headers, host allowlist, CSRF guard), `store.go` (SQLite via modernc.org/sqlite, one revisioned JSON document)
 - `tests/` – `qcore.test.mjs`, `data.test.mjs` (node --test, no deps), `e2e.mjs` (Playwright run of the real page), `load.mjs` (vm loader for the browser scripts)
-- `tools/` – `qstats.mjs` (per-pool stats for authors), `similar.mjs` (near-duplicate finder across pools), `links.mjs` (checks that every AWS link on the site answers a plain 200; needs network)
-- `docs/` – `architecture.md`, `questions.md`, `keypoints.md`
+- `tools/` – `diagram-preview.mjs` (renders one course diagram to a PNG, Playwright), `qstats.mjs` (per-pool stats for authors), `similar.mjs` (near-duplicate finder across pools), `links.mjs` (checks that every AWS link on the site answers a plain 200; needs network)
+- `docs/` – `architecture.md`, `questions.md`, `keypoints.md`, `diagrams.md`
 - `Dockerfile` (golang build stage → distroless static nonroot, port 8080), `compose.yaml` (127.0.0.1:8080, `saa-data` volume at /data, read-only, cap_drop ALL, restart unless-stopped)
 
 ## Run

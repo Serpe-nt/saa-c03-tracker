@@ -31,6 +31,7 @@ browser ─ index.html loads, in order:
 | `run` | object or null | quiz/mock in progress or on its results screen (see below) |
 | `mocks` | `[{at, score, n, pct, dom, mins}]` | finished mock exams |
 | `conf` | `{checkItemId: "ok"\|"shaky"}` | flip-card self-assessment |
+| `kconf` | `{"stepId:index": "ok"\|"shaky"}` | single key points marked in "Test me" (shaky ones are on the weak-spot sheet) |
 | `log` | `{dayId: minutes}` | focus-timer time credited to the day being worked on |
 | `warm` | `{date: "done"\|"skip"}` | warm-up handled that day |
 | `slips`, `slipSkip` | `[{from, n}]`, date | schedule shifts; "Not now" date |
@@ -59,7 +60,7 @@ Nothing in `app.js` or `qcore.js` knows how many days there are or what a given 
 
 Step ids never change, so moving a step to another day keeps its tick, notes and key points. Entries keyed by a *day* (`quiz`, `dayDone`) are only meaningful for the plan they were saved under. `PLAN_V` in `app.js` names the current plan; `clean()` drops `quiz` and `dayDone` (and a day quiz in progress) from any copy saved under another value, on every entry point, so an old server copy or an import cannot bring them back. Bump `PLAN_V` only when days change meaning, not when a step is added. When the change is a day put in front of others (the days themselves are unchanged, only their numbers move), nothing needs dropping: `shiftDays(s, from)` moves `quiz`, `dayDone`, `notes`, `log`, schedule moves and a day quiz in progress one place down, and `clean()` runs it for copies saved under the previous value. That is how `PLAN_V` went from 2 to 3.
 
-Not in the state: which card is on screen (the URL hash) and which helper lists on a card are folded open (`saa-plan-v2-ui` in localStorage, per browser, never synced).
+Not in the state: which card is on screen (the URL hash), and this browser's preferences in `saa-plan-v2-ui` (never synced): which helper lists are folded open, the theme and text size (Settings; `applyDisplay()` sets `data-theme` and `data-size` on `<html>`, which the CSS reads), the focus view, and where each GIF list is in its rotation.
 
 ## Views: overview and day flow
 
@@ -80,6 +81,8 @@ Two containers share the page and exactly one is visible: `#home` (the overview)
 - **Mark complete** ticks the step and moves to the next *open* step after it (wrapping round), then to the quiz card, then to the summary. **Next** and **Back** move strictly in order and never tick, so a step can be skipped and found again as a hollow dot. A completed step shows "Completed" with Undo, and Next becomes the main action.
 - **Guards:** a click on Mark complete within 350 ms of a card appearing is ignored, so a double click can't also complete the card that slid in under the pointer. While a field on the card has the focus, a redraw leaves the card alone and only updates the strip and the bar, so typing a note is never interrupted.
 - **Keyboard:** ← and → press Back and Next; Enter presses the main action unless a button, link or summary has the focus. Not while a dialog is open or a field is being typed in.
+
+**Reading helpers.** The **focus view** (button in the day header, or F) hides both panels and gives the card the width, a little larger. **"Test me"** on "What to know" hides the text of each labelled point: you say it, show it, and mark it Got it or Shaky (`S.kconf`, merged like `conf`); the run itself (`recall`) is memory only and ends with its card. **Search** (Ctrl+K, `/`, or 🔍) looks through every step, its why, key points and trap, the glossary and the exam wording (built once, `srBuild`), and through your step notes, day notes and the notebook (read fresh, `srDynamic`); every word typed must appear; matches are marked on the plain text and every piece is escaped, so a note with markup in it shows as text.
 
 ## Celebrations (fx.js, and "completing steps & celebrations" in app.js)
 

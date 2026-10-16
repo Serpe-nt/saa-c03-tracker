@@ -783,6 +783,57 @@ try {
   await page.click("#sheet [data-sh-close]");
   await ctx.close();
 
+  // ---------- reading: display settings, focus view, "Test me", search (browser-only, its own context) ----------
+  log("display settings, focus view, Test me on key points, search over everything");
+  ({ ctx, page } = await newPage({ viewport: { width: 1600, height: 1000 } }));
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.goto(BASE);
+  await setState(page, s => { s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false }; s.inotes = { [Object.keys(window.STEP_TAGS)[0]]: "zebra <img src=x id=pwnS> crossing" }; });
+  await page.reload();
+  await page.click("#b-set");
+  await page.selectOption("#s-theme", "dark");
+  await page.selectOption("#s-size", "l");
+  await page.click('#settings button[value="save"]');
+  assert.deepEqual(await page.evaluate(() => [document.documentElement.dataset.theme, document.documentElement.dataset.size]), ["dark", "l"], "theme and text size apply");
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--card").trim()), "#10233b", "dark colours although the system is light");
+  await page.reload();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark", "and stay after a reload");
+  await openCard(page, HELPDAY, HELP);
+  assert.ok(await page.locator("#side-l").isVisible() && await page.locator("#side-r").isVisible());
+  await page.click("#fl-tools [data-focus-view]");
+  assert.ok(await page.locator("#side-l").isHidden() && await page.locator("#side-r").isHidden(), "focus view hides the panels");
+  await page.screenshot({ path: path.join(SHOTS, "21-focus-view-dark-large.png") });
+  await page.keyboard.press("f");
+  assert.ok(await page.locator("#side-r").isVisible(), "F brings them back");
+  // Test me: labels only, reveal, mark
+  const npts = await page.locator("#card .c-key .k-list li").count();
+  await page.click("#card [data-test]");
+  assert.equal(await page.locator("#card .k-list li.k-hid").count(), npts, "every point is hidden behind its label");
+  await page.click('#card [data-reveal="0"]');
+  await page.click('#card [data-kc="shaky"][data-ki="0"]');
+  assert.equal((await state(page)).kconf[`${HELP}:0`], "shaky", "the mark is kept");
+  for (let i = 1; i < npts; i++) { await page.click(`#card [data-reveal="${i}"]`); await page.click(`#card [data-kc="ok"][data-ki="${i}"]`); }
+  assert.match(await page.textContent("#card .k-sum"), new RegExp(`${npts - 1} of ${npts} got it`));
+  await page.click("#card [data-test-end]");
+  assert.equal(await page.locator("#card .k-list .k-m.pill").count(), 1, "outside Test me the shaky point carries its mark");
+  // search: Ctrl+K, a key point, then a note with markup in it
+  const label = await page.evaluate(id => window.KEYS[id].k.find(Array.isArray)[0].replace(/<[^>]+>/g, ""), HELP);
+  await page.keyboard.press("Control+k");
+  await page.waitForSelector("#search[open]");
+  await page.fill("#sr-q", label);
+  await page.waitForSelector("#sr-list .sr-it");
+  assert.match(await page.textContent("#sr-list .sr-it.on"), /Key point|Step|Why/, "the best match comes first");
+  await page.fill("#sr-q", "zebra crossing");
+  await page.waitForSelector("#sr-list .sr-it");
+  assert.match(await page.textContent("#sr-list .sr-it.on .sr-k"), /My note/);
+  assert.equal(await page.locator("#pwnS").count(), 0, "a note is shown as text in the results");
+  assert.ok(await page.locator("#sr-list mark").count() >= 2, "the words are marked");
+  await page.screenshot({ path: path.join(SHOTS, "22-search.png") });
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => !document.getElementById("search").open);
+  assert.ok((await hash(page)).endsWith("/" + await page.evaluate(() => Object.keys(window.STEP_TAGS)[0])), "Enter opens the step");
+  await ctx.close();
+
   // ---------- focus timer: the break pop-up and the reminders, on a fake clock and off the server ----------
   log("a focus block ends → a pop-up offers the break; the break counts up and reminds every minute past 10, one pop-up at a time");
   ({ ctx, page } = await newPage());

@@ -21,6 +21,7 @@ const DEF = {
   run: null,   // quiz or mock exam in progress; survives a reload
   mocks: [],   // finished mock exams
   conf: {},    // self-check id → "ok" | "shaky"
+  kconf: {},   // "<step id>:<point index>" → "ok" | "shaky": key points recalled with "Test me"
   log: {},     // day id → minutes logged by the focus timer
   warm: {},    // date → "done" | "skip"
   slips: [],   // schedule shifts: [{ from: day, n: days }]
@@ -108,6 +109,8 @@ function clean(s) {
   s.mocks = s.mocks.filter(isObj).map(m => ({ at: str0(m.at), score: num0(m.score), n: num0(m.n), pct: num0(m.pct), mins: num0(m.mins),
     dom: Array.isArray(m.dom) ? m.dom.slice(0, 4).map(x => (Array.isArray(x) ? [num0(x[0]), num0(x[1])] : [0, 0])) : [] }));
   keep(s.conf, v => v === "ok" || v === "shaky");
+  keep(s.kconf, v => v === "ok" || v === "shaky");
+  for (const k of Object.keys(s.kconf)) if (!/^[\w-]{1,40}:\d{1,2}$/.test(k)) delete s.kconf[k];
   keep(s.log, v => typeof v === "number" && isFinite(v) && v >= 0);
   for (const k in s.log) s.log[k] = Math.min(s.log[k], 24 * 60);
   keep(s.warm, v => v === "done" || v === "skip");
@@ -348,6 +351,15 @@ const jumpTo = id => setView(itemIndex[id].d.id, id, true);
 const UI_KEY = KEY + "-ui";
 let ui = {};
 try { const u = JSON.parse(localStorage.getItem(UI_KEY)); if (isObj(u)) ui = u; } catch (e) {}
+const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
+// Theme, text size and the focus view are this browser's choice (Settings, the Focus view button), never synced.
+function applyDisplay() {
+  const r = document.documentElement;
+  if (ui.theme === "light" || ui.theme === "dark") r.dataset.theme = ui.theme; else delete r.dataset.theme;
+  if (ui.size === "l" || ui.size === "xl") r.dataset.size = ui.size; else delete r.dataset.size;
+  document.body.classList.toggle("focus-view", !!ui.focusView);
+}
+applyDisplay();
 
 // ---------- overview: day tiles and quick links ----------
 function renderMap(ti) {
@@ -527,7 +539,9 @@ function renderFlow(moved) {
   const d = dayOf(view.day), ids = stepIds(d), at = view.at, i = ids.indexOf(at);
   document.getElementById("fl-day").innerHTML = `<span class="fl-dn">Day ${d.day}</span><span class="fl-tt">${d.title}</span>` +
     `<span class="fl-dd">${fmtD(dayDate(d.day))}</span>${d.day === todayIdx() ? `<span class="today-badge">Today</span>` : ""}`;
-  const tools = [`<button type="button" class="ghost" data-sheet="daynotes">📝 Day notes</button>`];
+  const tools = [`<button type="button" class="ghost" data-focus-view aria-pressed="${!!ui.focusView}" title="Hide the panels beside the card (F)">${ui.focusView ? "⤡ Show panels" : "⤢ Focus view"}</button>`,
+    `<button type="button" class="ghost" data-search title="Search (Ctrl+K)">🔍</button>`,
+    `<button type="button" class="ghost" data-sheet="daynotes">📝 Day notes</button>`];
   if (d.groups.some(g => g.t === "build")) tools.push(`<button type="button" class="ghost" data-cleanup="${d.id}">🧹 Cleanup check</button>`);
   for (const t of d.tools || []) tools.push(t === "notebook" ? `<button type="button" class="ghost" data-sheet="notebook">📓 Notebook</button>` : `<button type="button" class="ghost" data-sheet="weak">📈 Weak spots</button>`);
   document.getElementById("fl-tools").innerHTML = tools.join("");
@@ -545,6 +559,7 @@ function renderFlow(moved) {
   const typing = !moved && bodyEl.contains(document.activeElement) && document.activeElement.matches("textarea,input");
   if (!typing) {
     const answer = !moved && cardEl.querySelector(".card-a:not([hidden])");
+    if (recall.id && recall.id !== at) recall = { id: "", open: new Set(), marks: {} };   // "Test me" ends with its card
     const step = at !== "quiz" && at !== "done", side = step ? sideHTML(at) : { l: "", r: "" };
     cardEl.innerHTML = at === "quiz" ? quizCardHTML(d) : at === "done" ? doneCardHTML(d) : stepCardHTML(at);
     sideL.innerHTML = side.l; sideR.innerHTML = side.r;
@@ -642,8 +657,26 @@ function stepCardHTML(id) {
   if (kp) {
     // a point is [label, text]; a bare string is the older form
     const pts = kp.k || [], labelled = pts.some(Array.isArray);
-    if (pts.length) h += box("know", "📘", kp.why ? "What to know" : "Key points",
-      `<ul${labelled ? ' class="k-list"' : ""}>${pts.map(x => (Array.isArray(x) ? `<li><b class="k-l">${x[0]}</b><span>${x[1]}</span></li>` : `<li>${x}</li>`)).join("")}</ul>`, "c-key");
+    if (pts.length) {
+      // "Test me": only the labels show; you say each point, reveal it and mark it (S.kconf). Otherwise a mark shows next to its label.
+      const testing = labelled && recall.id === id, marked = pts.filter((x, i) => recall.marks[i]).length;
+      const btn = !labelled ? "" : testing ? `<button type="button" class="sm k-btn" data-test-end>Done</button>`
+        : `<button type="button" class="sm k-btn" data-test="${id}" title="Hide the text, say each point, then check it">🧠 Test me</button>`;
+      const li = (x, i) => {
+        if (!Array.isArray(x)) return `<li>${x}</li>`;
+        if (!testing) {
+          const m = S.kconf[`${id}:${i}`];
+          return `<li><b class="k-l">${x[0]}${m === "shaky" ? ` <span class="pill warn k-m">shaky</span>` : m === "ok" ? ` <span class="k-m ok" title="Got it in Test me">✓</span>` : ""}</b><span>${x[1]}</span></li>`;
+        }
+        if (!recall.open.has(i)) return `<li class="k-hid"><b class="k-l">${x[0]}</b><button type="button" class="k-rev" data-reveal="${i}">Say it out loud, then show</button></li>`;
+        const m = recall.marks[i];
+        return `<li class="k-shown"><b class="k-l">${x[0]}</b><span>${x[1]}<span class="k-rate">${m ? `<span class="pill ${m === "ok" ? "ok" : "warn"}">${m === "ok" ? "✓ Got it" : "Shaky"}</span>`
+          : `<span class="muted">Did you have it?</span><button type="button" class="sm" data-kc="ok" data-ki="${i}">Got it</button><button type="button" class="sm" data-kc="shaky" data-ki="${i}">Shaky</button>`}</span></span></li>`;
+      };
+      const n = pts.filter(Array.isArray).length, got = pts.filter((x, i) => recall.marks[i] === "ok").length;
+      h += box("know", "📘", (kp.why ? "What to know" : "Key points") + btn, `<ul${labelled ? ' class="k-list"' : ""}>${pts.map(li).join("")}</ul>` +
+        (testing && marked === n ? `<p class="k-sum">${got} of ${n} got it.${got < n ? " The shaky ones are on your weak-spot map." : " Nice."}</p>` : ""), "c-key" + (testing ? " testing" : ""));
+    }
     if (kp.trap) h += box("trap", "⚠️", "Exam trap", `<p>${kp.trap}</p>`, "c-trap");
   }
   return h;
@@ -1636,13 +1669,15 @@ function exportNotebook() {
 function weakHTML() {
   const w = QZ.weakTags(BANK, S.qs), dom = QZ.domainAcc(BANK, S.qs);
   const shaky = Object.keys(S.conf).filter(id => S.conf[id] === "shaky" && itemIndex[id]);
-  if (!w.length && !shaky.length) return `<p class="muted">Nothing yet. This fills in as you answer quiz questions and mark self-checks as shaky.</p>`;
+  const kshaky = Object.keys(S.kconf).filter(k => S.kconf[k] === "shaky").map(k => { const [id, i] = k.split(":"); const p = ((KEYS[id] || {}).k || [])[+i]; return itemIndex[id] && Array.isArray(p) ? [id, p[0]] : null; }).filter(Boolean);
+  if (!w.length && !shaky.length && !kshaky.length) return `<p class="muted">Nothing yet. This fills in as you answer quiz questions and mark self-checks as shaky.</p>`;
   let h = "";
   if (dom.some(x => x[1])) h += `<h3 class="sub-h">By exam domain</h3><div class="dom-bars">${dom.map(([a, n], i) => n ? bar(`D${i + 1} ${DOMAINS[i]}`, pct(a, n), `${pct(a, n)}%`) : "").join("")}</div>`;
   if (w.length) h += `<h3 class="sub-h">By topic, weakest first</h3><p class="muted">Share of answers right, counting every attempt. Open a topic to see where to study it.</p>` +
     `<ul class="wk">${w.map(t => `<li><details><summary><span class="wk-t">${esc(t.tag)}</span><span class="tr"><span class="fi${t.acc < 0.7 ? " low" : ""}" style="width:${Math.round(t.acc * 100)}%"></span></span><span class="wk-n">${t.right}/${t.seen}</span></summary>` +
       `<ul class="qz-refs">${tagRefs(t.tag).map(id => refHTML(id)).join("")}</ul></details></li>`).join("")}</ul>`;
   if (shaky.length) h += `<h3 class="sub-h">Self-checks you marked shaky</h3><ul class="qz-refs">${shaky.map(id => refHTML(id)).join("")}</ul>`;
+  if (kshaky.length) h += `<h3 class="sub-h">Key points you marked shaky in "Test me"</h3><ul class="qz-refs">${kshaky.map(([id, label]) => refHTML(id, `<span class="pill warn">${label}</span>`)).join("")}</ul>`;
   return h;
 }
 function badgesHTML() {
@@ -1655,6 +1690,136 @@ function badgesHTML() {
     `<ul class="ach">${ACH.map(a => `<li class="${S.ach[a.id] ? "on" : ""}"><span class="ach-i">${a.i}</span><span class="ach-x"><b>${a.t}</b><span>${a.d}</span>` +
       `<span class="muted">${S.ach[a.id] ? `Earned ${fmtD(parseDate(S.ach[a.id]))}, +${a.xp} XP` : `+${a.xp} XP`}</span></span></li>`).join("")}</ul>`;
 }
+// ---------- search (Ctrl+K, / or 🔍): steps, key points, terms, exam wording, your notes, the notebook ----------
+const srDlg = document.getElementById("search"), srQ = document.getElementById("sr-q"), srList = document.getElementById("sr-list");
+let srStatic = null, srHits = [], srAt = 0;
+const plainOf = h => strip(String(h || "")).replace(/\s+/g, " ").trim();
+// What the data files hold, built once: every step, its why, each key point and trap, the glossary, exam wording.
+function srBuild() {
+  const out = [];
+  for (const id of Object.keys(itemIndex)) {
+    const { d, it } = itemIndex[id], kp = KEYS[id], at = `Day ${d.day}`;
+    out.push({ kind: "Step", where: at, title: plainOf(it[1]), text: plainOf(`${it[1]} ${it[2] || ""}`), go: ["step", id] });
+    if (!kp) continue;
+    if (kp.why) out.push({ kind: "Why it exists", where: at, title: stepTitle(id), text: plainOf(kp.why), go: ["step", id] });
+    (kp.k || []).forEach(x => { if (Array.isArray(x)) out.push({ kind: "Key point", where: at, title: plainOf(x[0]), text: plainOf(`${x[0]}: ${x[1]}`), go: ["step", id] }); });
+    if (kp.trap) out.push({ kind: "Exam trap", where: at, title: stepTitle(id), text: plainOf(kp.trap), go: ["step", id] });
+  }
+  for (const k of Object.keys(GLOSS)) out.push({ kind: "Term", where: "", title: k, text: `${k}: ${GLOSS[k]}`, go: ["term", k], full: true });
+  for (const c of CUES) out.push({ kind: "Exam wording", where: "", title: c[0], text: `${c[0]}: ${c[1]}. ${c[2]}`, go: ["cues"] });
+  return out;
+}
+// What you wrote, read fresh on every search: step notes, day notes, the notebook.
+function srDynamic() {
+  const out = [];
+  for (const id in S.inotes) if (itemIndex[id] && S.inotes[id].trim()) out.push({ kind: "My note", where: `Day ${itemIndex[id].d.day}`, title: stepTitle(id), text: S.inotes[id], go: ["step", id] });
+  for (const id in S.notes) { const d = dayOf(id); if (d && S.notes[id].trim()) out.push({ kind: "Day note", where: `Day ${d.day}`, title: d.title, text: S.notes[id], go: ["day", id] }); }
+  for (const id in S.book) if (QBY[id]) {
+    const q = QBY[id], b = S.book[id];
+    out.push({ kind: "Notebook", where: `Missed ${b.misses}×`, title: plainOf(q.q).slice(0, 90), text: plainOf(`${b.note} ${q.q} ${q.a.map(i => q.o[i]).join(" ")}`), go: ["book", id] });
+  }
+  return out;
+}
+const srWords = q => q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8);
+function srFind(q) {
+  const words = srWords(q);
+  if (!words.length) return [];
+  srStatic = srStatic || srBuild();
+  const hits = [];
+  for (const e of [...srDynamic(), ...srStatic]) {
+    const t = e.text.toLowerCase();
+    if (!words.every(w => t.includes(w))) continue;
+    const tl = e.title.toLowerCase();
+    hits.push({ e, s: words.filter(w => tl.includes(w)).length * 10 + (/note|Notebook/.test(e.kind) ? 4 : 0) - e.text.length / 2000 });
+  }
+  return hits.sort((a, b) => b.s - a.s).slice(0, 40).map(h => h.e);
+}
+// Mark the words on the plain text and escape every piece, so nothing typed or written becomes markup.
+function srMark(text, words) {
+  const low = text.toLowerCase(), on = new Array(text.length).fill(false);
+  for (const w of words) for (let i = low.indexOf(w); i >= 0; i = low.indexOf(w, i + w.length)) for (let k = i; k < i + w.length; k++) on[k] = true;
+  let h = "", m = false;
+  for (let i = 0; i < text.length; i++) { if (on[i] !== m) { h += m ? "</mark>" : "<mark>"; m = on[i]; } h += esc(text[i]); }
+  return h + (m ? "</mark>" : "");
+}
+function srSnip(text, words) {
+  const low = text.toLowerCase(), first = Math.min(...words.map(w => { const j = low.indexOf(w); return j < 0 ? Infinity : j; }));
+  const from = Math.max(0, (isFinite(first) ? first : 0) - 50), s = text.slice(from, from + 180);
+  return (from ? "…" : "") + s + (from + 180 < text.length ? "…" : "");
+}
+function srRender() {
+  const q = srQ.value.trim(), words = srWords(q);
+  srHits = srFind(q);
+  srAt = Math.min(srAt, Math.max(0, srHits.length - 1));
+  srList.innerHTML = !q ? `<li class="muted sr-none">Type a word or two.</li>`
+    : !srHits.length ? `<li class="muted sr-none">Nothing found for “${esc(q)}”.</li>`
+    : srHits.map((e, i) => `<li role="option" class="sr-it${i === srAt ? " on" : ""}" data-sr="${i}" aria-selected="${i === srAt}">` +
+      `<span class="sr-h"><span class="sr-k">${esc(e.kind)}</span>${e.where ? `<span class="muted">${esc(e.where)}</span>` : ""}</span>` +
+      `<b class="sr-t">${srMark(e.title, words)}</b><span class="sr-s">${srMark(e.full ? e.text : srSnip(e.text, words), words)}</span></li>`).join("");
+}
+function openSearch() {
+  if (document.querySelector("dialog[open]") && !srDlg.open) return;
+  if (!srDlg.open) srDlg.showModal();
+  srAt = 0; srRender(); srQ.focus(); srQ.select();
+}
+function srOpen(i) {
+  const e = srHits[i];
+  if (!e || e.go[0] === "term") return;   // a term's result is its definition
+  const [k, v] = e.go;
+  srDlg.close();
+  if (k === "step") jumpTo(v);
+  else if (k === "day") { const d = dayOf(v); setView(d.id, landing(d), true); openSheet("daynotes"); }
+  else if (k === "book") { nbFilter = "all"; openSheet("notebook"); }
+  else openSheet("cues");
+}
+srQ.addEventListener("input", () => { srAt = 0; srRender(); });
+srDlg.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    srAt = Math.max(0, Math.min(srHits.length - 1, srAt + (e.key === "ArrowDown" ? 1 : -1)));
+    srRender();
+    const on = srList.querySelector(".on");
+    if (on) on.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") { e.preventDefault(); srOpen(srAt); }
+});
+srDlg.addEventListener("click", e => {
+  const it = e.target.closest("[data-sr]");
+  if (it) srOpen(+it.dataset.sr);
+  else if (e.target.closest("[data-sr-close]")) srDlg.close();
+});
+srDlg.addEventListener("close", runPending);
+document.addEventListener("keydown", e => {
+  const typing = e.target.matches("input,textarea,select");
+  if (((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "k") || (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey)) {
+    if (document.querySelector("dialog[open]") && !srDlg.open) return;
+    e.preventDefault();
+    openSearch();
+  }
+});
+document.getElementById("b-search").onclick = openSearch;
+
+// ---------- the focus view and "Test me" on a step ----------
+function toggleFocusView() { ui.focusView = !ui.focusView; saveUI(); applyDisplay(); if (view.day) renderFlow(false); }
+let recall = { id: "", open: new Set(), marks: {} };   // the card being tested, in memory; the marks themselves go to S.kconf
+function recallClick(b) {
+  const ds = b.dataset;
+  if ("test" in ds) recall = { id: ds.test, open: new Set(), marks: {} };
+  else if ("testEnd" in ds) recall = { id: "", open: new Set(), marks: {} };
+  else if ("reveal" in ds) recall.open.add(+ds.reveal);
+  else if ("kc" in ds && recall.id) {
+    const i = +ds.ki, pts = ((KEYS[recall.id] || {}).k || []).filter(Array.isArray).length;
+    recall.marks[i] = ds.kc;
+    S.kconf[`${recall.id}:${i}`] = ds.kc;
+    save();
+    if (ds.kc === "ok") { FX.sound("pop"); FX.sparkle(b); }
+    const marks = Object.values(recall.marks);
+    if (marks.length === pts && marks.every(m => m === "ok")) setTimeout(() => FX.small(cardEl.querySelector(".c-key")), 50);   // every point recalled
+  }
+  renderFlow(false);
+  const next = cardEl.querySelector(ds.reveal !== undefined ? `[data-kc][data-ki="${ds.reveal}"]` : "[data-reveal],[data-test-end],[data-test]");
+  if (next) next.focus({ preventScroll: true });
+}
+
 function cuesHTML() {
   return `<p class="muted">Exam questions hide the deciding requirement in a phrase. Spot it and half the options fall away.</p>` +
     `<table class="cues"><thead><tr><th>When you read</th><th>It usually points to</th><th>Example</th></tr></thead><tbody>` +
@@ -1701,6 +1866,10 @@ clDlg.addEventListener("close", runPending);
 
 // ---------- events: day flow ----------
 flowEl.addEventListener("click", e => {
+  if (e.target.closest("[data-focus-view]")) { toggleFocusView(); return; }
+  if (e.target.closest("[data-search]")) { openSearch(); return; }
+  const tst = e.target.closest("[data-test],[data-test-end],[data-reveal],[data-kc]");
+  if (tst) { recallClick(tst); return; }
   const g = e.target.closest(".g");
   if (g) { e.preventDefault(); g.classList.toggle("show"); return; }
   if (e.target.closest("[data-home]")) { setView("", "", true); return; }
@@ -1738,6 +1907,7 @@ document.addEventListener("keydown", e => {
   if (!view.day || document.querySelector("dialog[open]") || e.ctrlKey || e.metaKey || e.altKey || e.target.matches("input,textarea,select")) return;
   const nav = document.getElementById("fl-nav");
   let b = null;
+  if ((e.key === "f" || e.key === "F") && !e.repeat) { e.preventDefault(); toggleFocusView(); return; }
   if (e.key === "ArrowLeft") b = nav.querySelector("[data-back]");
   else if (e.key === "ArrowRight") b = nav.querySelector("[data-next]");
   else if (e.key === "Enter" && !e.repeat && !e.target.closest("button,a,summary")) b = nav.querySelector("[data-main]");
@@ -1809,6 +1979,8 @@ document.getElementById("b-set").onclick = () => {
   document.getElementById("s-fx").checked = S.settings.fx;
   document.getElementById("s-snd").checked = S.settings.sound;
   document.getElementById("s-gif").checked = S.settings.gif;
+  document.getElementById("s-theme").value = ui.theme === "light" || ui.theme === "dark" ? ui.theme : "";
+  document.getElementById("s-size").value = ui.size === "l" || ui.size === "xl" ? ui.size : "";
   renderSettingsInfo();
   setDlg.returnValue = "";
   setDlg.showModal();
@@ -1824,6 +1996,8 @@ setDlg.addEventListener("close", () => {
   S.settings.fx = document.getElementById("s-fx").checked;
   S.settings.sound = document.getElementById("s-snd").checked;
   S.settings.gif = document.getElementById("s-gif").checked;
+  ui.theme = document.getElementById("s-theme").value; ui.size = document.getElementById("s-size").value;
+  saveUI(); applyDisplay();
   save(); rebuild();
 });
 document.getElementById("s-unslip").onclick = () => { S.slips = []; S.slipSkip = ""; save(); refresh(); renderSettingsInfo(); };
@@ -2002,7 +2176,7 @@ function mergeDocs(local, remote) {
   const m = clone(newer);
   const seenIn = (st, id) => (st.qs[id] ? st.qs[id].seen : 0);
   for (const k in older.ticks) m.ticks[k] = true;
-  for (const f of ["notes", "inotes", "scores", "conf", "warm"]) for (const k in older[f]) if (!(k in m[f]) || m[f][k] === "") m[f][k] = older[f][k];
+  for (const f of ["notes", "inotes", "scores", "conf", "kconf", "warm"]) for (const k in older[f]) if (!(k in m[f]) || m[f][k] === "") m[f][k] = older[f][k];
   for (const k in older.dayDone) if (!m.dayDone[k] || older.dayDone[k] < m.dayDone[k]) m.dayDone[k] = older.dayDone[k];
   for (const k in older.quiz) {
     const o = older.quiz[k], n = m.quiz[k];
