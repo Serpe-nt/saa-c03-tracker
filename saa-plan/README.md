@@ -50,7 +50,7 @@ Open http://localhost:8080
 - **Missed questions come back** after 1, 2 and 4 days, as a morning warm-up or a review. Each one also goes into the **wrong-answer notebook**, with a line for why you missed it. You can export the notebook as Markdown.
 - **Mock exam:** unlocks when Days 1–17 (the lectures and labs) are complete. It has 65 questions in 130 minutes, split by domain like the exam guide, with no feedback until the end. Each attempt draws different questions.
 - **Moving around a quiz:** ← Previous and Next → go one question either way without answering, so you can skip one and come back; the squares above the question show right, wrong and open, and jump to any of them. After an answer, the main button goes on to the next open question.
-- **XP, levels and badges:** every right answer, step and passed quiz earns XP; levels come with titles from "Cloud curious" to "Solutions architect". 15 badges (5, 10, 20, 30 in a row, a perfect score, a comeback, 10 hours of focus, 80% on a mock…). The run of right answers shows in the quiz header and heats up; the results show stars, the XP earned and your longest run.
+- **XP, levels and badges:** right answers earn XP the first time, after a miss, or when they were due for review (repeats don't), and so do steps and passed quizzes; levels come with titles from "Cloud curious" to "Solutions architect". 15 badges (5, 10, 20, 30 in a row, a perfect score, a comeback, 10 hours of focus, 80% on a mock…). The run of right answers shows in the quiz header and heats up; the results show stars, the XP earned and your longest run.
 - **South Park on the results:** a GIF for every answer right, a pass with some wrong, and a fail, ten of each in rotation (`site/gifs.js`), loaded from GIPHY. Switch them off in ⚙ Settings.
 - **Practice panel:** review queue, mock exam, a 60-second "Which service?" drill, the notebook, a weak-spot map by topic, an exam-wording cheat sheet, and your badges and level.
 
@@ -58,7 +58,7 @@ The questions are original practice questions in the exam's style, not official 
 
 ## Focus timer
 
-50 minutes of focus count down and are logged to the day you started them on. When they end, a pop-up offers a break (in every open tab, and again after a reload until you answer). The break has no set length: the clock counts up, and after 10 minutes it reminds you every minute to start the next block (a sound each minute; the pop-up only if it isn't already open). "Pause the break" in the pop-up, or Pause on the timer, stops the reminders.
+50 minutes of focus count down and are logged to the day you started them on. When they end, a pop-up offers a break (in every open tab, and again after a reload until you answer). The break has no set length: the clock counts up, and after 10 minutes it reminds you every minute to start the next block (a sound each minute; the pop-up only if it isn't already open). "Pause the break" in the pop-up, or Pause on the timer, stops the reminders. During the mock exam and the drill the pop-ups wait until you close them; the sound still reminds you.
 
 After updating the site (`docker compose up -d --build`), reload every open tab and device: a tab still running the old page doesn't know the open-ended break and can reset it.
 

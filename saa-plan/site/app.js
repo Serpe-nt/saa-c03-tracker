@@ -96,7 +96,11 @@ function clean(s) {
     r.tries = r.tries.filter(isObj).map(t => ({ at: str0(t.at), score: num0(t.score), n: num0(t.n) }));
   }
   keep(s.qs, isObj);
-  for (const k in s.qs) { const q = s.qs[k], seen = int0(q.seen, 0, 1e6); s.qs[k] = { seen, right: int0(q.right, 0, seen), last: q.last ? 1 : 0, at: str0(q.at) }; }
+  for (const k in s.qs) {
+    const q = s.qs[k], seen = int0(q.seen, 0, 1e6), right = int0(q.right, 0, seen);
+    // xp = the right answers that earned XP; an entry from before that rule keeps all of them, so no level drops
+    s.qs[k] = { seen, right, last: q.last ? 1 : 0, at: str0(q.at), xp: typeof q.xp === "number" ? int0(q.xp, 0, right) : right };
+  }
   keep(s.srs, v => isObj(v) && isDay(v.due));
   for (const k in s.srs) s.srs[k] = { step: num0(s.srs[k].step), due: s.srs[k].due };
   keep(s.book, isObj);
@@ -781,7 +785,7 @@ function celebrate(kind, d) {
 
 // ---------- XP, levels and badges ----------
 // XP is worked out from what the state already holds, so syncing and merging need no rules of their own:
-// every right answer, every completed step, every day quiz passed, plus what each badge earned is worth.
+// right answers that teach something (qs[].xp, see learn()), completed steps, day quizzes passed, plus each badge earned.
 const XP = { right: 10, step: 5, pass: 100 };
 // Badges are earned once and kept with the date (S.ach). Most are read from the state, so progress made
 // before badges existed earns them too (quietly, at boot); the streak ones (`row`) only while answering.
@@ -794,8 +798,8 @@ const ACH = [
   { id: "pass1", i: "✅", t: "First quiz passed", d: "Pass an end-of-day quiz.", xp: 50, ok: c => c.passed >= 1 },
   { id: "perfect", i: "💯", t: "Perfect score", d: "Every answer of a day quiz right.", xp: 200, ok: c => c.perfect },
   { id: "comeback", i: "🔁", t: "Comeback", d: "Pass a day quiz you failed before.", xp: 100, ok: c => c.comeback },
-  { id: "right100", i: "🧠", t: "A hundred right", d: "100 quiz answers right in total.", xp: 100, ok: c => c.right >= 100 },
-  { id: "right500", i: "🧠", t: "Five hundred right", d: "500 quiz answers right in total.", xp: 250, ok: c => c.right >= 500 },
+  { id: "right100", i: "🧠", t: "A hundred right", d: "100 right answers that earned XP.", xp: 100, ok: c => c.right >= 100 },
+  { id: "right500", i: "🧠", t: "Five hundred right", d: "500 right answers that earned XP.", xp: 250, ok: c => c.right >= 500 },
   { id: "fix10", i: "🛠", t: "Mistake fixer", d: "Answer 10 notebook questions right after missing them.", xp: 100, ok: c => c.fixed >= 10 },
   { id: "warm5", i: "☕", t: "Early bird", d: "Do the morning warm-up on 5 days.", xp: 75, ok: c => c.warm >= 5 },
   { id: "drill15", i: "⚡", t: "Quick draw", d: "15 or more in the 60-second drill.", xp: 100, ok: c => c.drill >= 15 },
@@ -809,7 +813,7 @@ const rankOf = n => RANKS[Math.min(RANKS.length - 1, Math.floor((n - 1) / 2))];
 const lvAt = n => 40 * n * (n - 1);   // XP that reaches level n: 80 for level 2, 240 for 3, 3,600 for 10
 function xpTotal() {
   let x = 0;
-  for (const id in S.qs) x += XP.right * S.qs[id].right;
+  for (const id in S.qs) x += XP.right * S.qs[id].xp;
   x += XP.step * Object.keys(S.ticks).filter(id => itemIndex[id]).length;
   x += XP.pass * DAYS.filter(d => S.quiz[d.id] && S.quiz[d.id].passed).length;
   for (const id in S.ach) if (ACH_BY[id]) x += ACH_BY[id].xp;
@@ -824,7 +828,7 @@ function levelOf(x) {
 }
 function achCtx() {
   let right = 0;
-  for (const id in S.qs) right += S.qs[id].right;
+  for (const id in S.qs) right += S.qs[id].xp;
   const qz = DAYS.map(d => S.quiz[d.id]).filter(Boolean);
   return {
     right,
@@ -952,7 +956,7 @@ const qzDlg = document.getElementById("quiz"), qzBody = document.getElementById(
 // The card's height lets the study panel beside it line up with its top edge (style.css, .qz-side).
 new ResizeObserver(() => qzDlg.style.setProperty("--qzdh", qzDlg.offsetHeight + "px")).observe(qzDlg);
 let picks = {};      // question id → options picked, not yet checked (memory only; kept while you move between questions)
-let fresh = false;   // the answer on screen was checked just now: animate it (going back to it later does not)
+let fresh = false;   // the answer on screen was checked just now: animate it (going back to it later does not); "xp" when it earned XP
 let comboFx = "";    // "up" when the run of right answers just grew, "broke" when a miss ended one
 // Right answers in a row (run.row) get a badge at these marks; the tier sets its look.
 const ROW_TIERS = [[30, "👑", "Flawless", "epic"], [25, "💎", "Untouchable", "epic"], [20, "🌟", "Legendary", "epic"], [15, "⚡", "Unstoppable", "gold"], [10, "🔥", "On fire", "gold"], [5, "🔥", "On a roll", "silver"], [3, "🔥", "Warming up", "bronze"]];
@@ -1072,9 +1076,14 @@ const noteHTML = q => `<label class="qz-note">Why did you miss it? One line for 
 const optsHTML = (q, ord, on) => `<div class="qz-opts">${ord.map((oi, k) => `<button type="button" class="qz-o${on.includes(oi) ? " on" : ""}" data-o="${oi}" aria-pressed="${on.includes(oi)}"><span class="qz-l">${LETTERS[k]}</span><span class="qz-t">${q.o[oi]}</span></button>`).join("")}</div>`;
 
 // Record an answer everywhere it matters: stats, spaced repetition, notebook.
+// Returns whether the answer earned XP: a right answer the first time, right after a miss, or right when it was
+// due for review. Answering the same question right again and again (step practice, retakes) earns nothing more.
 function learn(q, ok) {
-  const t = today();
+  const t = today(), s = S.qs[q.id], due = !!(S.srs[q.id] && S.srs[q.id].due <= t);
+  const earns = ok && (!s || !s.right || !s.last || due);
   QZ.record(S.qs, q.id, ok, t);
+  const e = S.qs[q.id];
+  e.xp = Math.min(e.right, (e.xp || 0) + (earns ? 1 : 0));
   if (ok) {
     QZ.srsHit(S.srs, q.id, t);
     if (S.book[q.id]) S.book[q.id].fixed = true;
@@ -1083,6 +1092,7 @@ function learn(q, ok) {
     const b = S.book[q.id] || (S.book[q.id] = { at: t, misses: 0, note: "", fixed: false });
     b.misses++; b.at = t; b.fixed = false;
   }
+  return earns;
 }
 
 // ---------- quizzes: day, review, warm-up (feedback after every answer) ----------
@@ -1124,7 +1134,7 @@ function renderQ() {
     const keyL = ord.map((oi, k) => q.a.includes(oi) ? LETTERS[k] : "").filter(Boolean).join(" and ");
     const main = to < 0 ? "See results" : to === r.i + 1 ? "Next question →" : `Continue at question ${to + 1} →`;
     qzBody.innerHTML = mapHTML(r) + `<div class="qz-q">${q.q}</div>` +
-      `<div class="qz-verdict ${ok ? "ok" : "bad"}${fresh ? " fresh" : ""}" role="status">${ok ? "✓ Correct." : `✗ Not quite. The answer is ${keyL}.`}${fresh && ok ? `<span class="xp-up">+${XP.right} XP</span>` : ""}</div>` +
+      `<div class="qz-verdict ${ok ? "ok" : "bad"}${fresh ? " fresh" : ""}" role="status">${ok ? "✓ Correct." : `✗ Not quite. The answer is ${keyL}.`}${fresh === "xp" ? `<span class="xp-up">+${XP.right} XP</span>` : ""}</div>` +
       fbHTML(q, ord, ans, fresh) + studyHTML(q, true) + (ok ? "" : noteHTML(q)) +
       `<div class="qz-a qz-nav">${prev}${to === r.i + 1 ? "" : skip}<button type="button" class="primary" data-qz="next">${main}</button></div>`;
   }
@@ -1176,14 +1186,14 @@ function check() {
   r.ans[id] = sel.slice();
   delete picks[id];
   const ok = QZ.isRight(q, r.ans[id]);
-  learn(q, ok);
+  const earned = learn(q, ok);
   const was = r.row, best = r.best0;
   r.row = ok ? r.row + 1 : 0;
   r.rowMax = Math.max(r.rowMax, r.row);
   S.rowBest = Math.max(S.rowBest, r.row);
   const record = ok && r.row > best && best >= 3 && !r.rec;   // past your longest run from before this quiz, said once a quiz
   const got = award(r.row);
-  fresh = true;
+  fresh = earned ? "xp" : true;
   comboFx = ok ? (r.row >= 2 ? "up" : "") : was >= 2 ? "broke" : "";
   save(); renderQ();
   refocus('[data-qz="next"]');
@@ -1625,7 +1635,7 @@ function badgesHTML() {
   return `<div class="lv"><div class="lv-n"><small>Level</small>${L.n}</div><div class="lv-x"><b>${rankOf(L.n)}</b>` +
     `<span class="xpbar"><span style="width:${L.pct}%"></span></span>` +
     `<span class="muted">${L.x} XP, ${L.to - L.x} to level ${L.n + 1}.${next < RANKS.length ? ` Next title at level ${next * 2 + 1}: ${RANKS[next]}.` : ""}</span></div></div>` +
-    `<p class="muted">XP: ${XP.right} for a right quiz answer, ${XP.step} for a completed step, ${XP.pass} for a day quiz passed, and what each badge is worth. ` +
+    `<p class="muted">XP: ${XP.right} for a right quiz answer the first time, right after a miss, or right when it is due for review (repeats earn nothing), ${XP.step} for a completed step, ${XP.pass} for a day quiz passed, and what each badge is worth. ` +
     `Your longest run of right answers: ${S.rowBest || "none yet"}.</p>` +
     `<ul class="ach">${ACH.map(a => `<li class="${S.ach[a.id] ? "on" : ""}"><span class="ach-i">${a.i}</span><span class="ach-x"><b>${a.t}</b><span>${a.d}</span>` +
       `<span class="muted">${S.ach[a.id] ? `Earned ${fmtD(parseDate(S.ach[a.id]))}, +${a.xp} XP` : `+${a.xp} XP`}</span></span></li>`).join("")}</ul>`;
@@ -1844,6 +1854,9 @@ const tmLeft = () => S.timer.running ? Math.min(FOCUS, Math.max(0, Math.round((S
 const restUp = () => Math.min(86400, Math.max(0, Math.round(S.timer.up + (S.timer.running ? (Date.now() - S.timer.at) / 1000 : 0))));
 const mmss = s => (s >= 3600 ? `${Math.floor(s / 3600)}:` : "") + `${String(Math.floor(s / 60) % (s >= 3600 ? 60 : 1e9)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 const workDay = () => dayOf(view.day) || (nextStep() || {}).d;
+// The mock exam and the drill run against a clock: the timer's pop-ups wait until they are closed or over.
+const inTimed = () => qzDlg.open && (drill ? !drill.done : !intro && !!S.run && S.run.kind === "mock" && !S.run.done);
+let overHeld = false;   // a "Break is over" pop-up is waiting for the mock exam or the drill
 // Every change to the timer carries its own time, so a merge keeps the timer that changed last (not whichever copy saved last).
 function tmSave() { S.timer.ts = Date.now(); save(); tmRender(); }
 // Credit focused time to the day the block was started on (or, for a block from before that was kept, the day you're on).
@@ -1937,7 +1950,7 @@ setInterval(() => {
     FX.sparkle(tm);   // a full focus block is something finished too
     brkGains.push(...award());
   }
-  if (t.ask && !brkDlg.open) brkOpen("done");
+  if (t.ask && !brkDlg.open && !inTimed()) brkOpen("done");
   if (t.running && t.mode === "rest" && restUp() >= REST_NAG) {
     const key = `${t.at}:${Math.floor((restUp() - REST_NAG) / 60)}`;   // a new or resumed break starts its own minutes
     if (key !== nagKey) {
@@ -1945,9 +1958,10 @@ setInterval(() => {
       let heard = "";
       try { heard = localStorage.getItem(NAG_KEY) || ""; localStorage.setItem(NAG_KEY, key); } catch (e) {}
       if (heard !== key) FX.sound("nag");   // another tab already knocked this minute
-      if (!brkDlg.open) brkOpen("over");
+      if (!brkDlg.open) { if (inTimed()) overHeld = true; else brkOpen("over"); }
     }
-  }
+    if (overHeld && !brkDlg.open && !inTimed()) { overHeld = false; brkOpen("over"); }
+  } else overHeld = false;
   // the timer moved on elsewhere (another tab, the server): a pop-up that no longer fits goes away
   if (brkDlg.open && (brkDlg.dataset.kind === "over" ? !(t.mode === "rest" && t.running && restUp() >= REST_NAG) : !t.ask)) brkDlg.close();
   if (t.running) tmRender();

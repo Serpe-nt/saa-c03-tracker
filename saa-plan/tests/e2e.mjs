@@ -392,6 +392,7 @@ try {
     const st = JSON.parse(localStorage.getItem(k)), d = window.PLAN.find(x => x.id === id);
     return window.QZ.dayPool(d, window.QZ.topics(window.PLAN, window.STEP_TAGS), window.QUIZ).map(q => q.id).filter(q => !st.qs[q]);
   }, [KEY, QB.id]);
+  const pre = await state(page);
   await page.click('#qz-body [data-qz="retake"]');
   const second = (await state(page)).run.ids;
   const fresh = second.filter(id => unseen.includes(id)).length;
@@ -413,6 +414,14 @@ try {
     await page.click('#qz-body [data-qz="next"]');
   }
   await page.waitForSelector("#qz-body .qz-res.ok");
+  {
+    // XP only for a right answer that teaches something: the first time, after a miss, or when due for review
+    const after = (await state(page)).qs, t = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+    const repeats = second.filter(id => pre.qs[id] && pre.qs[id].last && !(pre.srs[id] && pre.srs[id].due <= t));
+    console.log(`  XP rule: ${repeats.length} repeats answered right again`);
+    assert.ok(repeats.length > 0 && repeats.every(id => after[id].right === pre.qs[id].right + 1 && after[id].xp === pre.qs[id].xp), "right again on a question already right (not due) earns no more XP");
+    assert.ok(second.filter(id => !pre.qs[id]).every(id => after[id].xp === 1), "a first right answer earns XP");
+  }
   await page.click('#qz-body [data-qz="finish"]');
   assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-done"), "1");
 
@@ -818,6 +827,41 @@ try {
   assert.ok(tmS.mode === "focus" && tmS.running && Math.abs(tmS.endAt - nowMs - 50 * 60000) < 5000 && !(await page.locator("#brk[open]").count()), "Start focus starts the next 50 minutes");
   await page.clock.fastForward(3 * 60000);
   assert.equal(await nags(), 4, "no reminders during focus");
+  await ctx.close();
+
+  log("the timer's pop-ups wait while the drill or the mock exam runs; the reminder sound doesn't");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.clock.install();
+  await page.goto(BASE);
+  await setState(page, s => {
+    s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false };
+    s.timer = { mode: "rest", running: true, at: Date.now() - 9.5 * 60000, up: 0, min: false };
+    s.run = { kind: "mock", day: "", ids: ["m1-001", "m1-002", "m2-003"], ord: {}, ans: {}, flag: {}, i: 0, t0: Date.now(), end: Date.now() + 7800000, done: false, view: "" };
+  });
+  await page.reload();
+  await page.evaluate(() => { window.__snd = []; const f = window.FX.sound; window.FX.sound = (n, a) => { window.__snd.push(n); return f(n, a); }; });
+  const nags2 = () => page.evaluate(() => window.__snd.filter(n => n === "nag").length);
+  await openPanel(page, "practice");
+  await page.click('#pr-grid [data-drill]');
+  await page.waitForSelector("#qz-body .dr-req");
+  await page.clock.fastForward(40000);                                  // the break passes 10 minutes during the drill
+  assert.equal(await page.locator("#brk[open]").count(), 0, "no pop-up over the running drill");
+  assert.equal(await nags2(), 1, "the reminder sound still plays");
+  await page.clock.fastForward(25000);                                  // the drill is over: its results aren't timed
+  await page.waitForSelector("#brk[open]");
+  await page.clock.fastForward(450);
+  await page.click('#brk [data-brk="later"]');
+  await page.click('#quiz [data-qz="close"]');
+  await page.click('#pr-grid [data-mock]');                             // resume the mock exam
+  await page.waitForSelector("#qz-body .qz-o");
+  await page.clock.fastForward(60000);
+  assert.equal(await page.locator("#brk[open]").count(), 0, "no pop-up over the mock exam");
+  assert.equal(await nags2(), 2, "the next minute's reminder is the sound alone");
+  await page.click('#quiz .qz-x');                                       // close the mock (its clock keeps running)
+  await page.clock.fastForward(1500);
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /Break is over/, "the held reminder comes up once the mock is closed");
   await ctx.close();
 
   log("two tabs: the focus-block prompt shows in both, and answering it in one closes it in the other");
