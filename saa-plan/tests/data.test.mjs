@@ -234,3 +234,17 @@ test("exam-wording phrases are linked to real phrases and real topics", () => {
   }
   for (const p of phrases) assert.ok(W.CUE_TAGS[p], `CUE_TAGS: "${p}" has no topics`);
 });
+
+test("results GIFs: at least five per outcome, GIPHY ids, a description each, no repeats", () => {
+  const seen = new Set();
+  assert.deepEqual(Object.keys(W.GIFS).sort(), ["ace", "fail", "pass"]);
+  for (const [o, list] of Object.entries(W.GIFS)) {
+    assert.ok(list.length >= 5, `GIFS.${o}: ${list.length}, want 5 or more in rotation`);
+    for (const [id, alt] of list) {
+      assert.match(id, /^[A-Za-z0-9]{8,24}$/, `GIFS.${o}: ${id}`);
+      assert.ok(typeof alt === "string" && alt.length > 3 && !/[<>]/.test(alt), `GIFS.${o} ${id}: describe it, plain text`);
+      assert.ok(!seen.has(id), `GIFS: ${id} twice`);
+      seen.add(id);
+    }
+  }
+});

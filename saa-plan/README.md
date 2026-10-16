@@ -34,10 +34,10 @@ Open http://localhost:8080
 
 ## How a day works
 
-- **Overview.** The first screen shows where you stand (steps, days, focus time, quiz accuracy, streak), the day to work on with one button (Start Day 1, Continue Day 3, Take the Day 3 quiz), and the days as tiles. Any tile opens its day.
+- **Overview.** The first screen shows where you stand (steps, days, focus time, quiz accuracy, streak, level), the day to work on with one button (Start Day 1, Continue Day 3, Take the Day 3 quiz), and the days as tiles. Any tile opens its day.
 - **One step at a time.** A day opens as a single card with three buttons under it: Back, Mark complete, Next. Mark complete moves you to the next open step; Next skips a step without marking it, and the row of dots above the card shows what is still open. The arrow keys and Enter work too.
 - **Purpose first.** Each card opens with why the thing exists: the problem it was made to solve. Only then come where to do it and the details, as short labelled points.
-- **Something happens when you finish something.** A step gets a burst and a note that climbs through the day, a block of the day gets a banner and fireworks, and the day, the week and the whole plan get more. Right answers in a row and a perfect quiz are called out too. Effects and sounds each have a switch in the header.
+- **Something happens when you finish something.** A step gets a burst and a note that climbs through the day, a block of the day gets a banner and fireworks, and the day, the week and the whole plan get more. Right answers in a row, records, badges, levels and a perfect quiz drop in as badges at the top of the screen. Effects and sounds each have a switch in the header.
 - **Everything for that step is on its card:** where to do it and the link, key points and the exam trap, the AWS pages to read, the exam topics it feeds with your accuracy so far, glossary terms, exam wording, your own notes, and three practice questions on exactly that step.
 - **The last card of a day is its quiz** (Days 3–21). Pass it and you get the day's summary and the button for the next day.
 - **The length of the plan is data.** Days, weeks and quizzes come from `plan.js`: add, remove or reorder days there and the page follows.
@@ -49,9 +49,16 @@ Open http://localhost:8080
 - **Days 8, 13 and 17** review everything taught so far. **Days 18 and 19** take the exam domains two at a time. **Day 20** is built from your weakest topics and past misses. **Day 21** mixes all four domains, weighted like the exam.
 - **Missed questions come back** after 1, 2 and 4 days, as a morning warm-up or a review. Each one also goes into the **wrong-answer notebook**, with a line for why you missed it. You can export the notebook as Markdown.
 - **Mock exam:** unlocks when Days 1–17 (the lectures and labs) are complete. It has 65 questions in 130 minutes, split by domain like the exam guide, with no feedback until the end. Each attempt draws different questions.
-- **Practice panel:** review queue, mock exam, a 60-second "Which service?" drill, the notebook, a weak-spot map by topic, and an exam-wording cheat sheet.
+- **Moving around a quiz:** ← Previous and Next → go one question either way without answering, so you can skip one and come back; the squares above the question show right, wrong and open, and jump to any of them. After an answer, the main button goes on to the next open question.
+- **XP, levels and badges:** every right answer, step and passed quiz earns XP; levels come with titles from "Cloud curious" to "Solutions architect". 15 badges (5, 10, 20, 30 in a row, a perfect score, a comeback, 10 hours of focus, 80% on a mock…). The run of right answers shows in the quiz header and heats up; the results show stars, the XP earned and your longest run.
+- **South Park on the results:** a GIF for every answer right, a pass with some wrong, and a fail, ten of each in rotation (`site/gifs.js`), loaded from GIPHY. Switch them off in ⚙ Settings.
+- **Practice panel:** review queue, mock exam, a 60-second "Which service?" drill, the notebook, a weak-spot map by topic, an exam-wording cheat sheet, and your badges and level.
 
 The questions are original practice questions in the exam's style, not official AWS questions.
+
+## Focus timer
+
+50 minutes of focus count down and are logged to the day you're working on. When they end, a pop-up offers a break. The break has no set length: the clock counts up, and after 10 minutes it reminds you every minute to start the next block (a sound each minute; the pop-up only if it isn't already open). Pause or reset the break to stop the reminders.
 
 ## Keep it up after reboots
 

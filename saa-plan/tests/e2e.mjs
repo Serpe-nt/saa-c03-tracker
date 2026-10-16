@@ -27,10 +27,21 @@ function track(page) {
   page.on("dialog", d => d.accept());
   return page;
 }
+// GIPHY is not reached from the tests: its GIFs are answered with a 1×1 picture (or refused, to check the fallback).
+const GIF1 = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
+const GIPHY = "https://media.giphy.com/**";
+const stubGifs = ctx => ctx.route(GIPHY, r => r.fulfill({ contentType: "image/gif", body: GIF1 }));
 async function newPage(opts = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 }, ...opts });
+  await stubGifs(ctx);
   return { ctx, page: track(await ctx.newPage()) };
 }
+// The results GIF on screen: its GIPHY id, and which outcome's list (ace, pass, fail) it comes from.
+const gifOn = page => page.evaluate(() => {
+  const img = document.querySelector("#qz-body .qz-res.has-gif .qz-gif img");
+  const id = img && (/media\.giphy\.com\/media\/([A-Za-z0-9]+)\/giphy\.gif$/.exec(img.src) || [])[1];
+  return id ? { id, o: Object.keys(window.GIFS).find(o => window.GIFS[o].some(g => g[0] === id)) } : null;
+});
 const serverState = page => page.evaluate(() => fetch("api/state").then(r => r.ok ? r.json() : null).catch(() => null));
 const hash = page => page.evaluate(() => location.hash);
 // Open a day's card: a step id, "quiz", or nothing for the day's first open step.
@@ -101,7 +112,8 @@ try {
   console.log(`  plan: ${P.days.length} days; first quiz days ${QA.day} and ${QB.day}; helper card ${HELP}`);
   assert.ok(await page.locator("#home").isVisible() && await page.locator("#flow").isHidden(), "the overview is the first screen");
   assert.equal(await page.locator("#map .dt").count(), P.days.length, "one tile per day");
-  assert.equal(await page.locator("#stats .st").count(), 5);
+  assert.equal(await page.locator("#stats .st").count(), 6);
+  assert.match(await page.textContent("#stats .st-lv"), /Level\s*1/, "a level cell, starting at level 1");
   assert.match(await page.textContent("#next"), /Start Day 1/);
   await page.screenshot({ path: path.join(SHOTS, "01-overview.png"), fullPage: false });
 
@@ -194,7 +206,33 @@ try {
   assert.equal(s.run.kind, "step");
   assert.equal(s.run.ids.length, 3);
   assert.ok(await page.evaluate(([ids, step]) => ids.every(id => { const q = window.QUIZ.find(x => x.id === id); return q.ref.includes(step) || q.tags.some(t => window.STEP_TAGS[step].includes(t)); }), [s.run.ids, HELP]), "questions that name the step or are on its topics");
-  for (let i = 0; i < 3; i++) { await answer(page, true); await page.click('#qz-body [data-qz="check"]'); await page.click('#qz-body [data-qz="next"]'); }
+  log("quiz navigation: Previous and Next move without answering, the squares show right and wrong, Continue finds what is left");
+  assert.equal(await page.locator("#qz-body .qz-map button").count(), 3, "one square per question");
+  assert.ok(await page.locator('#qz-body [data-qz="prev"]').isDisabled(), "no Previous on the first question");
+  await page.click('#qz-body [data-qz="skip"]');                       // Next leaves question 1 open
+  assert.equal((await state(page)).run.i, 1);
+  await answer(page, true); await page.click('#qz-body [data-qz="check"]');
+  assert.match(await page.textContent('#qz-body [data-qz="next"]'), /Next question/);
+  assert.equal(await page.locator("#qz-body .qz-map button.ok").count(), 1, "the answered square turns green");
+  assert.match(await page.textContent("#qz-body .qz-verdict"), /\+10 XP/, "a right answer shows the XP it earns");
+  await page.keyboard.press("ArrowLeft");                                // back to the open one
+  s = await state(page);
+  assert.ok(s.run.i === 0 && !s.run.ans[s.run.ids[0]] && await page.locator("#qz-body .qz-o").count() >= 4, "Previous shows question 1, still open");
+  await answer(page, true); await page.click('#qz-body [data-qz="check"]');
+  assert.match(await page.textContent('#qz-body [data-qz="next"]'), /Continue at question 3/, "the main button goes on to the question still open");
+  assert.ok(await page.locator('#qz-body [data-qz="prev"]').isDisabled(), "nothing before the first question");
+  await page.click('#qz-body [data-go="1"]');
+  assert.ok(await page.locator("#qz-body .qz-verdict.ok").count() === 1 && await page.locator('#qz-body [data-qz="check"]').count() === 0, "an answered question shows its feedback, read-only");
+  await page.click('#qz-body [data-qz="next"]');
+  assert.equal((await state(page)).run.i, 2);
+  await answer(page, true); await page.click('#qz-body [data-qz="check"]');
+  assert.match(await page.textContent('#qz-body [data-qz="next"]'), /See results/);
+  await page.click('#qz-body [data-qz="next"]');
+  await page.waitForSelector("#qz-body .qz-res.ok");
+  assert.equal(await page.locator("#qz-body .stars span.on").count(), 3, "three stars for every answer right");
+  assert.match(await page.textContent("#qz-body .qz-rw"), /Level \d+[\s\S]*\+\d+ XP/, "the level and the XP this round earned");
+  const g1 = await gifOn(page);
+  assert.equal(g1 && g1.o, "ace", "every answer right: a GIF from the ace list");
   await page.click('#qz-body [data-qz="finish"]');
   assert.equal((await state(page)).run, null);
   assert.match(await page.textContent("#card .c-prac"), /answered 3/);
@@ -255,7 +293,14 @@ try {
       await page.keyboard.press("Enter");
     } else await page.click('#qz-body [data-qz="check"]');
     await page.waitForSelector("#qz-body .qz-verdict.ok");
-    if (i === 2) { await page.waitForSelector("#quiz .fx-toast.show"); assert.match(await page.textContent("#quiz .fx-toast"), /3 in a row/, "a streak of right answers is called out inside the quiz"); }
+    if (i === 2) {
+      await page.waitForSelector("#quiz .fx-badge");
+      assert.match(await page.textContent("#quiz .fx-badges"), /3 in a row/, "a streak of right answers is called out inside the quiz");
+      const top = await page.$eval("#quiz .fx-badges", el => el.getBoundingClientRect().top);
+      assert.ok(top < 40, `the streak badge sits at the top of the screen (top ${top})`);
+      assert.match(await page.textContent("#qz-meta"), /3 in a row/, "the run of right answers shows in the quiz header");
+    }
+    if (i === 9) { await page.waitForTimeout(100); await page.screenshot({ path: path.join(SHOTS, "04c-streak-badge.png") }); }
     if (i === 0) {
       assert.ok(await page.locator("#qz-body .qz-study .qz-refs li").count() >= 1, "feedback shows where to study");
       // every option is explained, and the explanation sits visibly inside its option
@@ -278,8 +323,14 @@ try {
   }
   await page.waitForSelector("#qz-body .qz-res.ok");
   assert.match(await page.textContent("#qz-body .qz-score"), /30/);
-  assert.match(await page.textContent("#quiz .fx-toast"), /Perfect score/);
+  assert.match(await page.textContent("#quiz .fx-badges"), /Perfect score/);
+  const g2 = await gifOn(page);
+  assert.ok(g2 && g2.o === "ace" && g2.id !== g1.id, "the next ace result shows the next GIF in the rotation");
+  await page.waitForTimeout(1400);                         // the stars and the XP bar settle
   await page.screenshot({ path: path.join(SHOTS, "05-result-pass.png") });
+  const ach = (await state(page)).ach;
+  for (const id of ["first", "row5", "row10", "row20", "row30", "pass1", "perfect"]) assert.ok(ach[id], `badge ${id} earned`);
+  assert.equal((await state(page)).rowBest, 30, "the longest run of right answers is kept");
   await page.click('#qz-body [data-qz="finish"]');
   await page.waitForFunction(h => location.hash === h, `#${QA.id}/done`, { timeout: 3000 });
   assert.match(await page.textContent("#card .c-t"), new RegExp(`Day ${QA.day} is done`));
@@ -320,6 +371,8 @@ try {
   }
   await page.waitForSelector("#qz-body .qz-res.bad");
   assert.match(await page.textContent("#qz-body .qz-score"), /26/);
+  assert.equal((await gifOn(page) || {}).o, "fail", "a failed quiz gets a GIF from the fail list");
+  assert.equal(await page.locator("#qz-body .stars span.on").count(), 0);
   assert.ok(await page.locator("#qz-body .qz-missed > li").count() === 4);
   await page.screenshot({ path: path.join(SHOTS, "08-result-fail.png") });
   s = await state(page);
@@ -654,14 +707,21 @@ try {
   if (!(await page.locator("#settings[open]").count())) await page.click("#b-set");
   const evil = { settings: { start: "2026-10-12", portal: "javascript:alert(1)", fx: false }, ticks: { d1a1: true }, quiz: null,
     drill: { best: "<img src=x id=pwn>" }, mocks: [{ at: "x", pct: "<b id=pwn2>" }], book: { "q01-001": { misses: "<i id=pwn3>", note: 5 } },
-    inotes: { d1a1: 5, d1a2: "<img src=x id=pwn4>" }, notes: { d1: "<img src=x id=pwn5>" } };
+    inotes: { d1a1: 5, d1a2: "<img src=x id=pwn4>" }, notes: { d1: "<img src=x id=pwn5>" },
+    ach: { "<b id=pwn6>": "2026-10-12", first: "<img src=x id=pwn7>" }, rowBest: "<i id=pwn8>",
+    timer: { mode: "<b>", running: true, at: "x", up: -5, left: 1e9 } };
   await page.setInputFiles("#s-file", { name: "evil.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(evil)) });
   await page.waitForTimeout(500);
   const ev = await state(page);
   assert.deepEqual([kind(ev.quiz), ev.drill.best, ev.settings.portal, ev.mocks[0].pct, ev.book["q01-001"].misses, kind(ev.inotes.d1a1)], ["object", 0, "", 0, 1, "undefined"]);
+  assert.deepEqual([ev.ach.first, ev.rowBest, ev.timer.mode, ev.timer.up, ev.timer.left], [undefined, 0, "focus", 0, 3000], "badges, record and timer validated");
   await openPanel(page, "practice");
   await page.click('#pr-grid [data-sheet="notebook"]');
   assert.equal(await page.locator("#pwn, #pwn2, #pwn3").count(), 0, "no injected markup");
+  await page.click("#sheet [data-sh-close]");
+  await page.click('#pr-grid [data-sheet="badges"]');
+  assert.ok(await page.locator("#sh-body .ach li").count() >= 10, "the badges sheet lists every badge");
+  assert.equal(await page.locator("#pwn6, #pwn7, #pwn8").count(), 0, "no injected markup from badges");
   await page.click("#sheet [data-sh-close]");
   assert.ok(await page.locator("#next .hero-t").count() === 1, "page still renders after the import");
   await openCard(page, "d1", "d1a2");
@@ -670,6 +730,50 @@ try {
   assert.match(await page.textContent("#sh-body .in-note"), /pwn4/);
   assert.equal(await page.locator("#pwn4, #pwn5").count(), 0, "notes are never rendered as markup");
   await page.click("#sheet [data-sh-close]");
+  await ctx.close();
+
+  // ---------- focus timer: the break pop-up and the reminders, on a fake clock and off the server ----------
+  log("a focus block ends → a pop-up offers the break; the break counts up and reminds every minute past 10, one pop-up at a time");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));   // browser-only mode: this clock never reaches the server copy
+  await page.clock.install();
+  await page.goto(BASE);
+  await setState(page, s => {
+    s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false };
+    s.timer = { mode: "focus", running: true, endAt: Date.now() + 3000, left: 3000, from: 3000, min: false };
+  });
+  await page.reload();
+  await page.evaluate(() => { window.__snd = []; const f = window.FX.sound; window.FX.sound = (n, a) => { window.__snd.push(n); return f(n, a); }; });
+  const nags = () => page.evaluate(() => window.__snd.filter(n => n === "nag").length);
+  await page.clock.fastForward(5000);
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /Focus block done/);
+  await page.screenshot({ path: path.join(SHOTS, "19-break-offer.png") });
+  await page.click('#brk [data-brk="rest"]');
+  let tmS = (await state(page)).timer;
+  assert.ok(tmS.mode === "rest" && tmS.running && !(await page.locator("#brk[open]").count()), "Start break starts an open-ended break");
+  await page.clock.fastForward(5 * 60000);
+  assert.match(await page.textContent("#timer .tm-time"), /^05:/, "the break counts up");
+  assert.equal(await page.locator("#brk[open]").count(), 0, "no reminder before 10 minutes");
+  await page.clock.fastForward(5 * 60000 + 2000);
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /Break is over/);
+  assert.match(await page.textContent("#timer .tm-mode"), /Break is over/);
+  assert.equal(await nags(), 1);
+  await page.screenshot({ path: path.join(SHOTS, "20-break-over.png") });
+  await page.clock.fastForward(60000);
+  assert.equal(await nags(), 2, "a reminder every minute past 10");
+  assert.equal(await page.locator("dialog[open]").count(), 1, "the pop-up is up already: the reminder is the sound alone, nothing stacks");
+  await page.click('#brk [data-brk="later"]');
+  await page.clock.fastForward(60000);
+  await page.waitForSelector("#brk[open]");
+  assert.equal(await nags(), 3, "dismissed: the next minute brings the pop-up back");
+  await page.click('#brk [data-brk="focus"]');
+  tmS = (await state(page)).timer;
+  const nowMs = await page.evaluate(() => Date.now());
+  assert.ok(tmS.mode === "focus" && tmS.running && Math.abs(tmS.endAt - nowMs - 50 * 60000) < 5000 && !(await page.locator("#brk[open]").count()), "Start focus starts the next 50 minutes");
+  await page.clock.fastForward(3 * 60000);
+  assert.equal(await nags(), 3, "no reminders during focus");
   await ctx.close();
 
   if (errors.length) throw new Error("console errors:\n" + errors.join("\n"));
