@@ -2,6 +2,7 @@
 "use strict";
 
 const PLAN = window.PLAN, LINKS = window.LINKS, GLOSS = window.GLOSSARY, CLEANUP = window.CLEANUP;
+const BILL = window.BILLABLE || { kinds: {}, steps: {} };
 const QZ = window.QZ, BANK = window.QUIZ || [], DOCS = window.DOCS || {};
 const CARDS = window.CARDS || {}, DRILL = window.DRILL || [], CUES = window.CUES || [];
 const KEYS = window.KEYS || {}, CUE_TAGS = window.CUE_TAGS || {}, SCORE_AT = window.SCORE_AT || {}, STEP_TAGS = window.STEP_TAGS || {};
@@ -33,6 +34,9 @@ const DEF = {
   week: { key: "", at: 0, ids: [], base: {} },   // this week's challenges: Monday's date, when stamped, their ids, the counters at the start
   chal: {},    // "<Monday>:<challenge id>" → date completed (+CHAL_XP each)
   daily: {},   // date → device id → { a: answers, r: right, f: focus minutes }: the trends on the overview
+  // billable things in your own AWS account: [{ id, k: kind, label, day, at: created, gone: deleted (0 = still running) }];
+  // snooze: no evening reminder before this time; night: the date you said to keep them running
+  cost: { items: [], snooze: 0, night: "" },
   settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true, gif: true, goal: 200 },
   // Focus (mode "focus") counts down: endAt, left, from. The break (mode "rest") has no set length and counts up:
   // at = when it last started running, up = seconds banked before a pause.
@@ -167,6 +171,15 @@ function clean(s) {
     }
   }
   pruneDates(s.xpDay); pruneDates(s.daily);
+  const c = s.cost, weekAgo = Date.now() - 7 * 864e5;
+  s.cost = { items: [], snooze: Math.min(num0(c.snooze), Date.now() + 864e5), night: isDay(c.night) ? c.night : "" };
+  for (const x of Array.isArray(c.items) ? c.items : []) {
+    if (!isObj(x) || typeof x.id !== "string" || !/^[\w:-]{1,40}$/.test(x.id) || !BILL.kinds[x.k] || s.cost.items.some(y => y.id === x.id)) continue;
+    const gone = num0(x.gone);
+    if (gone && gone < weekAgo) continue;   // deleted more than a week ago: off the list
+    s.cost.items.push({ id: x.id, k: x.k, label: str0(x.label).slice(0, 60), day: PLAN.some(d => d.id === x.day) ? x.day : "", at: num0(x.at), gone });
+    if (s.cost.items.length >= 60) break;
+  }
   s.settings.goal = GOALS.includes(s.settings.goal) ? s.settings.goal : DEF.settings.goal;
   if (!ISO.test(s.settings.start)) s.settings.start = DEF.settings.start;
   if (s.settings.exam && !ISO.test(s.settings.exam)) s.settings.exam = "";
@@ -502,6 +515,7 @@ function refresh() {
   renderNext(ti);
   renderStats(dn, total);
   renderToday();
+  renderRunning();
   renderReady();
   renderTrends();
   renderMap(ti);
@@ -833,6 +847,8 @@ function stepCardHTML(id) {
     }
     if (kp.trap) h += box("trap", "⚠️", "Exam trap", `<p>${kp.trap}</p>`, "c-trap");
   }
+  // billable things: on the steps that create something, and on the block's last step (the cleanup)
+  if (g.t === "build" && (BILL.steps[id] || g.items.indexOf(it) === g.items.length - 1)) h += costBoxHTML(d);
   return h + dgHTML(id);
 }
 // The two panels beside the card. l = "Look it up": the AWS pages and the terms. r = "On the exam": the exam topics
@@ -950,7 +966,9 @@ function setTick(id, val, srcEl) {
   const was = { g: groupDone(g), d: dayDone(d), w: week.every(dayDone), a: DAYS.every(dayDone) };
   if (val) S.ticks[id] = true; else delete S.ticks[id];
   markDayDone(d);
+  const billed = billFor(id, val, d);
   save();
+  if (billed.length) setTimeout(() => FX.toast(`🧾 On your <b>still running</b> list: ${billed.map(esc).join(", ")}`), 900);
   if (val) {
     // effects start from the button that was pressed, so fire them before the card is redrawn
     const nowDay = dayDone(d);
@@ -2404,6 +2422,118 @@ document.addEventListener("input", e => {
   noteT = setTimeout(save, 400);
 });
 
+// ---------- cost guard: what is still running in your own AWS account ----------
+// The owner's own account is billed by the hour for some of what the Build steps create. The list on the overview
+// shows what is still there; after 20:00 a reminder comes up every 30 minutes while anything is (or until "keep running tonight").
+const NAG_HOUR = 20, COST_SNOOZE = 30 * 60000;
+const costRunning = () => S.cost.items.filter(x => !x.gone);
+const costName = x => BILL.kinds[x.k][0] + (x.label ? ` “${x.label}”` : "");
+// A Build step ticked: what it creates goes on the list; unticked: those come off again (unless already deleted).
+function billFor(id, val, d) {
+  const ks = BILL.steps[id] || [], out = [];
+  for (const k of ks) {
+    const key = `${id}:${k}`, i = S.cost.items.findIndex(x => x.id === key);
+    if (val && (i < 0 || S.cost.items[i].gone)) {
+      if (i >= 0) S.cost.items.splice(i, 1);
+      S.cost.items.push({ id: key, k, label: "", day: d.id, at: Date.now(), gone: 0 });
+      out.push(BILL.kinds[k][0]);
+    } else if (!val && i >= 0 && !S.cost.items[i].gone) S.cost.items.splice(i, 1);
+  }
+  return out;
+}
+const sinceText = at => {
+  if (!at) return "";
+  const d = new Date(at), mins = (Date.now() - at) / 60000, hm = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `since ${iso(d) === today() ? hm : `${fmtD(d)} ${hm}`} (${mins < 1 ? "just now" : fmtH(mins)})`;
+};
+const costAddHTML = dayId => `<div class="cost-add"><select data-cost-k aria-label="What you created">${Object.entries(BILL.kinds).map(([k, v]) => `<option value="${k}">${esc(v[0])}</option>`).join("")}</select>` +
+  `<input type="text" maxlength="60" data-cost-l placeholder="Its name, if you like" aria-label="Its name"><button type="button" data-cost-add="${esc(dayId)}">Add</button></div>`;
+const costItemHTML = (x, undo) => `<li class="${x.gone ? "gone" : ""}"><span class="ci-n"><b>${esc(costName(x))}</b>${x.gone ? ` <span class="pill ok">deleted</span>` : ` <span class="muted">${sinceText(x.at)}</span>`}</span>` +
+  (BILL.kinds[x.k][1] ? `<span class="ci-d muted">${esc(BILL.kinds[x.k][1])}</span>` : "") +
+  (x.gone ? (undo ? `<button type="button" class="link sm" data-cost-back="${esc(x.id)}">Undo</button>` : "") : `<button type="button" class="sm" data-cost-gone="${esc(x.id)}">✓ Deleted</button>`) + `</li>`;
+function renderRunning() {
+  const el = document.getElementById("running"), run = costRunning();
+  el.hidden = !run.length;
+  if (!run.length) { el.innerHTML = ""; return; }
+  el.innerHTML = `<h3>🧾 Still running in your AWS account <span class="muted">${plural(run.length, "thing")}</span></h3>` +
+    `<p class="muted">Delete them when you're done with them: they cost money while they exist. Mark each one when it's gone.</p>` +
+    `<ul class="cost-l">${run.map(x => costItemHTML(x)).join("")}</ul>` +
+    `<div class="row"><a class="btn" href="${esc(linkFor("own"))}" target="_blank" rel="noopener">Open AWS ↗</a><details class="cost-more"><summary class="btn">+ Something else</summary>${costAddHTML("")}</details></div>`;
+}
+// On a Build card: what this day put in your account, and a way to add what the steps don't know about.
+function costBoxHTML(d) {
+  const mine = S.cost.items.filter(x => x.day === d.id);
+  return box("cost", "🧾", "Billable things from this day",
+    (mine.length ? `<ul class="cost-l">${mine.map(x => costItemHTML(x, true)).join("")}</ul>` : `<p class="muted">Nothing yet. Steps that create something billable add it here and to the overview when you complete them.</p>`) +
+    `<p class="muted cost-h">Made something else that bills (a load balancer, a database…)? Add it, so the evening check knows.</p>${costAddHTML(d.id)}`, "c-cost");
+}
+function costChanged() {
+  save(); renderRunning();
+  if (view.day) renderFlow(false);
+  if (clDlg.open) renderCleanupRun();
+  if (costDlg.open) renderCostNag();
+}
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-cost-gone]");
+  if (g) {
+    const x = S.cost.items.find(y => y.id === g.dataset.costGone);
+    if (!x) return;
+    x.gone = Date.now();
+    FX.small(g);
+    costChanged();
+    if (!costRunning().length) FX.toast("🧹 <b>All clean</b>: nothing left running up a bill");
+    return;
+  }
+  const b = e.target.closest("[data-cost-back]");
+  if (b) { const x = S.cost.items.find(y => y.id === b.dataset.costBack); if (x) { x.gone = 0; costChanged(); } return; }
+  const a = e.target.closest("[data-cost-add]");
+  if (a) {
+    const wrap = a.closest(".cost-add"), k = wrap.querySelector("[data-cost-k]").value, label = wrap.querySelector("[data-cost-l]").value.trim().slice(0, 60);
+    if (!BILL.kinds[k]) return;
+    S.cost.items.push({ id: "q" + Date.now().toString(36), k, label, day: a.dataset.costAdd, at: Date.now(), gone: 0 });
+    if (S.cost.items.length > 60) S.cost.items.splice(S.cost.items.findIndex(x => x.gone), 1);
+    FX.sound("pop");
+    costChanged();
+  }
+});
+// The evening reminder: a pop-up of its own (after any other dialog, never over the mock exam or the drill),
+// plus a Windows notification when this window isn't the one in use.
+const costDlg = document.getElementById("costnag");
+const costDue = () => costRunning().length > 0 && new Date().getHours() >= NAG_HOUR && S.cost.night !== today() && Date.now() >= S.cost.snooze;
+function renderCostNag() {
+  const run = costRunning();
+  document.getElementById("cn-body").innerHTML = run.length
+    ? `<p>It's evening, and ${run.length === 1 ? "this is" : "these are"} still in your AWS account:</p><ul class="cost-l">${run.map(x => costItemHTML(x)).join("")}</ul>` +
+      `<p class="muted">Delete ${run.length === 1 ? "it" : "them"} in the console, then mark ${run.length === 1 ? "it" : "each one"} here. Keeping something for tomorrow's step? Say so and the reminder stops for tonight.</p>`
+    : `<p class="cl-ok">All clean ✓. Nothing left running up a bill.</p>`;
+  document.getElementById("cn-open").href = linkFor("own");
+  costDlg.querySelector('[data-cn="night"]').hidden = costDlg.querySelector('[data-cn="later"]').hidden = !run.length;
+}
+function openCostNag() {
+  renderCostNag();
+  costDlg.showModal();
+  costDlg.querySelector("h2").focus({ preventScroll: true });
+  FX.sound("nag");
+  const run = costRunning();
+  notify("Still running in your AWS account", run.map(costName).join(", "));
+}
+costDlg.addEventListener("click", e => {
+  const b = e.target.closest("[data-cn]");
+  if (!b) return;
+  if (b.dataset.cn === "night") S.cost.night = today();
+  else S.cost.snooze = Date.now() + COST_SNOOZE;   // "In 30 minutes", and Done with something still running
+  save();
+  costDlg.close();
+});
+costDlg.addEventListener("close", () => {
+  if (costRunning().length && S.cost.night !== today() && S.cost.snooze <= Date.now()) { S.cost.snooze = Date.now() + COST_SNOOZE; save(); }   // Esc: ask again in 30 minutes
+  runPending();
+});
+setInterval(() => {
+  if (costDlg.open) { if (!costRunning().length && !costDlg.querySelector(".cl-ok")) renderCostNag(); else if (!costDue() && costRunning().length) costDlg.close(); return; }   // answered in another tab
+  if (costDue() && !document.querySelector("dialog[open]") && !inTimed()) openCostNag();
+}, 15000);
+
 // ---------- cleanup dialog ----------
 const clDlg = document.getElementById("cleanup");
 function openCleanup(dayId) {
@@ -2411,6 +2541,7 @@ function openCleanup(dayId) {
   document.getElementById("cl-day").textContent = d ? `· Day ${d.day}` : "";
   document.getElementById("cl-open").href = linkFor("own");
   document.getElementById("cl-ok").hidden = true;
+  renderCleanupRun();
   const ul = document.getElementById("cl-list");
   ul.innerHTML = CLEANUP.map(([t, n], i) => `<li><label><input type="checkbox" data-cl="${i}"><span>${t}${n ? `<span class="n">${n}</span>` : ""}</span></label></li>`).join("");
   if (!clDlg.open) clDlg.showModal();
@@ -2424,6 +2555,11 @@ clDlg.addEventListener("change", e => {
   } else document.getElementById("cl-ok").hidden = true;
 });
 clDlg.addEventListener("close", runPending);
+function renderCleanupRun() {
+  const run = costRunning(), el = document.getElementById("cl-run");
+  el.hidden = !run.length;
+  el.innerHTML = run.length ? `<h3>Still running, from your list</h3><ul class="cost-l">${run.map(x => costItemHTML(x)).join("")}</ul>` : "";
+}
 
 // ---------- events: day flow ----------
 flowEl.addEventListener("click", e => {
@@ -2896,6 +3032,10 @@ function mergeDocs(local, remote) {
   }
   if (older.week.key > m.week.key || (older.week.key === m.week.key && older.week.at && older.week.at < m.week.at)) m.week = clone(older.week);
   for (const k in older.chal) if (!m.chal[k] || older.chal[k] < m.chal[k]) m.chal[k] = older.chal[k];
+  // billable things: every item from both; deleted on either side means deleted
+  for (const o of older.cost.items) { const n = m.cost.items.find(x => x.id === o.id); if (!n) m.cost.items.push(o); else { n.gone = Math.max(n.gone, o.gone); n.at = Math.min(n.at || o.at, o.at || n.at); } }
+  m.cost.snooze = Math.max(m.cost.snooze, older.cost.snooze);
+  if (older.cost.night > m.cost.night) m.cost.night = older.cost.night;
   // each device counts its own answers and focus per day; the copy that counted more for a device is the newer one
   for (const k in older.daily) {
     const n = m.daily[k] || (m.daily[k] = {});

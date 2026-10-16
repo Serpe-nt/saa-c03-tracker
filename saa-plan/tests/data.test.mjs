@@ -341,3 +341,16 @@ test("look-alikes: missed questions link to every table", () => {
   }
   assert.ok(linked.size >= 150, `only ${linked.size} questions link to a look-alike table`);
 });
+
+test("billable things: kinds with a name and how they bill, steps that are Build steps", () => {
+  const B = W.BILLABLE;
+  assert.ok(B && B.kinds && B.steps, "window.BILLABLE");
+  for (const [k, v] of Object.entries(B.kinds)) assert.ok(/^[a-z0-9]{2,8}$/.test(k) && typeof v[0] === "string" && v[0].length <= 24 && typeof v[1] === "string" && v[1].length <= 160 && !/[<>$€£]|\d+\s*(?:cents?|USD)/.test(v[1]), `kind ${k}: name, how it bills, no markup and no prices`);
+  assert.ok(B.kinds.other, "a kind for anything else");
+  const build = new Map();
+  for (const d of W.PLAN) if (d.id) for (const g of d.groups) for (const it of g.items) build.set(it[0], g.t);
+  for (const [id, ks] of Object.entries(B.steps)) {
+    assert.equal(build.get(id), "build", `${id} is a Build step`);
+    assert.ok(Array.isArray(ks) && ks.length && ks.every(k => B.kinds[k] && k !== "other"), `${id}: known kinds`);
+  }
+});

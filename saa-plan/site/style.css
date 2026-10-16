@@ -909,3 +909,29 @@ dialog.srch{width:min(720px,96vw);border-top-color:var(--watch)}
 .dr-svc{display:grid;gap:2px;font-size:26px}
 .dr-svc .muted{font:400 14px var(--body)}
 .dr-long .qz-t{font-size:15px;line-height:1.35}
+
+/* ---------- cost guard: still running in your own AWS account ---------- */
+.running{background:var(--card);color:var(--text);box-shadow:var(--shadow);border-radius:10px;padding:12px 18px 14px;margin:0 0 14px;border-top:4px solid var(--warn)}
+.running h3{font:700 18px var(--display);margin:0 0 2px}
+.running h3 .muted{font:400 14px var(--body)}
+.running>p{margin:0 0 8px;font-size:14px}
+.running .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;margin-top:10px}
+.cost-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.cost-l li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.cost-l .ci-n{font-size:14.5px}
+.cost-l .ci-n .muted{font-size:13px}
+.cost-l .ci-d{grid-column:1;font-size:13px}
+.cost-l li>button{grid-row:1/span 2;grid-column:2}
+.cost-l li.gone .ci-n b{text-decoration:line-through;color:var(--muted)}
+.cost-add{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.cost-add select,.cost-add input{width:auto;min-width:0;flex:1 1 160px;font-size:14px;padding:6px 8px}
+.cost-add button{flex:0 0 auto}
+.cost-more>summary{list-style:none;cursor:pointer;display:inline-block}
+.cost-more>summary::-webkit-details-marker{display:none}
+.cost-more[open]{flex:1 1 100%}
+.b-cost{--edge:var(--warn)}
+.b-cost .cost-h{margin:8px 0 0;font-size:13.5px}
+.cl-run{margin:0 0 12px;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--warn) 9%,var(--card));border-left:4px solid var(--warn)}
+.cl-run h3{font:700 15px var(--display);margin:0 0 6px}
+dialog.costnag{border-top-color:var(--warn);width:min(560px,94vw)}
+dialog.costnag p{font-size:15px;margin:6px 0}

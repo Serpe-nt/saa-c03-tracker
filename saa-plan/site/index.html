@@ -113,6 +113,7 @@
 </section>
 
 <section id="today" class="today" aria-label="Today's goal and this week's challenges" hidden></section>
+<section id="running" class="running" aria-live="polite" hidden></section>
 
 <nav id="links" class="links" aria-label="Quick links"></nav>
 
@@ -222,6 +223,7 @@
   <form method="dialog">
     <h2>🧹 Cleanup check <span id="cl-day" class="muted"></span></h2>
     <p class="muted">Before you stop for the day — in ③ your AWS account, Region eu-west-1, confirm:</p>
+    <div id="cl-run" class="cl-run" hidden></div>
     <ul id="cl-list" class="cl"></ul>
     <p id="cl-ok" class="cl-ok" hidden>All clean ✓ — nothing left running up a bill.</p>
     <div class="row end">
@@ -249,6 +251,18 @@
     <button type="button" class="qz-x" data-sh-close aria-label="Close">✕</button>
   </div>
   <div id="sh-body" class="qz-body"></div>
+</dialog>
+
+<!-- The evening reminder: billable things still running in your own AWS account -->
+<dialog id="costnag" class="costnag" aria-labelledby="cn-t">
+  <h2 id="cn-t" tabindex="-1">🧾 Still running in your AWS account</h2>
+  <div id="cn-body"></div>
+  <div class="row end">
+    <a class="btn" id="cn-open" target="_blank" rel="noopener">Open AWS ↗</a>
+    <button type="button" data-cn="night">Keep running tonight</button>
+    <button type="button" data-cn="later">In 30 minutes</button>
+    <button type="button" class="primary" data-cn="done">Done</button>
+  </div>
 </dialog>
 
 <!-- Settings -->

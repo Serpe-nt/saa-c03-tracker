@@ -1366,6 +1366,81 @@ try {
   assert.equal((await state(page)).drill.runs, 3, "every finished drill counts as a run (the reverse one was closed early)");
   await ctx.close();
 
+  log("cost guard: Build steps put what they create on a still-running list; quick-add, Undo, Deleted, the cleanup check, and the evening reminder (fake clock)");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  const eve = new Date(); eve.setHours(19, 30, 0, 0);
+  await page.clock.install({ time: eve });
+  await page.goto(BASE);
+  await setState(page, `s => { s.settings = { start: "${tday}", fx: false, sound: false }; s.cost = { items: [], snooze: 0, night: "" }; }`);
+  await page.reload();
+  const items = async () => (await state(page)).cost.items;
+  const BD = dayOfStep("d2b1");
+  await openCard(page, BD, "d2b1");
+  await complete(page);
+  let ci = await items();
+  assert.deepEqual(ci.map(x => [x.id, x.gone]), [["d2b1:nat", 0], ["d2b1:eip", 0]], "completing the step lists the NAT gateway and its Elastic IP");
+  await page.click('#timer [data-tm="toggle"]');                         // pause the focus block that started: the clock jumps below
+  await page.waitForSelector("#card .b-cost");
+  assert.match(await page.textContent("#card .b-cost"), /NAT gateway[\s\S]*Elastic IP/, "the next Build card shows them");
+  await page.selectOption("#card .b-cost [data-cost-k]", "elb");
+  await page.fill("#card .b-cost [data-cost-l]", "web <b>x</b>");
+  await page.click("#card .b-cost [data-cost-add]");
+  ci = await items();
+  assert.ok(ci.length === 3 && ci[2].k === "elb" && ci[2].label === "web <b>x</b>" && ci[2].day === BD, "added by hand, with the day");
+  assert.equal(await page.locator("#card .b-cost b b").count(), 0, "a name is shown as text");
+  await page.screenshot({ path: path.join(SHOTS, "34-cost-card.png") });
+  await openCard(page, BD, "d2b1");
+  await page.click("#fl-nav [data-undo]");
+  assert.deepEqual((await items()).map(x => x.id).filter(id => id.startsWith("d2b1")), [], "Undo takes the step's items off again");
+  await complete(page);
+  await goHome(page);
+  await page.waitForSelector("#running:not([hidden]) .cost-l");
+  assert.equal(await page.locator("#running .cost-l li").count(), 3);
+  await page.click('#running [data-cost-gone="d2b1:eip"]');
+  assert.ok((await items()).find(x => x.id === "d2b1:eip").gone > 0, "Deleted marks it");
+  assert.equal(await page.locator("#running .cost-l li").count(), 2, "and it leaves the list");
+  await page.locator("#running").screenshot({ path: path.join(SHOTS, "35-still-running.png") });
+  await openCard(page, BD, "d2b2");
+  await page.click('#fl-tools [data-cleanup]');
+  await page.waitForSelector("#cleanup[open] #cl-run:not([hidden]) .cost-l");
+  assert.equal(await page.locator("#cl-run .cost-l li").count(), 2, "the cleanup check starts with what is still running");
+  await page.click('#cleanup button[value="close"]');
+  await goHome(page);
+  // the evening: 20:00 brings the reminder; "In 30 minutes" waits 30 minutes; "Keep running tonight" ends it for the night
+  if ((await state(page)).timer.running) await page.click('#timer [data-tm="toggle"]');   // Mark complete resumed the block; the clock jumps below
+  await page.clock.fastForward(31 * 60000);
+  await page.clock.runFor(16000);
+  await page.waitForSelector("#costnag[open]");
+  const nagT = await page.textContent("#costnag");
+  assert.ok(/NAT gateway since/.test(nagT) && /Load balancer “web <b>x<\/b>” since/.test(nagT), nagT);
+  await page.screenshot({ path: path.join(SHOTS, "36-cost-nag.png") });
+  await page.click('#costnag [data-cn="later"]');
+  await page.clock.runFor(20 * 60000);
+  assert.equal(await page.locator("#costnag[open]").count(), 0, "not before 30 minutes");
+  await page.clock.runFor(11 * 60000);
+  await page.waitForSelector("#costnag[open]");
+  await page.click('#costnag [data-cn="night"]');
+  await page.clock.runFor(60 * 60000);
+  assert.equal(await page.locator("#costnag[open]").count(), 0, "kept running tonight: no more reminders");
+  // the next evening it asks again; marking everything deleted in the pop-up says all clean
+  const next = new Date(eve); next.setDate(next.getDate() + 1); next.setHours(20, 1, 0, 0);
+  await page.clock.fastForward(next.getTime() - await page.evaluate(() => Date.now()));
+  await page.clock.runFor(16000);
+  await page.waitForSelector("#costnag[open]");
+  for (const id of (await items()).filter(x => !x.gone).map(x => x.id)) await page.click(`#costnag [data-cost-gone="${id}"]`);
+  assert.match(await page.textContent("#costnag"), /All clean/);
+  await page.click('#costnag [data-cn="done"]');
+  assert.ok(await page.locator("#running").isHidden(), "nothing running: the list is gone from the overview");
+  // hostile entries are dropped
+  await setState(page, `s => { s.xpDay = {}; /* stamping today saves the cleaned copy */ s.cost = { items: [{ id: "x y", k: "ec2" }, { id: "ok1", k: "nope" }, { id: "ok2", k: "rds", label: 5, day: "zz", at: "1", gone: 0 }, { id: "ok2", k: "ec2" }], snooze: 1e15, night: "<b>" }; }`);
+  await page.reload();
+  st = await state(page);
+  assert.deepEqual(st.cost.items, [{ id: "ok2", k: "rds", label: "", day: "", at: 0, gone: 0 }]);
+  const pNow = await page.evaluate(() => Date.now());   // the page's clock is the fake one
+  assert.ok(st.cost.snooze <= pNow + 864e5 && st.cost.night === "", "a snooze is at most a day ahead");
+  await ctx.close();
+
   if (errors.length) throw new Error("console errors:\n" + errors.join("\n"));
   console.log(`\nAll e2e checks passed in ${((Date.now() - t0) / 1000).toFixed(1)} s. Screenshots: ${SHOTS}`);
 } catch (e) {
