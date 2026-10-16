@@ -26,11 +26,16 @@ const DEF = {
   slips: [],   // schedule shifts: [{ from: day, n: days }]
   slipSkip: "",
   drill: { best: 0, runs: 0 },
-  settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true },
-  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, min: matchMedia("(max-width:640px)").matches },
+  ach: {},     // badge id → date earned
+  rowBest: 0,  // most quiz answers right in a row, ever
+  settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true, gif: true },
+  // Focus (mode "focus") counts down: endAt, left, from. The break (mode "rest") has no set length and counts up:
+  // at = when it last started running, up = seconds banked before a pause.
+  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, at: 0, up: 0, min: matchMedia("(max-width:640px)").matches },
   savedAt: 0
 };
-const DUR = { focus: 50 * 60, break: 10 * 60 };
+const FOCUS = 50 * 60;      // a focus block, in seconds
+const REST_NAG = 10 * 60;   // a break longer than this gets a reminder every minute
 const TAGS = { watch: "Watch", play: "Play", prep: "Exam prep", build: "Build", check: "Self-check", setup: "Setup" };
 const DOMAINS = ["Secure", "Resilient", "High-performing", "Cost"];
 const QUIZ_MIN = 30;
@@ -99,13 +104,19 @@ function clean(s) {
   keep(s.warm, v => v === "done" || v === "skip");
   s.slips = s.slips.filter(x => isObj(x) && Number.isInteger(x.from) && Number.isInteger(x.n) && x.n > 0 && x.n < 100).map(x => ({ from: x.from, n: x.n }));
   s.drill = { best: num0(s.drill.best), runs: num0(s.drill.runs) };
+  keep(s.ach, v => ISO.test(v));
+  s.rowBest = Math.max(0, Math.round(num0(s.rowBest)));
   if (!ISO.test(s.settings.start)) s.settings.start = DEF.settings.start;
   if (s.settings.exam && !ISO.test(s.settings.exam)) s.settings.exam = "";
   if (!/^https?:\/\//i.test(s.settings.portal)) s.settings.portal = "";
   const t = s.timer;
-  if (t.mode !== "focus" && t.mode !== "break") t.mode = "focus";
-  t.left = Math.min(DUR[t.mode], Math.max(0, Math.round(num0(t.left, DUR[t.mode]))));
-  t.endAt = num0(t.endAt); t.from = num0(t.from);
+  // The break used to be a 10-minute countdown called "break": such a copy starts the open-ended break afresh.
+  if (t.mode === "break") { t.mode = "rest"; t.running = false; t.up = 0; }
+  if (t.mode !== "focus" && t.mode !== "rest") t.mode = "focus";
+  t.left = Math.min(FOCUS, Math.max(0, Math.round(num0(t.left, FOCUS))));
+  t.endAt = num0(t.endAt); t.from = num0(t.from); t.at = num0(t.at);
+  t.up = Math.min(86400, Math.max(0, num0(t.up)));
+  if (t.running && !(t.mode === "rest" ? t.at > 0 : t.endAt > 0)) t.running = false;   // running needs its clock
   s.savedAt = num0(s.savedAt);
   s.run = cleanRun(s.run);
   return s;
@@ -116,7 +127,9 @@ function cleanRun(r) {
   const out = {
     kind: r.kind, day: str0(r.day), item: str0(r.item), ids: r.ids, ord: {}, ans: {}, flag: {}, i: Number.isInteger(r.i) && r.i >= 0 ? r.i : 0,
     t0: num0(r.t0), end: num0(r.end), done: !!r.done, view: r.view === "grid" ? "grid" : "", seen: !!r.seen, only: r.only !== false,
-    score: num0(r.score), mins: num0(r.mins), cel: ["all", "week", "day"].includes(r.cel) ? r.cel : "", mockNew: !!r.mockNew
+    score: num0(r.score), mins: num0(r.mins), cel: ["all", "week", "day"].includes(r.cel) ? r.cel : "", mockNew: !!r.mockNew,
+    // right answers in a row now and at most in this run; XP when it started (-1: not known, a run from before XP)
+    row: Math.max(0, Math.round(num0(r.row))), rowMax: Math.max(0, Math.round(num0(r.rowMax))), xp0: num0(r.xp0, -1)
   };
   for (const id of r.ids) {
     if (isObj(r.ord) && ints(r.ord[id])) out.ord[id] = r.ord[id];
@@ -361,7 +374,10 @@ function renderStats(dn, total) {
     ["Quiz answers right", seen ? `${pct(right, seen)}% <small>of ${seen}</small>` : "–"],
     ["Streak", sk ? `🔥 ${plural(sk, "day")}` : "–"]
   ];
-  document.getElementById("stats").innerHTML = cells.map(([k, v]) => `<div class="st"><span class="tb-k">${k}</span><b>${v}</b></div>`).join("");
+  const L = levelOf(xpTotal());
+  document.getElementById("stats").innerHTML = cells.map(([k, v]) => `<div class="st"><span class="tb-k">${k}</span><b>${v}</b></div>`).join("") +
+    `<button type="button" class="st st-lv" data-sheet="badges" title="${L.x} XP, ${L.to - L.x} to level ${L.n + 1}. Open badges and level."><span class="tb-k">Level</span>` +
+    `<b>${L.n} <small>${rankOf(L.n)}</small></b><span class="xpbar"><span style="width:${L.pct}%"></span></span></button>`;
 }
 function refresh() {
   const ti = todayIdx();
@@ -728,6 +744,7 @@ function setTick(id, val, srcEl) {
     const builds = d.groups.filter(x => x.t === "build");
     if (g.t === "build" && !was.g && builds.every(groupDone)) setTimeout(() => whenFree(() => openCleanup(d.id)), nowDay ? 3400 : 1100);
   }
+  showGains(val ? award() : [], 1200);
   refresh();
 }
 // Mark the step on screen complete and move on: to the next open step, then the quiz, then the day's summary.
@@ -748,7 +765,83 @@ function celebrate(kind, d) {
     FX.week(); FX.banner(`Week ${w + 1} complete 🏆`, (next ? `Next: ${strip(next)}.` : "Only the exam left.") + skTxt, "week");
   }
   else { FX.day(); FX.banner(`Day ${d.day} complete 🎉`, `${DAYS.filter(dayDone).length}/${DAYS.length} days done${skTxt}`, "day"); }
-  if ([3, 5, 7, 10, 14, 21].includes(sk)) setTimeout(() => FX.toast(`🔥 <b>${sk} days in a row</b>`, "combo"), 3400);
+  if ([3, 5, 7, 10, 14, 21].includes(sk)) setTimeout(() => FX.badge("🔥", `${sk} days in a row`, "A study streak", sk >= 10 ? "epic" : "gold"), 3400);
+}
+
+// ---------- XP, levels and badges ----------
+// XP is worked out from what the state already holds, so syncing and merging need no rules of their own:
+// every right answer, every completed step, every day quiz passed, plus what each badge earned is worth.
+const XP = { right: 10, step: 5, pass: 100 };
+// Badges are earned once and kept with the date (S.ach). Most are read from the state, so progress made
+// before badges existed earns them too (quietly, at boot); the streak ones (`row`) only while answering.
+const ACH = [
+  { id: "first", i: "🎯", t: "First one right", d: "Answer a quiz question right.", xp: 20, ok: c => c.right >= 1 },
+  { id: "row5", i: "🔥", t: "On a roll", d: "5 right answers in a row.", xp: 50, row: 5 },
+  { id: "row10", i: "🔥", t: "On fire", d: "10 right answers in a row.", xp: 100, row: 10 },
+  { id: "row20", i: "🌟", t: "Legendary", d: "20 right answers in a row.", xp: 200, row: 20 },
+  { id: "row30", i: "👑", t: "Flawless", d: "30 right answers in a row: a whole day quiz.", xp: 300, row: 30 },
+  { id: "pass1", i: "✅", t: "First quiz passed", d: "Pass an end-of-day quiz.", xp: 50, ok: c => c.passed >= 1 },
+  { id: "perfect", i: "💯", t: "Perfect score", d: "Every answer of a day quiz right.", xp: 200, ok: c => c.perfect },
+  { id: "comeback", i: "🔁", t: "Comeback", d: "Pass a day quiz you failed before.", xp: 100, ok: c => c.comeback },
+  { id: "right100", i: "🧠", t: "A hundred right", d: "100 quiz answers right in total.", xp: 100, ok: c => c.right >= 100 },
+  { id: "right500", i: "🧠", t: "Five hundred right", d: "500 quiz answers right in total.", xp: 250, ok: c => c.right >= 500 },
+  { id: "fix10", i: "🛠", t: "Mistake fixer", d: "Answer 10 notebook questions right after missing them.", xp: 100, ok: c => c.fixed >= 10 },
+  { id: "warm5", i: "☕", t: "Early bird", d: "Do the morning warm-up on 5 days.", xp: 75, ok: c => c.warm >= 5 },
+  { id: "drill15", i: "⚡", t: "Quick draw", d: "15 or more in the 60-second drill.", xp: 100, ok: c => c.drill >= 15 },
+  { id: "focus10", i: "⏱", t: "Deep work", d: "10 hours of focus time logged.", xp: 150, ok: c => c.focus >= 600 },
+  { id: "mock80", i: "🎓", t: "Exam ready", d: "80% or more on a mock exam.", xp: 300, ok: c => c.mock >= 80 }
+];
+const ACH_BY = Object.fromEntries(ACH.map(a => [a.id, a]));
+// A title for every two levels; the plan's XP adds up to about level 20 by exam day.
+const RANKS = ["Cloud curious", "Console clicker", "IAM apprentice", "Subnet scout", "VPC builder", "Load balancer", "Auto scaler", "Multi-AZ", "Well-Architected", "Solutions architect"];
+const rankOf = n => RANKS[Math.min(RANKS.length - 1, Math.floor((n - 1) / 2))];
+const lvAt = n => 40 * n * (n - 1);   // XP that reaches level n: 80 for level 2, 240 for 3, 3,600 for 10
+function xpTotal() {
+  let x = 0;
+  for (const id in S.qs) x += XP.right * S.qs[id].right;
+  x += XP.step * Object.keys(S.ticks).filter(id => itemIndex[id]).length;
+  x += XP.pass * DAYS.filter(d => S.quiz[d.id] && S.quiz[d.id].passed).length;
+  for (const id in S.ach) if (ACH_BY[id]) x += ACH_BY[id].xp;
+  return x;
+}
+function levelOf(x) {
+  let n = Math.max(1, Math.floor((1 + Math.sqrt(1 + x / 10)) / 2));
+  while (lvAt(n + 1) <= x) n++;
+  while (n > 1 && lvAt(n) > x) n--;
+  return { n, x, from: lvAt(n), to: lvAt(n + 1), pct: (x - lvAt(n)) / (lvAt(n + 1) - lvAt(n)) * 100 };
+}
+function achCtx() {
+  let right = 0;
+  for (const id in S.qs) right += S.qs[id].right;
+  const qz = DAYS.map(d => S.quiz[d.id]).filter(Boolean);
+  return {
+    right,
+    passed: qz.filter(q => q.passed).length,
+    perfect: qz.some(q => q.tries.some(t => t.n && t.score === t.n)),
+    comeback: qz.some(q => q.tries.findIndex(t => QZ.passed(t.score, t.n)) > 0),   // a try below the bar came before the first pass
+    fixed: Object.values(S.book).filter(b => b.fixed).length,
+    warm: Object.values(S.warm).filter(v => v === "done").length,
+    drill: S.drill.best,
+    focus: Object.values(S.log).reduce((a, b) => a + b, 0),
+    mock: Math.max(0, ...S.mocks.map(m => m.pct))
+  };
+}
+// Earn every badge whose condition holds now. row = right answers in a row in the quiz on screen.
+// Returns the new ones; the caller shows them (a streak badge names the badge it earned itself).
+function award(row = 0) {
+  const c = achCtx(), got = [];
+  for (const a of ACH) if (!S.ach[a.id] && (a.row ? row >= a.row : a.ok(c))) { S.ach[a.id] = today(); got.push(a); }
+  if (got.length) save();
+  return got;
+}
+let lvShown = 0;   // the level on screen; a higher one gets announced
+const syncLevel = () => { lvShown = levelOf(xpTotal()).n; };
+// New badges, then a new level, each as a badge at the top of the screen.
+function showGains(got, delay = 0) {
+  got.forEach((a, k) => setTimeout(() => { FX.sound("unlock"); FX.badge(a.i, a.t, `New badge, +${a.xp} XP`, "gold"); }, delay + k * 650));
+  const n = levelOf(xpTotal()).n;
+  if (lvShown && n > lvShown) setTimeout(() => { FX.sound("level"); FX.badge("⭐", `Level ${n}`, n % 2 && n < RANKS.length * 2 ? `New title: ${rankOf(n)}` : rankOf(n), "level"); }, delay + got.length * 650);
+  lvShown = n;
 }
 
 // ---------- scores ----------
@@ -829,7 +922,9 @@ function renderPractice() {
     ["📈 Weak spots", weak ? `Weakest topic so far: ${esc(weak.tag)} (${pct(weak.right, weak.seen)}% right).` : "Fills in as you answer questions.",
       `<button type="button" data-sheet="weak">Show weak spots</button>`],
     ["🗣 Exam wording", "What phrases like “least operational overhead” usually point to.",
-      `<button type="button" data-sheet="cues"${CUES.length ? "" : " disabled"}>Open cheat sheet</button>`]
+      `<button type="button" data-sheet="cues"${CUES.length ? "" : " disabled"}>Open cheat sheet</button>`],
+    ["🏅 Badges and level", (L => `Level ${L.n}, ${rankOf(L.n)}: ${L.to - L.x} XP to level ${L.n + 1}. ${Object.keys(S.ach).filter(id => ACH_BY[id]).length} of ${ACH.length} badges earned.`)(levelOf(xpTotal())),
+      `<button type="button" data-sheet="badges">Show badges</button>`]
   ];
   document.getElementById("pr-grid").innerHTML = cards.map(([h, p, b]) => `<div class="place pr"><h3>${h}</h3><p>${p}</p>${b}</div>`).join("");
   const sum = [];
@@ -844,8 +939,12 @@ const qzDlg = document.getElementById("quiz"), qzBody = document.getElementById(
 // The card's height lets the study panel beside it line up with its top edge (style.css, .qz-side).
 new ResizeObserver(() => qzDlg.style.setProperty("--qzdh", qzDlg.offsetHeight + "px")).observe(qzDlg);
 let sel = [];        // options picked for the current question, not yet checked
-let rightInRow = 0;  // right answers in a row in the quiz on screen (kept in memory only)
-const ROW_MARKS = [3, 5, 10, 15, 20, 25, 30];
+let fresh = false;   // the answer on screen was checked just now: animate it (going back to it later does not)
+let comboFx = "";    // "up" when the run of right answers just grew, "broke" when a miss ended one
+let recShown = false;   // "New record" is announced once a quiz
+// Right answers in a row (run.row) get a badge at these marks; the tier sets its look.
+const ROW_TIERS = [[30, "👑", "Flawless", "epic"], [25, "💎", "Untouchable", "epic"], [20, "🌟", "Legendary", "epic"], [15, "⚡", "Unstoppable", "gold"], [10, "🔥", "On fire", "gold"], [5, "🔥", "On a roll", "silver"], [3, "🔥", "Warming up", "bronze"]];
+const ROW_MARKS = ROW_TIERS.map(x => x[0]);
 let intro = null;    // { title, html, go, goLabel } shown before a quiz or mock starts
 let drill = null;    // "Which service?" round, kept in memory only
 
@@ -905,8 +1004,9 @@ function startRun(kind, of) {
   const ord = {};
   qs.forEach(q => { ord[q.id] = QZ.order(q); });
   const now = Date.now();
-  rightInRow = 0;
-  S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "" };
+  recShown = false;
+  S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "",
+    row: 0, rowMax: 0, xp0: xpTotal() };
   sel = [];
   save(); refresh(); openQuiz();
 }
@@ -928,8 +1028,8 @@ function renderIntro() {
 }
 
 // what each option says, which ones were right, which one you picked, and why
-function fbHTML(q, ord, ans) {
-  return `<ol class="qz-fb">${ord.map((oi, k) => {
+function fbHTML(q, ord, ans, anim = false) {
+  return `<ol class="qz-fb${anim ? " fresh" : ""}">${ord.map((oi, k) => {
     const right = q.a.includes(oi), mine = ans.includes(oi);
     return `<li class="${right ? "right" : mine ? "wrong" : ""}"><span class="qz-l">${LETTERS[k]}</span><div><div class="qz-t">${q.o[oi]}${mine ? ' <span class="mine">your answer</span>' : ""}</div><div class="qz-why">${right ? "✓ " : mine ? "✗ " : ""}${q.x[oi]}</div></div></li>`;
   }).join("")}</ol>`;
@@ -974,25 +1074,57 @@ function learn(q, ok) {
 }
 
 // ---------- quizzes: day, review, warm-up (feedback after every answer) ----------
+// The run of right answers in the quiz's header: it heats up as it grows and breaks on a miss.
+function comboHTML(r) {
+  if (comboFx === "broke") return `<span class="qz-combo broke">💔 Streak lost</span>`;
+  if (r.row < 2) return "";
+  return `<span class="qz-combo h${r.row >= 10 ? 3 : r.row >= 5 ? 2 : 1}${comboFx === "up" ? " up" : ""}" title="Right answers in a row">🔥 ${r.row} in a row</span>`;
+}
+// One square per question: right, wrong, not answered yet. Click one to go there.
+function mapHTML(r) {
+  if (r.ids.length < 2) return "";
+  return `<div class="qz-map">${r.ids.map((k, i) => {
+    const a = r.ans[k], st = !a ? "" : QZ.isRight(QBY[k], a) ? "ok" : "bad";
+    return `<button type="button" tabindex="-1" data-go="${i}" class="${st}${i === r.i ? " cur" : ""}" aria-label="Question ${i + 1}${st === "ok" ? ", right" : st ? ", wrong" : ""}"></button>`;
+  }).join("")}</div>`;
+}
+// The next question not answered yet after the one on screen, wrapping round; -1 when every one is answered.
+function nextOpen(r) {
+  for (let k = 1; k <= r.ids.length; k++) { const j = (r.i + k) % r.ids.length; if (!r.ans[r.ids[j]]) return j; }
+  return -1;
+}
 function renderQ() {
-  const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), ans = r.ans[id];
+  const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), ans = r.ans[id], n = r.ids.length;
   r.ord[id] = ord;
   const answered = Object.keys(r.ans).filter(k => QBY[k]);
   const right = answered.filter(k => QZ.isRight(QBY[k], r.ans[k])).length;
-  head(runTitle(r), [`Question ${r.i + 1} of ${r.ids.length}`, `<span class="ok">✓ ${right}</span>`, `<span class="bad">✗ ${answered.length - right}</span>`], answered.length / r.ids.length * 100);
+  head(runTitle(r), [`Question ${r.i + 1} of ${n}`, `<span class="ok">✓ ${right}</span>`, `<span class="bad">✗ ${answered.length - right}</span>`, comboHTML(r)], answered.length / n * 100);
+  // Previous and Next move one question either way and never answer; the main button checks, then goes on to the next open question.
+  const prev = `<button type="button" data-qz="prev"${r.i ? "" : " disabled"}>← Previous</button>`;
+  const skip = r.i + 1 < n ? `<button type="button" data-qz="skip">Next →</button>` : "";
   if (!ans) {
     const multi = q.a.length > 1;
-    qzBody.innerHTML = `<div class="qz-q">${q.q}</div>${optsHTML(q, ord, sel)}` +
-      `<div class="qz-a"><span class="muted">${multi ? "Pick two, then check." : "Pick one, then check."} Keys A–${LETTERS[ord.length - 1]} and Enter work too.</span>` +
-      `<button type="button" class="primary" data-qz="check"${sel.length === q.a.length ? "" : " disabled"}>Check answer</button></div>`;
+    qzBody.innerHTML = mapHTML(r) + `<div class="qz-q">${q.q}</div>${optsHTML(q, ord, sel)}` +
+      `<p class="qz-hint muted">${multi ? "Pick two, then check." : "Pick one, then check."} Keys A–${LETTERS[ord.length - 1]} and Enter work too, ← and → move between questions.</p>` +
+      `<div class="qz-a qz-nav">${prev}${skip}<button type="button" class="primary" data-qz="check"${sel.length === q.a.length ? "" : " disabled"}>Check answer</button></div>`;
   } else {
-    const ok = QZ.isRight(q, ans);
+    const ok = QZ.isRight(q, ans), to = nextOpen(r);
     const keyL = ord.map((oi, k) => q.a.includes(oi) ? LETTERS[k] : "").filter(Boolean).join(" and ");
-    qzBody.innerHTML = `<div class="qz-q">${q.q}</div>` +
-      `<div class="qz-verdict ${ok ? "ok" : "bad"}" role="status">${ok ? "✓ Correct." : `✗ Not quite. The answer is ${keyL}.`}</div>` +
-      fbHTML(q, ord, ans) + studyHTML(q, true) + (ok ? "" : noteHTML(q)) +
-      `<div class="qz-a"><button type="button" class="primary" data-qz="next">${r.i + 1 < r.ids.length ? "Next question →" : "See results"}</button></div>`;
+    const main = to < 0 ? "See results" : to === r.i + 1 ? "Next question →" : `Continue at question ${to + 1} →`;
+    qzBody.innerHTML = mapHTML(r) + `<div class="qz-q">${q.q}</div>` +
+      `<div class="qz-verdict ${ok ? "ok" : "bad"}${fresh ? " fresh" : ""}" role="status">${ok ? "✓ Correct." : `✗ Not quite. The answer is ${keyL}.`}${fresh && ok ? `<span class="xp-up">+${XP.right} XP</span>` : ""}</div>` +
+      fbHTML(q, ord, ans, fresh) + studyHTML(q, true) + (ok ? "" : noteHTML(q)) +
+      `<div class="qz-a qz-nav">${prev}${to === r.i + 1 ? "" : skip}<button type="button" class="primary" data-qz="next">${main}</button></div>`;
   }
+  fresh = false; comboFx = "";
+}
+// Go to question i of the run (Previous, Next, the squares, Continue). Answers stay as they are.
+function goQ(i) {
+  const r = S.run;
+  if (!r || r.done || r.kind === "mock" || i < 0 || i >= r.ids.length || i === r.i) return;
+  r.i = i; sel = [];
+  save(); renderQ(); qzDlg.scrollTop = 0;
+  refocus(r.ans[r.ids[i]] ? '[data-qz="next"]' : ".qz-o");
 }
 // Re-rendering replaces the buttons; put focus back somewhere sensible inside the dialog.
 function refocus(sel) {
@@ -1028,20 +1160,36 @@ function check() {
   sel = [];
   const ok = QZ.isRight(q, r.ans[id]);
   learn(q, ok);
+  const was = r.row, best = S.rowBest;
+  r.row = ok ? r.row + 1 : 0;
+  r.rowMax = Math.max(r.rowMax, r.row);
+  S.rowBest = Math.max(best, r.row);
+  const record = ok && r.row > best && best >= 3 && !recShown;   // past your longest run ever, said once a quiz
+  const got = award(r.row);
+  fresh = true;
+  comboFx = ok ? (r.row >= 2 ? "up" : "") : was >= 2 ? "broke" : "";
   save(); renderQ();
   refocus('[data-qz="next"]');
   const verdict = qzBody.querySelector(".qz-verdict");
   verdict.scrollIntoView({ block: "nearest" });
-  rightInRow = ok ? rightInRow + 1 : 0;
+  let rest = got;
   if (!ok) FX.sound("miss");
-  else if (ROW_MARKS.includes(rightInRow)) { FX.combo(rightInRow, verdict); FX.toast(`<b>${rightInRow} in a row</b> 🔥`, "combo"); }
+  else if (ROW_MARKS.includes(r.row)) {
+    // the streak's badge drops in at the top; when it also earns a badge, it says so instead of a second one
+    const [, icon, name, tier] = ROW_TIERS.find(x => x[0] === r.row), a = got.find(x => x.row === r.row);
+    rest = got.filter(x => x !== a);
+    FX.combo(r.row, verdict);
+    FX.badge(icon, `${r.row} in a row`, a ? `New badge: ${a.t}, +${a.xp} XP` : name, tier);
+  }
   else { FX.sound("pop"); FX.sparkle(verdict); }
+  if (record) { recShown = true; const n = r.row; setTimeout(() => FX.badge("🏅", "New record", `${n} in a row beats your best of ${best}`, "gold"), 450); }
+  showGains(rest, 700);
 }
 function nextQ() {
   const r = S.run;
   if (!r.ans[r.ids[r.i]]) return;
-  if (r.i + 1 < r.ids.length) { r.i++; sel = []; save(); renderQ(); qzDlg.scrollTop = 0; refocus(".qz-o"); }
-  else finishRun();
+  const to = nextOpen(r);
+  if (to < 0) finishRun(); else goQ(to);
 }
 function finishRun() {
   const r = S.run, t = today();
@@ -1059,14 +1207,20 @@ function finishRun() {
     r.mockNew = !was.m && mockOpen();
   }
   if (r.kind === "warm") S.warm[t] = "done";
+  let got = award();
   save(); refresh(); renderQuiz();
   // the results are on screen: celebrate there (the day's own celebration follows when they are closed)
   const n = r.ids.length, clean = r.score === n;
   if (r.kind === "day") {
     if (!QZ.passed(r.score, n)) FX.sound("miss");
-    else if (clean) { FX.perfect(); FX.toast("<b>Perfect score</b> 💯", "combo"); }
+    else if (clean) {
+      const a = got.find(x => x.id === "perfect");
+      got = got.filter(x => x !== a);
+      FX.perfect(); FX.badge("💯", "Perfect score", a ? `New badge, +${a.xp} XP` : `All ${n} right`, "epic");
+    }
     else FX.pass();
   } else if (clean) { FX.sound("chime"); FX.sparkle(qzBody.querySelector(".qz-score")); }
+  showGains(got, 900);
   qzDlg.scrollTop = 0;
   focusMain();
 }
@@ -1079,24 +1233,69 @@ function missedHTML(missed) {
   return `<h3 class="sub-h">Go back to</h3><ul class="qz-refs">${order.map(id => refHTML(id, `<span class="pill warn">${plural(refs[id], "miss", "misses")}</span>`)).join("")}</ul>` +
     `<h3 class="sub-h">Questions you missed</h3><ol class="qz-missed">${missed.map(q => `<li><details><summary>${q.q}</summary>${answerHTML(q)}</details></li>`).join("")}</ol>`;
 }
+// How a finished quiz went: "ace" (every answer right), "pass" or "fail". The bar is the pass mark on a day quiz,
+// 72% on a mock exam (where its results call it close to the line), 60% on a review, warm-up or step practice.
+function outcome(r) {
+  const [sc, n] = r.kind === "mock" ? [r.res.score, r.res.n] : [r.score, r.ids.length];
+  if (n && sc === n) return "ace";
+  return (r.kind === "day" ? QZ.passed(sc, n) : sc / n >= (r.kind === "mock" ? 0.72 : 0.6)) ? "pass" : "fail";
+}
+// Stars, the level with the XP this quiz earned, and the longest run of right answers.
+function rewardHTML(r) {
+  const o = outcome(r), [sc, n] = r.kind === "mock" ? [r.res.score, r.res.n] : [r.score, r.ids.length];
+  const stars = o === "ace" ? 3 : o === "fail" ? 0 : sc / n >= (r.kind === "mock" ? 0.8 : 0.95) ? 2 : 1;
+  const L = levelOf(xpTotal()), gain = r.xp0 >= 0 ? L.x - r.xp0 : 0;
+  const from = r.xp0 >= L.from ? (r.xp0 - L.from) / (L.to - L.from) * 100 : 0;   // a level gained: the bar fills from empty
+  const row = r.rowMax >= 2 ? `Longest run of right answers: ${r.rowMax}${r.rowMax >= 3 && r.rowMax >= S.rowBest ? ", your record" : ""}. ` : "";
+  return `<div class="qz-rw"><div class="stars" role="img" aria-label="${stars} of 3 stars">${[0, 1, 2].map(k => `<span class="${k < stars ? "on" : ""}" style="animation-delay:${0.2 + k * 0.25}s">★</span>`).join("")}</div>` +
+    `<div class="rw-x"><div class="rw-l"><b>Level ${L.n}</b><span class="muted">${rankOf(L.n)}</span>${gain > 0 ? `<span class="xp-up">+${gain} XP</span>` : ""}</div>` +
+    `<span class="xpbar"><span style="--from:${from}%;width:${L.pct}%"></span></span>` +
+    `<span class="muted">${row}${L.to - L.x} XP to level ${L.n + 1}.</span></div></div>`;
+}
+// A South Park GIF for the outcome (gifs.js), taken in turn from its list so it changes every time.
+// Loaded from GIPHY; if that fails (offline, a GIF taken down) the space closes again.
+let gifRun = { t0: -1, g: null };
+function gifHTML(r) {
+  const o = outcome(r), list = ((window.GIFS || {})[o] || []).filter(g => Array.isArray(g) && /^[A-Za-z0-9]+$/.test(g[0]));
+  if (!S.settings.gif || !list.length) return "";
+  if (gifRun.t0 !== r.t0) {
+    const at = isObj(ui.gif) && Number.isInteger(ui.gif[o]) ? ui.gif[o] : Math.floor(Math.random() * list.length);
+    gifRun = { t0: r.t0, g: list[at % list.length] };
+    ui.gif = { ...(isObj(ui.gif) ? ui.gif : {}), [o]: (at + 1) % list.length };
+    try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {}
+  }
+  const [id, alt] = gifRun.g, still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return `<figure class="qz-gif"><img src="https://media.giphy.com/media/${id}/${still ? "giphy_s" : "giphy"}.gif" alt="${esc(alt || "South Park")}" referrerpolicy="no-referrer" decoding="async"><figcaption>via GIPHY</figcaption></figure>`;
+}
+// the score box: the number, what it means, and the GIF beside it
+function resHTML(r, cls, score, msg) {
+  const gif = gifHTML(r);
+  return `<div class="qz-res ${cls}${gif ? " has-gif" : ""}"><div class="qz-res-t"><div class="qz-score">${score}</div><div>${msg}</div></div>${gif}</div>` + rewardHTML(r);
+}
+function hookGif() {
+  const img = qzBody.querySelector(".qz-gif img");
+  if (img) img.addEventListener("error", () => { const f = img.closest(".qz-gif"); f.closest(".qz-res").classList.remove("has-gif"); f.remove(); });
+}
 function renderResult() {
   const r = S.run, n = r.ids.length;
   r.seen = true;
   const missed = r.ids.filter(id => !QZ.isRight(QBY[id], r.ans[id])).map(id => QBY[id]);
   head(runTitle(r), ["Results"], 100);
+  const score = `${r.score} <small>of ${n}</small>`;
   if (r.kind === "day") {
     const d = dayOf(r.day), pass = QZ.passed(r.score, n);
-    qzBody.innerHTML = `<div class="qz-res ${pass ? "ok" : "bad"}"><div class="qz-score">${r.score} <small>of ${n}</small></div>` +
-      `<div>${pass ? (r.cel ? `Passed. Day ${d.day} is complete.` : "Passed.") : `You need ${QZ.needed(n)} to pass. A retake draws different questions, and the ones you missed come back for review over the next days.`}</div></div>` +
+    qzBody.innerHTML = resHTML(r, pass ? "ok" : "bad", score,
+      pass ? (r.cel ? `Passed. Day ${d.day} is complete.` : "Passed.") : `You need ${QZ.needed(n)} to pass. A retake draws different questions, and the ones you missed come back for review over the next days.`) +
       missedHTML(missed) +
       `<div class="qz-a">${pass
         ? `<button type="button" class="primary" data-qz="finish">${r.cel ? `Finish Day ${d.day} 🎉` : "Close"}</button>`
         : `<button type="button" data-qz="finish">Close</button><button type="button" class="primary" data-qz="retake">Retake with new questions</button>`}</div>`;
   } else {
-    qzBody.innerHTML = `<div class="qz-res ${missed.length ? "" : "ok"}"><div class="qz-score">${r.score} <small>of ${n}</small></div>` +
-      `<div>${missed.length ? "The ones you missed come back in a few days." : "All right. Nice."}</div></div>` + missedHTML(missed) +
+    qzBody.innerHTML = resHTML(r, missed.length ? (outcome(r) === "fail" ? "bad" : "") : "ok", score,
+      missed.length ? "The ones you missed come back in a few days." : "All right. Nice.") + missedHTML(missed) +
       `<div class="qz-a"><button type="button" class="primary" data-qz="finish">Close</button></div>`;
   }
+  hookGif();
 }
 // Leave the results screen: clear the run, then celebrate if the quiz finished a day.
 function finishResults() {
@@ -1151,7 +1350,9 @@ function finishMock(auto) {
   r.done = true; r.res = res; r.only = true;
   r.mins = Math.round((Math.min(Date.now(), r.end) - r.t0) / 60000);
   S.mocks.push({ at: today(), score: res.score, n: res.n, pct: res.pct, dom: res.dom, mins: r.mins });
+  const got = award();
   save(); refresh();
+  showGains(got, 1000);
   if (res.pct >= 80) setTimeout(() => FX.pass(), 300);   // a comfortable margin on a full mock exam
   if (qzDlg.open) { renderQuiz(); qzDlg.scrollTop = 0; focusMain(); }
   if (auto) { FX.banner("Time is up", "Your mock exam was submitted.", "info"); if (!qzDlg.open) whenFree(openQuiz); }
@@ -1167,12 +1368,13 @@ function renderMockResult() {
     : cls === "mid" ? "Close to the line. Work through the misses below and your weakest domain."
     : "Not there yet. Work through the misses below, then the weak-spot map.";
   const list = r.ids.map((id, i) => ({ q: QBY[id], i, ok: QZ.isRight(QBY[id], r.ans[id]) })).filter(x => !r.only || !x.ok);
-  qzBody.innerHTML = `<div class="qz-res ${cls}"><div class="qz-score">${res.pct}% <small>${res.score} of ${res.n} in ${r.mins} min</small></div><div>${msg}</div></div>` +
+  qzBody.innerHTML = resHTML(r, cls, `${res.pct}% <small>${res.score} of ${res.n} in ${r.mins} min</small>`, msg) +
     `<p class="muted">The real exam reports a scaled score from 100 to 1000 (720 to pass), and AWS doesn't publish how right answers map to it, so treat this percentage as a rough guide. Aim for 80% or more here.${prev.length ? ` Earlier mocks: ${prev.join(", ")}.` : ""}</p>` +
     `<div class="dom-bars">${res.dom.map(([a, n], i) => bar(`D${i + 1} ${doms[i]}`, pct(a, n), `${a}/${n}`)).join("")}</div>` +
     `<div class="mk-rev-h"><h3 class="sub-h">Review</h3><label class="chk"><input type="checkbox" data-only${r.only ? " checked" : ""}> Only the ones I got wrong</label></div>` +
     `<ol class="qz-missed">${list.map(x => `<li value="${x.i + 1}" class="${x.ok ? "right" : "wrong"}"><details><summary>${x.ok ? "✓" : "✗"} ${x.q.q}</summary>${fbHTML(x.q, r.ord[x.q.id] || QZ.order(x.q), r.ans[x.q.id] || [])}${studyHTML(x.q)}</details></li>`).join("") || "<li>Nothing wrong. 🎉</li>"}</ol>` +
     `<div class="qz-a"><button type="button" class="primary" data-qz="finish">Close</button></div>`;
+  hookGif();
 }
 
 // ---------- "Which service?" drill ----------
@@ -1220,8 +1422,10 @@ function drillEnd() {
   S.drill.runs++;
   drill.best = drill.score > S.drill.best;
   if (drill.best) S.drill.best = drill.score;
+  const got = award();
   save(); renderDrill(); renderPractice();
   FX.sound("chime");
+  showGains(got, 500);
 }
 function stopDrill() { if (drill) clearInterval(drill.timer); drill = null; }
 function renderDrill() {
@@ -1244,7 +1448,10 @@ qzDlg.addEventListener("click", e => {
   const dr = e.target.closest("[data-dr]");
   if (dr) { drillPick(+dr.dataset.dr); return; }
   const go = e.target.closest("[data-go]");
-  if (go) { S.run.i = +go.dataset.go; S.run.view = ""; save(); renderQuiz(); qzDlg.scrollTop = 0; return; }
+  if (go) {
+    if (S.run.kind !== "mock") { goQ(+go.dataset.go); return; }
+    S.run.i = +go.dataset.go; S.run.view = ""; save(); renderQuiz(); qzDlg.scrollTop = 0; return;
+  }
   const j = e.target.closest("[data-jump]");
   if (j) { qzDlg.close(); jumpTo(j.dataset.jump); return; }
   const b = e.target.closest("[data-qz]");
@@ -1256,7 +1463,8 @@ qzDlg.addEventListener("click", e => {
   else if (a === "next") nextQ();
   else if (a === "finish") finishResults();
   else if (a === "retake") { const day = r.day; S.run = null; startRun("day", day); }
-  else if (a === "prev") { r.i = Math.max(0, r.i - 1); save(); renderMockQ(); }
+  else if (a === "prev") { if (r.kind === "mock") { r.i = Math.max(0, r.i - 1); save(); renderMockQ(); } else goQ(r.i - 1); }
+  else if (a === "skip") goQ(r.i + 1);
   else if (a === "mnext") { r.i = Math.min(r.ids.length - 1, r.i + 1); save(); renderMockQ(); qzDlg.scrollTop = 0; }
   else if (a === "flag") { const id = r.ids[r.i]; if (r.flag[id]) delete r.flag[id]; else r.flag[id] = 1; save(); renderMockQ(); }
   else if (a === "grid") { r.view = "grid"; save(); renderGrid(); qzDlg.scrollTop = 0; }
@@ -1268,7 +1476,7 @@ qzDlg.addEventListener("change", e => {
 });
 // Listen on the document: re-rendering removes the focused button, which drops focus to <body>.
 document.addEventListener("keydown", e => {
-  if (!qzDlg.open || e.target.matches("input,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!qzDlg.open || brkDlg.open || e.target.matches("input,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (drill && !drill.done) {
     const n = k.length === 1 ? Math.max("1234".indexOf(k), "abcd".indexOf(k)) : -1;
@@ -1291,6 +1499,7 @@ document.addEventListener("keydown", e => {
     else if (k === "f") { e.preventDefault(); qzBody.querySelector('[data-qz="flag"]')?.click(); }
     return;
   }
+  if (k === "arrowleft" || k === "arrowright") { e.preventDefault(); goQ(r.i + (k === "arrowright" ? 1 : -1)); return; }
   if (k === "enter") {
     const p = qzBody.querySelector('[data-qz="check"]:not([disabled]),[data-qz="next"]');
     if (p) { e.preventDefault(); p.click(); }
@@ -1327,7 +1536,7 @@ function openSheet(kind) {
 function renderSheet() {
   const kind = shDlg.dataset.kind;
   const [title, html] = kind === "notebook" ? ["📓 Wrong-answer notebook", notebookHTML()] : kind === "weak" ? ["📈 Weak spots", weakHTML()]
-    : kind === "daynotes" ? dayNotesHTML() : ["🗣 Exam wording", cuesHTML()];
+    : kind === "daynotes" ? dayNotesHTML() : kind === "badges" ? ["🏅 Badges and level", badgesHTML()] : ["🗣 Exam wording", cuesHTML()];
   document.getElementById("sh-title").textContent = title;
   shBody.innerHTML = html;
 }
@@ -1381,6 +1590,16 @@ function weakHTML() {
       `<ul class="qz-refs">${tagRefs(t.tag).map(id => refHTML(id)).join("")}</ul></details></li>`).join("")}</ul>`;
   if (shaky.length) h += `<h3 class="sub-h">Self-checks you marked shaky</h3><ul class="qz-refs">${shaky.map(id => refHTML(id)).join("")}</ul>`;
   return h;
+}
+function badgesHTML() {
+  const L = levelOf(xpTotal()), next = Math.floor((L.n - 1) / 2) + 1;
+  return `<div class="lv"><div class="lv-n"><small>Level</small>${L.n}</div><div class="lv-x"><b>${rankOf(L.n)}</b>` +
+    `<span class="xpbar"><span style="width:${L.pct}%"></span></span>` +
+    `<span class="muted">${L.x} XP, ${L.to - L.x} to level ${L.n + 1}.${next < RANKS.length ? ` Next title at level ${next * 2 + 1}: ${RANKS[next]}.` : ""}</span></div></div>` +
+    `<p class="muted">XP: ${XP.right} for a right quiz answer, ${XP.step} for a completed step, ${XP.pass} for a day quiz passed, and what each badge is worth. ` +
+    `Your longest run of right answers: ${S.rowBest || "none yet"}.</p>` +
+    `<ul class="ach">${ACH.map(a => `<li class="${S.ach[a.id] ? "on" : ""}"><span class="ach-i">${a.i}</span><span class="ach-x"><b>${a.t}</b><span>${a.d}</span>` +
+      `<span class="muted">${S.ach[a.id] ? `Earned ${fmtD(parseDate(S.ach[a.id]))}, +${a.xp} XP` : `+${a.xp} XP`}</span></span></li>`).join("")}</ul>`;
 }
 function cuesHTML() {
   return `<p class="muted">Exam questions hide the deciding requirement in a phrase. Spot it and half the options fall away.</p>` +
@@ -1535,6 +1754,7 @@ document.getElementById("b-set").onclick = () => {
   document.getElementById("s-portal").value = S.settings.portal;
   document.getElementById("s-fx").checked = S.settings.fx;
   document.getElementById("s-snd").checked = S.settings.sound;
+  document.getElementById("s-gif").checked = S.settings.gif;
   renderSettingsInfo();
   setDlg.returnValue = "";
   setDlg.showModal();
@@ -1549,6 +1769,7 @@ setDlg.addEventListener("close", () => {
   S.settings.portal = /^https?:\/\//i.test(portal) ? portal : "";
   S.settings.fx = document.getElementById("s-fx").checked;
   S.settings.sound = document.getElementById("s-snd").checked;
+  S.settings.gif = document.getElementById("s-gif").checked;
   save(); rebuild();
 });
 document.getElementById("s-unslip").onclick = () => { S.slips = []; S.slipSkip = ""; save(); refresh(); renderSettingsInfo(); };
@@ -1577,56 +1798,102 @@ document.getElementById("s-reset").onclick = () => {
 function restoreScores() { document.querySelectorAll("[data-score]").forEach(inp => { inp.value = S.scores[inp.dataset.score] ?? ""; }); }
 
 // ---------- focus timer ----------
+// A focus block counts down from 50 minutes. When it ends, a pop-up offers a break. The break has no set length:
+// it counts up, and once it passes 10 minutes it reminds you every minute to start the next focus block, with
+// the pop-up when it isn't up already and with the sound alone when it is, so reminders never pile up.
 const tm = document.getElementById("timer");
+const brkDlg = document.getElementById("brk"), brkBody = document.getElementById("brk-body");
+let nagAt = -1;   // the minute past 10 of the break that the last reminder was for
 const tmLeft = () => S.timer.running ? Math.max(0, Math.round((S.timer.endAt - Date.now()) / 1000)) : S.timer.left;
+const restUp = () => Math.max(0, Math.round(S.timer.up + (S.timer.running ? (Date.now() - S.timer.at) / 1000 : 0)));
 const mmss = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 // Credit focused time to the day you're working on: the one open on screen, else the one the overview points at.
 function logFocus() {
   const t = S.timer;
   if (t.mode !== "focus" || !t.running) return;
-  const sec = (t.from || DUR.focus) - tmLeft();
+  const sec = (t.from || FOCUS) - tmLeft();
   const d = dayOf(view.day) || (nextStep() || {}).d;
   if (sec < 30 || !d) return;
   S.log[d.id] = (S.log[d.id] || 0) + sec / 60;
 }
 function tmRender() {
-  const t = S.timer, left = tmLeft();
+  const t = S.timer, rest = t.mode === "rest", s = rest ? restUp() : tmLeft(), over = rest && s >= REST_NAG;
   tm.classList.toggle("running", t.running);
-  tm.classList.toggle("break", t.mode === "break");
+  tm.classList.toggle("break", rest);
+  tm.classList.toggle("over", over && t.running);
   tm.classList.toggle("min", !!t.min);
-  tm.querySelector(".tm-mode").textContent = t.mode === "focus" ? "50-minute focus" : "10-minute break";
-  tm.querySelector(".tm-time").textContent = mmss(left);
-  tm.querySelector('[data-tm="toggle"]').textContent = t.running ? "Pause" : left === DUR[t.mode] ? "Start" : "Resume";
-  tm.querySelector('[data-tm="switch"]').textContent = t.mode === "focus" ? "Break" : "Focus";
+  tm.querySelector(".tm-mode").textContent = !rest ? "50-minute focus" : over ? "Break is over" : "Break";
+  tm.querySelector(".tm-time").textContent = mmss(s);
+  tm.querySelector('[data-tm="toggle"]').textContent = t.running ? "Pause" : rest ? (s ? "Resume" : "Start break") : s === FOCUS ? "Start" : "Resume";
+  tm.querySelector('[data-tm="switch"]').textContent = rest ? "Focus" : "Break";
   tm.querySelector('[data-tm="min"]').textContent = t.min ? "+" : "–";
-  document.title = t.running ? `${mmss(left)} ${t.mode === "focus" ? "🎯" : "☕"} · SAA-C03 Plan` : "SAA-C03 Plan";
+  document.title = t.running ? `${mmss(s)} ${!rest ? "🎯" : over ? "⏰" : "☕"} · SAA-C03 Plan` : "SAA-C03 Plan";
+  const up = document.getElementById("brk-up");
+  if (up) up.textContent = mmss(restUp());
 }
-function tmSet(mode) { S.timer.mode = mode; S.timer.running = false; S.timer.left = DUR[mode]; save(); tmRender(); }
+function tmSet(mode) { Object.assign(S.timer, { mode, running: false, left: FOCUS, up: 0, at: 0 }); nagAt = -1; save(); tmRender(); }
+const startFocus = () => { logFocus(); Object.assign(S.timer, { mode: "focus", running: true, left: FOCUS, from: FOCUS, endAt: Date.now() + FOCUS * 1000, up: 0, at: 0 }); };
+const startRest = () => { logFocus(); Object.assign(S.timer, { mode: "rest", running: true, up: 0, at: Date.now() }); nagAt = -1; };
 tm.addEventListener("click", e => {
   const b = e.target.closest("[data-tm]");
   const a = b ? b.dataset.tm : e.target.closest(".tm-time") && S.timer.min ? "min" : null;
   if (!a) return;
-  const t = S.timer;
+  const t = S.timer, rest = t.mode === "rest";
   if (a === "toggle") {
-    if (t.running) { logFocus(); t.left = tmLeft(); t.running = false; }
-    else { FX.unlock(); t.from = t.left; t.endAt = Date.now() + t.left * 1000; t.running = true; }
-  } else if (a === "reset") { logFocus(); t.running = false; t.left = DUR[t.mode]; }
-  else if (a === "switch") { logFocus(); tmSet(t.mode === "focus" ? "break" : "focus"); refresh(); return; }
+    if (t.running) { if (rest) t.up = restUp(); else { logFocus(); t.left = tmLeft(); } t.running = false; }
+    else { FX.unlock(); if (rest) t.at = Date.now(); else { t.from = t.left; t.endAt = Date.now() + t.left * 1000; } t.running = true; }
+  } else if (a === "reset" || a === "switch") { logFocus(); tmSet(a === "reset" ? t.mode : rest ? "focus" : "rest"); refresh(); return; }
   else if (a === "min") { t.min = !t.min; }
   save(); tmRender();
   if (a !== "min") refresh();
 });
+// The pop-up: "done" when a focus block has just ended, "over" when the break has run past 10 minutes.
+// It is a modal of its own, so it also comes up over an open quiz (and the quiz keys wait under it).
+function brkOpen(kind) {
+  brkDlg.dataset.kind = kind;
+  brkBody.innerHTML = kind === "done"
+    ? `<h2 id="brk-t">Focus block done 🎯</h2><p>50 minutes of focus. Take a break now: it has no set length. The clock counts up, and after ${REST_NAG / 60} minutes it reminds you every minute to come back.</p>` +
+      `<div class="row end"><button type="button" data-brk="focus">Skip the break, focus again</button><button type="button" class="primary" data-brk="rest">Start break ☕</button></div>`
+    : `<h2 id="brk-t">Break is over ⏰</h2><p>You have been on a break for <b id="brk-up">${mmss(restUp())}</b>. Time for the next 50 minutes of focus.</p>` +
+      `<p class="muted">Away for longer? Pause or reset the break on the timer and the reminders stop.</p>` +
+      `<div class="row end"><button type="button" data-brk="later">In a minute</button><button type="button" class="primary" data-brk="focus">Start focus 🎯</button></div>`;
+  if (!brkDlg.open) brkDlg.showModal();
+  brkBody.querySelector(".primary").focus();
+}
+brkDlg.addEventListener("click", e => {
+  const b = e.target.closest("[data-brk]");
+  if (!b) return;
+  const a = b.dataset.brk;
+  brkDlg.close();
+  if (a === "later") return;
+  FX.unlock();
+  if (a === "rest") startRest(); else startFocus();
+  save(); tmRender(); refresh();
+  FX.sound("pop");
+});
+brkDlg.addEventListener("close", runPending);
 setInterval(() => {
-  if (S.timer.running && tmLeft() <= 0) {
+  const t = S.timer;
+  if (t.running && t.mode === "focus" && tmLeft() <= 0) {
     logFocus();
-    const next = S.timer.mode === "focus" ? "break" : "focus";
-    FX.sound("timer");
-    FX.banner(next === "break" ? "Break time ☕" : "Back to work 🎯", next === "break" ? "10 minutes. Stand up, drink water." : "50 minutes of focus.", "info");
-    if (next === "break") FX.sparkle(document.getElementById("timer"));   // a full focus block is something finished too
-    tmSet(next);
+    tmSet("rest");
     refresh();
+    FX.sound("timer");
+    brkOpen("done");
+    FX.sparkle(tm);   // a full focus block is something finished too
+    showGains(award(), 600);
   }
-  if (S.timer.running) tmRender();
+  if (t.running && t.mode === "rest") {
+    const s = restUp();
+    if (s >= REST_NAG && Math.floor((s - REST_NAG) / 60) !== nagAt) {
+      nagAt = Math.floor((s - REST_NAG) / 60);
+      FX.sound("nag");
+      if (!brkDlg.open) brkOpen("over");
+    }
+  }
+  // the timer moved on elsewhere (another tab, the server): a pop-up that no longer fits goes away
+  if (brkDlg.open && (brkDlg.dataset.kind === "over" ? !(t.mode === "rest" && t.running) : !(t.mode === "rest" && !t.running && !t.up))) brkDlg.close();
+  if (t.running) tmRender();
 }, 1000);
 
 // ---------- server sync (only when served by the Go backend; otherwise browser-only) ----------
@@ -1668,6 +1935,8 @@ function mergeDocs(local, remote) {
   m.mocks = m.mocks.concat(older.mocks.filter(x => !have.has(mk(x)))).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
   for (const k in older.log) m.log[k] = Math.max(m.log[k] || 0, older.log[k]);
   m.drill = { best: Math.max(m.drill.best, older.drill.best), runs: Math.max(m.drill.runs, older.drill.runs) };
+  for (const k in older.ach) if (!m.ach[k] || older.ach[k] < m.ach[k]) m.ach[k] = older.ach[k];
+  m.rowBest = Math.max(m.rowBest, older.rowBest);
   m.run = local.run || remote.run;      // the run on this screen stays
   m.savedAt = Date.now();
   return m;
@@ -1731,13 +2000,14 @@ addEventListener("storage", e => {
 });
 
 // ---------- boot ----------
-function rebuild() { renderLinks(); syncToggles(); refresh(); }
+function rebuild() { syncLevel(); renderLinks(); syncToggles(); refresh(); }
 // stay correct past midnight without reloading
 let lastIdx = todayIdx(), lastDate = today();
 setInterval(() => { if (todayIdx() !== lastIdx || today() !== lastDate) { lastIdx = todayIdx(); lastDate = today(); refresh(); } }, 60000);
 
 // Days ticked off before quizzes existed count as done once their quiz is passed.
 DAYS.forEach(markDayDone);
+award();
 document.getElementById("places").open = Object.keys(S.ticks).length === 0;
 document.getElementById("tb-sub").textContent = `SAA-C03 in ${DAYS.length} days`;
 restoreScores();

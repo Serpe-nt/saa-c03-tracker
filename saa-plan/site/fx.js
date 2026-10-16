@@ -1,10 +1,10 @@
-// Celebration effects: canvas confetti/fireworks + Web Audio sounds + banner and toast. No dependencies.
+// Celebration effects: canvas confetti/fireworks + Web Audio sounds + banner, toast and badges. No dependencies.
 // A ladder, from small to large: step → block → quiz unlocked → day → week → all, plus sparkles for right answers and streaks.
 window.FX = (() => {
   let fxOn = true, soundOn = true;
   let cv = null, ctx = null, W = 0, H = 0, raf = 0;
   let parts = [], rockets = [], rings = [];
-  let actx = null, bEl = null, bT = 0, tEl = null, tT = 0;
+  let actx = null, bEl = null, bT = 0, tEl = null, tT = 0, bdWrap = null;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
   const COLORS = ["#ff9900", "#ffc061", "#0972d3", "#5aa9ff", "#8a3ffc", "#b58cff", "#1fbf5f", "#ff5c8a", "#ffe066"];
   const GOLD = ["#ffe066", "#ffc061", "#ff9900", "#fff3b0", "#ffffff"];
@@ -12,8 +12,9 @@ window.FX = (() => {
   const pick = a => a[(Math.random() * a.length) | 0];
   const motion = () => fxOn && !reduce.matches;
   // A modal dialog sits in the browser's top layer, above everything else on the page:
-  // whatever must show while one is open (the quiz) has to live inside it.
-  const host = () => document.querySelector("dialog[open]") || document.body;
+  // whatever must show while one is open (the quiz) has to live inside it. With two open
+  // (the break reminder over a quiz), the later one in the page is the one on top.
+  const host = () => { const d = document.querySelectorAll("dialog[open]"); return d.length ? d[d.length - 1] : document.body; };
 
   // ---------- canvas ----------
   function ensure() {
@@ -194,6 +195,9 @@ window.FX = (() => {
       tone(1046.5, 0.55, 1.3, { vol: 0.06 });
     },
     timer: () => { tone(784, 0, 0.35, { vol: 0.09 }); tone(1046.5, 0.25, 0.5, { vol: 0.08 }); tone(784, 0.8, 0.35, { vol: 0.09 }); tone(1046.5, 1.05, 0.5, { vol: 0.08 }); },
+    // the break has run past 10 minutes: an insistent double knock, three times
+    nag: () => { for (let k = 0; k < 3; k++) { tone(988, k * 0.42, 0.12, { type: "square", vol: 0.05 }); tone(740, k * 0.42 + 0.14, 0.16, { type: "square", vol: 0.05 }); } },
+    level: () => { [0, 2, 4, 5, 7].forEach((k, j) => tone(hz(k + 5), j * 0.07, j === 4 ? 0.6 : 0.15, { type: "triangle", vol: 0.09 })); tone(hz(12) * 2, 0.36, 0.7, { vol: 0.035 }); },
     clean: () => { tone(660, 0, 0.15, { vol: 0.06 }); tone(990, 0.08, 0.25, { vol: 0.06 }); },
     miss: () => tone(330, 0, 0.22, { type: "triangle", vol: 0.06, to: 220 })
   };
@@ -220,6 +224,28 @@ window.FX = (() => {
     tEl.classList.add("show");
     clearTimeout(tT);
     tT = setTimeout(() => tEl.classList.remove("show"), 2100);
+  }
+  // A badge drops in at the top of the screen: right answers in a row, a record, a level, a badge earned.
+  // They stack (at most three) and float away after a few seconds. tier: bronze | silver | gold | epic | level.
+  // Like the banner, it carries information, so it shows with effects off too (without the stars).
+  function badge(icon, title, sub = "", tier = "gold") {
+    if (!bdWrap) { bdWrap = document.createElement("div"); bdWrap.className = "fx-badges"; bdWrap.setAttribute("role", "status"); }
+    if (bdWrap.parentNode !== host()) host().appendChild(bdWrap);
+    const el = document.createElement("div");
+    el.className = "fx-badge k-" + tier;
+    el.innerHTML = `<span class="bd-i">${icon}</span><span class="bd-x"><span class="bd-t">${title}</span>${sub ? `<span class="bd-s">${sub}</span>` : ""}</span>`;
+    bdWrap.appendChild(el);
+    while (bdWrap.children.length > 3) bdWrap.firstChild.remove();
+    // stars burst from the medal once it has landed
+    setTimeout(() => {
+      if (!el.isConnected || !motion()) return;
+      ensure();
+      const p = center(el.querySelector(".bd-i"));
+      ring(p.x, p.y, tier === "epic" ? "#b58cff" : "#ffe066");
+      stars(p.x, p.y, tier === "epic" || tier === "level" ? 26 : 14, { speed: 6.5, gravity: 0.14, ttl: [30, 60], size: [5, 11], colors: tier === "epic" ? ["#b58cff", "#8a3ffc", "#ffe066", "#ffffff"] : GOLD });
+    }, 420);
+    setTimeout(() => el.classList.add("out"), 3000);
+    setTimeout(() => el.remove(), 3500);
   }
 
   return {
@@ -293,7 +319,7 @@ window.FX = (() => {
     week() { sound("finale"); if (!motion()) return; ensure(); rain(["🏆", "⭐", "🎉"], 50); for (let k = 0; k < 3; k++) setTimeout(() => cannons(140), k * 700); for (let i = 0; i < 10; i++) rocket(R(W * 0.1, W * 0.9), 200 + i * 220); },
     all() { sound("finale"); setTimeout(() => sound("finale"), 1600); if (!motion()) return; ensure(); rain(["🚀", "🏆", "⭐", "🎓"], 90); for (let k = 0; k < 5; k++) setTimeout(() => cannons(160), k * 650); for (let i = 0; i < 20; i++) rocket(R(W * 0.08, W * 0.92), 150 + i * 190); },
     small(el) { sound("clean"); if (!motion()) return; ensure(); const p = center(el); confetti(p.x, p.y, 40, { speed: 8, spread: Math.PI * 1.3 }); },
-    banner, toast, sound,
+    banner, toast, badge, sound,
     unlock() { if (soundOn) ac(); },
     set(o) { if ("fx" in o) fxOn = !!o.fx; if ("sound" in o) soundOn = !!o.sound; }
   };

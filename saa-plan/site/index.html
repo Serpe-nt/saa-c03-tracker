@@ -246,6 +246,7 @@
     </label>
     <label class="chk"><input type="checkbox" id="s-fx"> Visual effects</label>
     <label class="chk"><input type="checkbox" id="s-snd"> Sounds</label>
+    <label class="chk"><input type="checkbox" id="s-gif"> South Park GIFs on quiz results (loaded from GIPHY)</label>
     <div class="row">
       <button type="button" id="s-export">Export progress</button>
       <button type="button" id="s-import">Import…</button>
@@ -259,6 +260,9 @@
     </div>
   </form>
 </dialog>
+
+<!-- Break reminder: a focus block ended, or the break has run past 10 minutes. Last in the page: it can open over the quiz. -->
+<dialog id="brk" class="brk" aria-labelledby="brk-t"><div id="brk-body"></div></dialog>
 
 <script src="plan.js"></script>
 <script src="quiz/meta.js"></script>
@@ -279,6 +283,7 @@
 <script src="quiz/mock1.js"></script>
 <script src="quiz/mock2.js"></script>
 <script src="extras.js"></script>
+<script src="gifs.js"></script>
 <script src="keys/d01.js"></script>
 <script src="keys/d02.js"></script>
 <script src="keys/d03.js"></script>

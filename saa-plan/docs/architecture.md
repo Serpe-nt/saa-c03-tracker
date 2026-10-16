@@ -12,7 +12,7 @@ browser ─ index.html loads, in order:
 
 - **Data files** (`plan.js`, `quiz/*.js`, `extras.js`, `keys/*.js`) hold no logic. They assign or push onto `window.*` globals.
 - **`qcore.js`** holds the quiz logic with no DOM: picking, shuffling, grading, spaced repetition, weak-spot aggregation, mock scoring, and which topics each day of the plan teaches (`topics`). Constants: `DAILY` 30, `PASS` 0.9, `MOCK` {65 questions, 130 min, split [20,17,15,13]}, `MIX` [9,8,7,6], `SRS_DAYS` [1,2,4], `STEP` 3, `FOUNDATION` 6 (question pools 1–6 are foundation level, the later ones exam level). Node tests load it through `tests/load.mjs`, a vm sandbox with a fake `window`.
-- **`app.js`** is one IIFE that owns the state and all UI. Its sections, in order: state and validation, indexes, dates, dialog queue, glossary, views (overview / day flow), overview tiles, refresh/status, slip guard, the overview's Start/Continue card, day flow (one card at a time), completing steps and celebrations, scores, practice panel, quizzes (shared, day/review/warm-up/step practice, mock, drill), quiz dialog events, sheets (notebook, weak spots, cues, day notes), cleanup dialog, day-flow events, header, settings, focus timer, server sync, boot.
+- **`app.js`** is one IIFE that owns the state and all UI. Its sections, in order: state and validation, indexes, dates, dialog queue, glossary, views (overview / day flow), overview tiles, refresh/status, slip guard, the overview's Start/Continue card, day flow (one card at a time), completing steps and celebrations, XP/levels/badges, scores, practice panel, quizzes (shared, day/review/warm-up/step practice, mock, drill), quiz dialog events, sheets (notebook, weak spots, cues, day notes), cleanup dialog, day-flow events, header, settings, focus timer, server sync, boot.
 - **`server/`** is a Go module (stdlib plus `modernc.org/sqlite`, pure Go, no cgo). It serves `site/` and the API.
 
 ## State (`DEF` in app.js)
@@ -35,8 +35,10 @@ browser ─ index.html loads, in order:
 | `warm` | `{date: "done"\|"skip"}` | warm-up handled that day |
 | `slips`, `slipSkip` | `[{from, n}]`, date | schedule shifts; "Not now" date |
 | `drill` | `{best, runs}` | "Which service?" record |
-| `settings` | `{start, portal, exam, fx, sound}` | Day 1 date, AWS sign-in URL (the field is still called `portal`), booked exam date, toggles |
-| `timer` | `{mode, running, endAt, left, from, min}` | focus timer; `from` = seconds left when started (for the log) |
+| `ach` | `{badgeId: "YYYY-MM-DD"}` | badges earned, with the date (see "XP, levels and badges") |
+| `rowBest` | number | the most quiz answers right in a row, ever |
+| `settings` | `{start, portal, exam, fx, sound, gif}` | Day 1 date, AWS sign-in URL (the field is still called `portal`), booked exam date, toggles (`gif`: South Park GIFs on results) |
+| `timer` | `{mode, running, endAt, left, from, at, up, min}` | focus timer (see "Focus timer"). `mode` "focus" counts down: `endAt`, `left`, `from` = seconds left when started (for the log). `mode` "rest" is the break and counts up: `at` = when it last started running, `up` = seconds banked before a pause |
 | `savedAt` | ms timestamp | last local save (sync conflict tie-breaker) |
 
 **Every entry point validates state.** That covers load from localStorage, import, the server copy and other tabs' saves, all through `parseState = clean(merge(clone(DEF), obj))`. `merge` only accepts values whose type matches the default, and `clean` validates each entry inside the maps, the run and the timer. So a bad file can't break rendering or inject markup. New top-level fields need a default in `DEF` and, for maps, a rule in `clean()`.
@@ -87,15 +89,31 @@ The owner asked for more to see and hear whenever something is finished. The eff
 | Half the day's steps | The toast says so. | `stepToast` |
 | A block of the day (a lecture, its labs, a build) | Corner cannons, stars, two rockets, a chord, the block's dots bounce, a banner names the block and what is left. | `blockDone` |
 | The last step, when the day has a quiz | Rings and stars in blue, a banner: the quiz is open. | `blockDone` |
-| A right answer in a quiz | A sparkle on the verdict. 3, 5, 10, 15… right in a row: a bigger burst, rising notes and a toast. | `check` |
-| A quiz passed | Cannons and a fanfare on the results screen; with every answer right, a rain of stars and "Perfect score". | `finishRun` |
-| A day | Cannons, rockets, a rain of emoji, a banner (after the results are closed, if a quiz finished the day). A streak of 3, 5, 7, 10, 14 or 21 days adds a toast. | `celebrate` |
+| A right answer in a quiz | The verdict pops with "+10 XP" and a sparkle (a wrong one shakes). The run of right answers shows in the quiz header and heats up. 3, 5, 10, 15, 20, 25, 30 right in a row: a bigger burst, rising notes and a badge that drops in at the top of the screen, bronze to "epic" as the run grows. Past your longest run ever: a "New record" badge, once a quiz. | `check` |
+| A quiz finished | The results show 0–3 stars, the level with the XP the quiz earned, the longest run of right answers, and a South Park GIF for the outcome. A pass adds cannons and a fanfare; every answer right, a rain of stars and a "Perfect score" badge. | `finishRun`, `resHTML` |
+| A badge earned, a level reached | A badge at the top of the screen; a level has a sound of its own. | `showGains` |
+| A day | Cannons, rockets, a rain of emoji, a banner (after the results are closed, if a quiz finished the day). A streak of 3, 5, 7, 10, 14 or 21 days adds a badge at the top. | `celebrate` |
 | A week, the whole plan | The same, larger and longer. | `celebrate` |
 | Smaller things | "Got it" on a self-check, a review or step practice with every answer right, a full focus block, a mock exam at 80% or more. | at each handler |
 
-- **Canvas, banner and toast live in the open dialog when there is one.** A modal `<dialog>` is in the browser's top layer, above everything else on the page, so an effect drawn on `<body>` would hide behind the quiz. `host()` in fx.js picks the open dialog or the body each time.
-- **Switches:** canvas effects need the effects toggle on and no `prefers-reduced-motion`; sounds need the sound toggle. Banners and toasts carry information (what was finished, what is left), so they always show; with reduced motion they appear without animation.
-- **Nothing is stored:** the streak of right answers and the dot animation marks are in memory only.
+- **Canvas, banner, toast and badges live in the open dialog when there is one.** A modal `<dialog>` is in the browser's top layer, above everything else on the page, so an effect drawn on `<body>` would hide behind the quiz. `host()` in fx.js picks the last open dialog in the page (the break reminder, which is last, can sit over the quiz) or the body each time.
+- **Badges at the top, toasts at the bottom:** a toast is a progress line above the buttons ("✓ 5 of 9"); anything earned (a run of right answers, a record, a badge, a level, a perfect score, a study streak) is a badge that drops in at the top of the screen, bounces, shines, throws stars and floats away after three seconds. Up to three stack.
+- **Switches:** canvas effects need the effects toggle on and no `prefers-reduced-motion`; sounds need the sound toggle. Banners, toasts and badges carry information (what was finished, what is left, what was earned), so they always show; with reduced motion they appear without animation. The GIFs have their own switch in Settings and show a still frame with reduced motion.
+- **What is stored:** the run of right answers lives in the run (`run.row`, `run.rowMax`), so it survives a reload; badges and the record are state. The dot animation marks are in memory only.
+
+## XP, levels and badges
+
+The owner asked for the quizzes to be more of a game. Three things, all derived from or kept next to the state:
+
+- **XP is worked out, not stored:** 10 per right answer (`qs[].right`), 5 per completed step, 100 per day quiz passed, plus what each badge earned is worth (`xpTotal()`). So syncing and merging need no rules for it, and progress from before XP existed counts.
+- **Levels:** level n starts at 40·n·(n−1) XP (80 for level 2, 3,600 for level 10); the plan adds up to about level 20. A title every two levels, "Cloud curious" to "Solutions architect" (`RANKS`). `lvShown` is the level on screen; `showGains()` announces a higher one, and `syncLevel()` (in `rebuild()`) follows a level that changed by import, reset or another device without announcing it.
+- **Badges** (`ACH`): 15, each earned once with its date in `S.ach`. Most are read from the state (`achCtx()`), so `award()` at boot earns those quietly for progress made before badges existed; the streak ones (`row`) only while answering. The overview has a Level cell (it opens the badges sheet) and a card in the practice panel.
+
+**Results GIFs** (`site/gifs.js`, `window.GIFS`): ten South Park GIFs per outcome, ace (every answer right), pass, fail (`outcome()`: the pass mark on a day quiz, 72% on a mock, 60% elsewhere). They are taken in turn (`ui.gif` in `saa-plan-v2-ui` remembers where each list is, per browser), loaded from GIPHY's CDN and never stored in the repo. A GIF that fails to load removes itself, so the results still read right offline.
+
+## Focus timer
+
+A focus block counts down from 50 minutes and logs its minutes to the day being worked on (`logFocus`). When it ends, the break pop-up (`#brk`, `brkOpen("done")`) offers a break or another block. The break has no set length: it counts up. From 10 minutes on (`REST_NAG`) the 1-second ticker reminds you once a minute to start focusing: if the pop-up is not up, it opens (`brkOpen("over")`) with a knocking sound; if it is up, only the sound plays, so pop-ups never stack. "In a minute" closes it until the next minute. Pausing or resetting the break stops the reminders. The pop-up is a modal of its own and comes up even over an open quiz (the quiz keys wait while it is up); a pop-up that no longer fits the timer (another tab moved it on) closes itself. `nagAt` (memory only) is the minute last reminded about, so after a reload an overdue break reminds at once.
 
 ## Day completion
 
@@ -104,17 +122,18 @@ The owner asked for more to see and hear whenever something is finished. The eff
 ## Quiz lifecycle
 
 1. **Prompt.** Completing the last open step of a day moves to the day's quiz card, whose main action is Start quiz (Enter works). There is no pop-up: the card is the prompt. A pending quiz can also be started from the overview's Start/Continue card. The mock exam still uses an intro screen (`intro` object) in the quiz dialog.
-2. **Start.** `startRun(kind, of)` picks questions (`QZ.pickDay` / `pickMock` / `pickWarmup` / `pickReview` / `pickStep`) and stores an option order per question. `of` is the day id for a day quiz and the step id for step practice. It saves `S.run = {kind, day, item, ids, ord, ans, flag, i, t0, end, done, view, seen, only, score, mins, cel, mockNew, res}`. Only one run exists at a time; starting another asks to drop the unfinished one.
+2. **Start.** `startRun(kind, of)` picks questions (`QZ.pickDay` / `pickMock` / `pickWarmup` / `pickReview` / `pickStep`) and stores an option order per question. `of` is the day id for a day quiz and the step id for step practice. It saves `S.run = {kind, day, item, ids, ord, ans, flag, i, t0, end, done, view, seen, only, score, mins, cel, mockNew, res, row, rowMax, xp0}` (`xp0` = XP when it started, for "+N XP" on the results). Only one run exists at a time; starting another asks to drop the unfinished one.
 3. **Answer** (day/review/warm-up/step practice). Selecting options fills `sel`; "Check" records `run.ans[id]` and calls `learn()`, which updates `qs`, `srs` and `book`. The feedback view shows every option's explanation and up to three study refs (`studyRefs`: the steps the question names, then the steps that teach its main topic; lectures first, then labs, builds and self-checks, in the plan's order). Progress persists after each answer, so closing or reloading resumes.
+   **Moving around** works like the day flow: ← Previous and Next → move one question either way and never answer (`goQ`), so a question can be skipped and come back to; a row of squares above the question (right, wrong, open) jumps to any of them. After Check, the main button goes on to the next question still open after this one, wrapping round (`nextOpen`), and reads "See results" once every question is answered. An answered question shows its feedback again, read-only.
 4. **Mock.** Selections save immediately with no feedback. The page offers a flag/review grid and a 130-minute clock (`run.end`). A 1-second ticker submits when time is up (`finishMock(true)`), even with the dialog closed or after a reload.
-5. **Finish.** `finishRun` / `finishMock` compute the score. A day quiz records the try, sets `passed` at 27 or more, and works out which celebration is due (`cel`: day/week/all). It also sets `mockNew` when that pass unlocks the mock. The run stays in `S.run` with `done: true`.
+5. **Finish.** `finishRun` / `finishMock` compute the score and `award()` the badges it earns. A day quiz records the try, sets `passed` at 27 or more, and works out which celebration is due (`cel`: day/week/all). It also sets `mockNew` when that pass unlocks the mock. The run stays in `S.run` with `done: true`.
 6. **Results.** Rendering results sets `run.seen = true`. Closing the dialog calls `finishResults()`, which clears the run and then celebrates; that order matters because the canvas sits below the modal. If the pass completed the day on screen, it then moves to the day's summary card. If a finished run was never on screen (time ran out behind the drill, or a reload), the close handler and boot reopen it first, so results are never lost.
 
 The drill keeps its state in memory only (`drill`), runs in the same dialog, and must not close the dialog when restarting: a late `close` event would stop the new drill. The close handler starts with `if (qzDlg.open) return`.
 
 **Dialog queue.** `whenFree(fn)` runs `fn` now if no `<dialog>` is open, otherwise queues it. Every dialog's `close` calls `runPending()`.
 
-**Keyboard.** A document-level `keydown` handler applies while the quiz dialog is open. Re-rendering removes the focused button, which drops focus to `<body>`, so a dialog-level listener would miss keys. A–E or 1–5 pick options, and Enter checks or moves on. Enter on a focused button or link other than an option presses that control. `focusMain()` puts focus on the main action after rendering.
+**Keyboard.** A document-level `keydown` handler applies while the quiz dialog is open. Re-rendering removes the focused button, which drops focus to `<body>`, so a dialog-level listener would miss keys. A–E or 1–5 pick options, Enter checks or moves on, ← and → move between questions. Not while the break reminder is up over the quiz. Enter on a focused button or link other than an option presses that control. `focusMain()` puts focus on the main action after rendering.
 
 ## Selection rules (qcore.js)
 
@@ -151,6 +170,7 @@ The drill keeps its state in memory only (`drill`), runs in the same dialog, and
   - **Mock results:** union.
   - **Study time:** the maximum per day.
   - **Drill record:** the maximums.
+  - **Badges:** union, the earlier date. **Longest run of right answers:** the maximum.
   - **Settings, timer and schedule moves:** from the newer copy.
   - **The run:** the one on this screen.
 - A 409 during a push leads to `absorb`, then another push. "Dirty" is cleared only if no save happened while the request was in flight.
@@ -162,7 +182,7 @@ The drill keeps its state in memory only (`drill`), runs in the same dialog, and
 
 - **Config** (env): `ADDR` (`:8080`), `SITE_DIR` (`../site`, `/srv/site` in the image), `DB_PATH` (`data/saa.db`, `/data/saa.db` in the image), `ALLOWED_HOSTS` (host names, no port; default `localhost,127.0.0.1,::1`).
 - **`guard` middleware:**
-  - Security headers on every response: a CSP with `script-src 'self'` and Google Fonts allowed, nosniff, frame DENY, no-referrer, COOP/CORP, and a Permissions-Policy.
+  - Security headers on every response: a CSP with `script-src 'self'`, Google Fonts and images from `media.giphy.com` (the results GIFs) allowed, nosniff, frame DENY, no-referrer, COOP/CORP, and a Permissions-Policy.
   - An unknown `Host` gets 421. This blocks DNS rebinding. `/healthz` skips the check.
   - Non-GET requests with `Sec-Fetch-Site` other than `same-origin`, or a foreign `Origin`, get 403 (CSRF).
   - PUT requires `Content-Type: application/json`, so a cross-origin page would need a CORS preflight, which is never approved. Bodies are capped at 4 MB, the doc must be a JSON object, and `rev` must be present and 0 or more.
@@ -192,4 +212,7 @@ The build has two stages: `golang:1.27-alpine` builds a static binary (`CGO_ENAB
 - **A reading block for in-scope services no lecture covers (`r1a`–`r1d`):** an audit of the exam guide's in-scope list against the plan found the machine learning services and several management, migration and database services untaught. One paragraph each on the AWS overview whitepaper is the proportionate fix.
 - **A Go server replaces nginx:** one container and one process. The owner prefers Go, and SQLite needs no separate database service. Static hosting (`python3 -m http.server`, or S3/CloudFront later) still works in browser-only mode.
 - **The quiz engine is split into `qcore.js`:** pure logic, so Node can test selection, grading and spaced repetition without a browser.
+- **The break counts up, and nags after 10 minutes:** the owner asked for a prompt to take a break after 50 minutes of focus, with no fixed break length, and a reminder every minute once the break passes 10 minutes: sound each minute, the pop-up only when it isn't already up.
+- **XP is derived, badges are stored:** XP from what the state already holds needs no sync rules and can't drift; a badge needs its date and must not come back after a merge, so it is a small map merged as a union.
+- **GIFs from GIPHY, not in the repo:** the owner asked for South Park GIFs on the results. They are copyrighted clips, so the page links GIPHY's copies (the official South Park channel, mostly) instead of storing them, and the CSP allows that one image host and nothing else.
 - **The mock score is shown as a percentage, not a scaled score:** AWS doesn't publish its raw-to-scaled mapping. 80% is a rule of thumb, stated as such in the UI.
