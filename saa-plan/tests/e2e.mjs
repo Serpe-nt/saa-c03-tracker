@@ -794,6 +794,7 @@ try {
   await page.selectOption("#s-theme", "dark");
   await page.selectOption("#s-size", "l");
   await page.click('#settings button[value="save"]');
+  await page.waitForFunction(() => !document.getElementById("settings").open && document.documentElement.dataset.theme, null, { timeout: 3000 }).catch(() => {});   // the dialog's close event comes a moment after the click
   assert.deepEqual(await page.evaluate(() => [document.documentElement.dataset.theme, document.documentElement.dataset.size]), ["dark", "l"], "theme and text size apply");
   assert.equal(await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--card").trim()), "#10233b", "dark colours although the system is light");
   await page.reload();
@@ -946,6 +947,105 @@ try {
   await page.click('#brk [data-brk="rest"]');
   await tab2.waitForSelector("#brk:not([open])", { state: "attached", timeout: 4000 });
   assert.equal((await state(tab2)).timer.mode, "rest", "the other tab follows: the break is on");
+  await ctx.close();
+
+  log("the timer strip: a focus block starts by itself when a day starts or a step is completed, but not over a running block or a break");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.clock.install();
+  await page.goto(BASE);
+  await setState(page, s => { s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false }; delete s.timer; });
+  await page.reload();
+  const tmBox = await page.locator("#timer").boundingBox();
+  assert.ok(tmBox.y <= 1 && tmBox.width >= 1100, "the strip runs along the top of the page");
+  assert.equal(await page.textContent("#timer .tm-time"), "50:00");
+  await page.click("[data-start-day]");
+  await page.waitForFunction(() => !document.getElementById("flow").hidden);
+  tmS = (await state(page)).timer;
+  let tNow = await page.evaluate(() => Date.now());
+  assert.ok(tmS.mode === "focus" && tmS.running && Math.abs(tmS.endAt - tNow - 50 * 60000) < 3000, "Start Day starts a 50-minute block");
+  assert.match(await page.textContent(".fx-toast"), /Focus on/);
+  await page.clock.runFor(10 * 60000);
+  const fill = await page.evaluate(() => parseFloat(document.querySelector("#timer .tm-fill").style.width));
+  assert.ok(fill > 18 && fill < 22, `the strip fills as the block runs: ${fill}%`);
+  await page.screenshot({ path: path.join(SHOTS, "23-timer-strip.png"), clip: { x: 0, y: 0, width: 1200, height: 120 } });
+  const end0 = (await state(page)).timer.endAt;
+  await complete(page);
+  assert.equal((await state(page)).timer.endAt, end0, "a block that runs already goes on as it was");
+  await page.click('#timer [data-tm="toggle"]');                          // pause; completing a step resumes it
+  assert.match(await page.textContent("#timer .tm-mode"), /Focus, paused/);
+  await complete(page);
+  tmS = (await state(page)).timer;
+  assert.ok(tmS.running && tmS.mode === "focus" && tmS.from < 41 * 60 && tmS.from > 39 * 60, "a paused block picks up where it was");
+  await page.click('#timer [data-tm="menu"]');
+  assert.ok(await page.locator("#tm-pop").isVisible() && await page.getAttribute('#timer [data-tm="menu"]', "aria-expanded") === "true", "the time opens the timer's menu");
+  await page.screenshot({ path: path.join(SHOTS, "24-timer-menu.png"), clip: { x: 0, y: 0, width: 1200, height: 260 } });
+  await page.click('#tm-pop [data-tm="switch"]');                        // ☕ Break now, then start it
+  assert.ok(await page.locator("#tm-pop").isHidden(), "the menu closes after a choice");
+  await page.click('#timer [data-tm="toggle"]');
+  await page.clock.runFor(2000);
+  await complete(page);
+  tmS = (await state(page)).timer;
+  assert.ok(tmS.mode === "rest" && tmS.running, "on a break, completing a step doesn't start focus");
+  await page.click('#timer [data-tm="toggle"]');                          // a paused break is still a break
+  await complete(page);
+  assert.equal((await state(page)).timer.mode, "rest");
+
+  log("away: the PC sleeps during a focus block → on return a pop-up asks whether that time counts");
+  await page.click('#timer [data-tm="menu"]');
+  await page.click('#tm-pop [data-tm="switch"]');                        // 🎯 Focus now, then start it
+  await page.click('#timer [data-tm="toggle"]');
+  await page.clock.runFor(2000);
+  const end1 = (await state(page)).timer.endAt;
+  await page.clock.fastForward(8 * 60000);                               // a jump of the clock: the PC slept
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /Welcome back[\s\S]*8 minutes[\s\S]*PC slept/);
+  assert.match(await page.textContent("#timer .tm-mode"), /Away/);
+  await page.screenshot({ path: path.join(SHOTS, "25-away.png") });
+  await page.keyboard.press("Escape");                                    // Esc: the time counts
+  await page.waitForFunction(k => !document.getElementById("brk").open && !JSON.parse(localStorage.getItem(k)).timer.away, KEY, { timeout: 3000 }).catch(() => {});
+  tmS = (await state(page)).timer;
+  assert.ok(!tmS.away && tmS.endAt === end1 && tmS.running, "Esc counts the time away as focus: " + JSON.stringify({ ...tmS, end1 }));
+  await ctx.close();
+
+  log("away: Edge's idle detection (no mouse or keyboard for 5 minutes) holds the block's end; Don't count it picks it up where you left; notifications reach the other monitor");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await ctx.addInitScript(() => {
+    // stand-ins for the browser's idle detection and notifications, which a headless test can't drive
+    window.__notes = [];
+    window.Notification = class { constructor(t) { window.__notes.push(t); } close() {} static permission = "default"; static requestPermission() { this.permission = "granted"; return Promise.resolve("granted"); } };
+    window.IdleDetector = class extends EventTarget { constructor() { super(); this.userState = "active"; this.screenState = "unlocked"; window.__idle = this; } static requestPermission() { return Promise.resolve("granted"); } async start(o) { this.threshold = o.threshold; } };
+  });
+  await page.clock.install();
+  await page.goto(BASE);
+  await setState(page, s => {
+    s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false };
+    s.timer = { mode: "focus", running: true, endAt: Date.now() + 3 * 60000, left: 3000, from: 3000, min: false };
+  });
+  await page.reload();
+  await page.click('#timer [data-tm="menu"]');
+  await page.click('#tm-pop [data-tm="perm"]');
+  await page.waitForFunction(() => document.querySelector('#tm-pop [data-tm="perm"]').hidden);
+  assert.match(await page.textContent("#tm-pop .tm-info"), /On: Windows notifications and away detection/);
+  assert.equal(await page.evaluate(() => window.__idle.threshold), 5 * 60000, "away means 5 minutes without input, when the screen goes off");
+  const idle = st => page.evaluate(st => { window.__idle.userState = st; window.__idle.dispatchEvent(new Event("change")); }, st);
+  await idle("idle");
+  await page.clock.runFor(4 * 60000);                                     // the block's end passes while away
+  assert.equal(await page.locator("#brk[open]").count(), 0, "no pop-up while away, and the block doesn't end");
+  assert.match(await page.textContent("#timer .tm-mode"), /Away/);
+  await idle("active");
+  await page.clock.runFor(1500);
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /away for 9 minutes/);
+  await page.clock.runFor(450);
+  await page.click('#brk [data-brk="skip-away"]');
+  assert.match(await page.textContent("#timer .tm-time"), /^07:5/, "Don't count it: the block goes on from where you left it");
+  await page.evaluate(() => { document.hasFocus = () => false; });       // you're on the other monitor
+  await page.clock.runFor(8 * 60000 + 2000);
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /Focus block done/);
+  assert.deepEqual(await page.evaluate(() => window.__notes), ["Focus block done 🎯"], "a Windows notification, once, when the page isn't the one in use");
   await ctx.close();
 
   if (errors.length) throw new Error("console errors:\n" + errors.join("\n"));

@@ -33,7 +33,8 @@ const DEF = {
   // Focus (mode "focus") counts down: endAt, left, from. The break (mode "rest") has no set length and counts up:
   // at = when it last started running, up = seconds banked before a pause.
   // ts = when the timer last changed (merges keep the later one), day = the day a focus block credits, ask = the "done" prompt waits.
-  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, at: 0, up: 0, ts: 0, day: "", ask: false, min: matchMedia("(max-width:640px)").matches },
+  // away = when you left during a running focus block (no input for 5 minutes, the screen locked, or the PC slept); 0 = here.
+  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, at: 0, up: 0, ts: 0, day: "", ask: false, away: 0, min: matchMedia("(max-width:640px)").matches },
   savedAt: 0
 };
 const FOCUS = 50 * 60;      // a focus block, in seconds
@@ -129,8 +130,10 @@ function clean(s) {
   t.endAt = num0(t.endAt); t.from = Math.min(FOCUS, Math.max(0, num0(t.from))); t.at = num0(t.at);
   t.up = Math.min(86400, Math.max(0, num0(t.up)));
   t.ts = num0(t.ts);
+  t.away = Math.min(num0(t.away), Date.now());
   if (!PLAN.some(d => d.id === t.day)) t.day = "";
   if (t.ask && (t.mode !== "rest" || t.running)) t.ask = false;   // the prompt only waits on a break not yet started
+  if (!(t.mode === "focus" && t.running) || t.away < 0) t.away = 0;
   // Running needs a clock that makes sense: a focus block ends within 50 minutes from now, a break began in the last day.
   const now = Date.now();
   if (t.running && !(t.mode === "rest" ? t.at > now - 864e5 && t.at < now + 6e4 : t.endAt > 0 && t.endAt < now + FOCUS * 1000 + 6e4)) t.running = false;
@@ -520,7 +523,7 @@ function renderNext(ti) {
       `<a class="btn" href="#${d.id}/quiz">Open Day ${d.day}</a>`;
   } else {
     step = `<span class="tag t-${n.g.t}">${n.g.label || TAGS[n.g.t]}</span><span>${n.it[1]}</span>`;
-    act = `<a class="btn primary big" href="#${d.id}">${k ? "Continue" : "Start"} Day ${d.day}</a>`;
+    act = `<a class="btn primary big" href="#${d.id}" data-start-day>${k ? "Continue" : "Start"} Day ${d.day}</a>`;
   }
   el.innerHTML = pre +
     `<div class="nx-h"><span class="nx-k">${d.day === ti ? "Today" : "Next up"}</span><span>${fmtD(dayDate(d.day))}</span>${when}</div>` +
@@ -576,7 +579,7 @@ function renderFlow(moved) {
   let mid, isDone = false;
   if (at === "done") {
     const nx = DAYS.find(x => x.day > d.day && !dayDone(x));
-    mid = nx ? `<a class="btn primary big" href="#${nx.id}" data-main>Start Day ${nx.day}</a>` : `<button type="button" class="primary big" data-home data-main>Back to the overview</button>`;
+    mid = nx ? `<a class="btn primary big" href="#${nx.id}" data-main data-start-day>Start Day ${nx.day}</a>` : `<button type="button" class="primary big" data-home data-main>Back to the overview</button>`;
   } else if (at === "quiz") {
     const r = S.quiz[d.id], live = liveQuiz(d);
     isDone = quizOk(d) && !live;
@@ -814,6 +817,7 @@ function setTick(id, val, srcEl) {
 function complete(id, srcEl) {
   FX.unlock();
   setTick(id, true, srcEl);
+  autoFocus();
   const d = itemIndex[id].d;
   if (view.day !== d.id) return;
   const ids = dIds(d), i = ids.indexOf(id);
@@ -2058,16 +2062,23 @@ function logFocus() {
   S.log[d.id] = (S.log[d.id] || 0) + sec / 60;
 }
 function tmRender() {
-  const t = S.timer, rest = t.mode === "rest", s = rest ? restUp() : tmLeft(), over = rest && t.running && s >= REST_NAG;
+  const t = S.timer, rest = t.mode === "rest", s = rest ? restUp() : tmLeft(), over = rest && t.running && s >= REST_NAG, away = !rest && t.running && t.away > 0;
   tm.classList.toggle("running", t.running);
   tm.classList.toggle("break", rest);
   tm.classList.toggle("over", over);
-  tm.classList.toggle("min", !!t.min);
-  tm.querySelector(".tm-mode").textContent = !rest ? "50-minute focus" : over ? "Break is over" : !t.running && s ? "Break, paused" : "Break";
+  tm.classList.toggle("away", away);
+  // the strip fills as the block runs; a break fills towards its 10 minutes, then turns red
+  tm.querySelector(".tm-fill").style.width = `${Math.round((t.ask ? 1 : rest ? Math.min(1, s / REST_NAG) : 1 - s / FOCUS) * 1000) / 10}%`;
+  tm.querySelector(".tm-mode").textContent = away ? "Away" : !rest ? (t.running || s === FOCUS ? "Focus" : "Focus, paused")
+    : over ? "Break is over" : !t.running && s ? "Break, paused" : t.ask ? "Focus block done" : "Break";
   tm.querySelector(".tm-time").textContent = mmss(s);
-  tm.querySelector('[data-tm="toggle"]').textContent = t.running ? "Pause" : rest ? (s ? "Resume" : "Start break") : s === FOCUS ? "Start" : "Resume";
-  tm.querySelector('[data-tm="switch"]').textContent = rest ? "Focus" : "Break";
-  tm.querySelector('[data-tm="min"]').textContent = t.min ? "+" : "–";
+  const go = tm.querySelector('[data-tm="toggle"]'), what = t.running ? "Pause" : rest ? (s ? "Resume the break" : "Start the break") : s === FOCUS ? "Start a 50-minute focus block" : "Resume focus";
+  go.textContent = t.running ? "❚❚" : "▶";
+  go.title = what; go.setAttribute("aria-label", what);
+  tm.querySelector('[data-tm="switch"]').textContent = rest ? "🎯 Focus now" : "☕ Break now";
+  const day = dayOf(t.day) || workDay();
+  tm.querySelector(".tm-info").textContent = [day && (S.log[day.id] || 0) >= 1 ? `Focus on Day ${day.day} so far: ${fmtH(S.log[day.id])}.` : "Starts by itself when you start a day or complete a step.", permText()].filter(Boolean).join(" ");
+  tm.querySelector('[data-tm="perm"]').hidden = !permAsk();
   document.title = t.running ? `${mmss(s)} ${!rest ? "🎯" : over ? "⏰" : "☕"} · SAA-C03 Plan` : t.ask ? "Focus block done 🎯 · SAA-C03 Plan" : "SAA-C03 Plan";
   const up = document.getElementById("brk-up");
   if (up) up.textContent = mmss(restUp());
@@ -2078,9 +2089,10 @@ const startRest = () => { logFocus(); Object.assign(S.timer, { mode: "rest", run
 const pauseRest = () => { Object.assign(S.timer, { up: restUp(), running: false }); };
 tm.addEventListener("click", e => {
   const b = e.target.closest("[data-tm]");
-  const a = b ? b.dataset.tm : e.target.closest(".tm-time") && S.timer.min ? "min" : null;
-  if (!a) return;
-  const t = S.timer, rest = t.mode === "rest";
+  if (!b) return;
+  const a = b.dataset.tm, t = S.timer, rest = t.mode === "rest";
+  if (a === "menu") { tmMenu(); return; }
+  if (a === "perm") { askPerms(); return; }
   if (a === "toggle") {
     if (t.running) { if (rest) pauseRest(); else { logFocus(); t.left = tmLeft(); t.running = false; } }
     else {
@@ -2089,17 +2101,75 @@ tm.addEventListener("click", e => {
       else { if (t.left <= 0) t.left = FOCUS; t.from = t.left; t.endAt = Date.now() + t.left * 1000; t.day = (workDay() || {}).id || ""; }   // paused at 00:00: a new block
       t.running = true;
     }
-  } else if (a === "reset" || a === "switch") { logFocus(); tmSet(a === "reset" ? t.mode : rest ? "focus" : "rest"); refresh(); showGains(award()); return; }
-  else if (a === "min") { t.min = !t.min; }
-  tmSave();
-  if (a !== "min") { refresh(); showGains(award()); }
+  } else if (a === "reset" || a === "switch") { logFocus(); tmSet(a === "reset" ? t.mode : rest ? "focus" : "rest"); tmMenu(false); refresh(); showGains(award()); return; }
+  tmSave(); refresh(); showGains(award());
 });
+function tmMenu(open) {
+  const pop = document.getElementById("tm-pop"), on = open === undefined ? pop.hidden : open;
+  pop.hidden = !on;
+  tm.querySelector('[data-tm="menu"]').setAttribute("aria-expanded", String(on));
+}
+document.addEventListener("click", e => { if (!e.target.closest("#timer")) tmMenu(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") tmMenu(false); });
+// Starting a day or completing a step starts a focus block, unless one is running or you're on a break (a paused one resumes).
+function autoFocus() {
+  const t = S.timer;
+  if (t.running || (t.mode === "rest" && (t.up > 0 || t.ask))) return;   // a block runs already, or you are on a break (paused too)
+  FX.unlock();
+  if (t.mode === "rest" || t.left <= 0 || t.left > FOCUS) t.left = FOCUS;
+  Object.assign(t, { mode: "focus", from: t.left, endAt: Date.now() + t.left * 1000, running: true, day: (workDay() || {}).id || "" });
+  tmSave();
+  FX.toast(`🎯 <b>Focus on</b>, ${Math.round(t.left / 60)} minutes`);
+}
+document.addEventListener("click", e => { if (e.target.closest("[data-start-day]")) autoFocus(); }, true);
+
+// Away: two monitors with a full-screen window each keep the page "visible" while you work in the other one, so the
+// page can't tell from that. It uses the PC's own idle state (Edge's idle detection, once you allow it: no mouse or
+// keyboard for 5 minutes, when your screen turns off, or the screen locked) and a jump in its clock (the PC slept).
+// While you're away the block can't end; when you're back, a pop-up asks whether that time counts.
+const AWAY = 5 * 60000;
+let idleDet = null, idlePerm = "", lastTick = Date.now();
+function goneSince(at) {
+  const t = S.timer;
+  if (t.mode !== "focus" || !t.running || t.away) return;
+  t.away = Math.max(at, t.endAt - FOCUS * 1000);
+  tmSave();
+}
+async function startIdle() {
+  if (idleDet || !("IdleDetector" in window)) return;
+  try {
+    const det = new IdleDetector();
+    det.addEventListener("change", () => { if (det.userState === "idle" || det.screenState === "locked") goneSince(det.screenState === "locked" ? Date.now() : Date.now() - AWAY); });
+    await det.start({ threshold: AWAY });
+    idleDet = det;
+    tmRender();
+  } catch (e) {}
+}
+const here = () => !idleDet || (idleDet.userState === "active" && idleDet.screenState !== "locked");
+if ("IdleDetector" in window && navigator.permissions) navigator.permissions.query({ name: "idle-detection" }).then(p => { idlePerm = p.state; if (p.state === "granted") startIdle(); }).catch(() => {});
+// Windows notifications, so a prompt on one monitor is seen from the other.
+const notifyOK = () => "Notification" in window && Notification.permission === "granted";
+function notify(title, body) {
+  if (!notifyOK() || document.hasFocus()) return;
+  try { const n = new Notification(title, { body, tag: "saa-timer", renotify: true }); n.onclick = () => { focus(); n.close(); }; } catch (e) {}
+}
+const permAsk = () => ("Notification" in window && Notification.permission === "default") || ("IdleDetector" in window && !idleDet && idlePerm !== "denied");
+const permText = () => { const on = [notifyOK() && "Windows notifications", idleDet && "away detection"].filter(Boolean); return on.length ? `On: ${on.join(" and ")}.` : ""; };
+async function askPerms() {
+  try { if ("IdleDetector" in window && !idleDet) { idlePerm = await IdleDetector.requestPermission(); if (idlePerm === "granted") await startIdle(); } } catch (e) {}
+  try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch (e) {}
+  tmRender();
+}
 // The pop-up: "done" when a focus block has just ended, "over" when the break has run past 10 minutes.
 // It is a modal of its own, so it also comes up over an open quiz (and the quiz keys wait under it). The keyboard
 // goes to its heading, not a button, so a key typed for something else (a note, a quiz answer) doesn't answer it.
 function brkOpen(kind) {
   brkDlg.dataset.kind = kind;
-  brkBody.innerHTML = kind === "done"
+  brkBody.innerHTML = kind === "away"
+    ? `<h2 id="brk-t" tabindex="-1">Welcome back 👋</h2><p>You were away for <b>${Math.max(1, Math.round((Date.now() - S.timer.away) / 60000))} minutes</b> during this focus block: no mouse or keyboard${idleDet ? "" : " (or the PC slept)"}. Count that time as focus?</p>` +
+      `<p class="muted">Not counting it picks the block up where you left it.</p>` +
+      `<div class="row end"><button type="button" data-brk="skip-away">Don't count it</button><button type="button" class="primary" data-brk="keep-away">Count it</button></div>`
+    : kind === "done"
     ? `<h2 id="brk-t" tabindex="-1">Focus block done 🎯</h2><p>50 minutes of focus. Take a break now: it has no set length. The clock counts up, and after ${REST_NAG / 60} minutes it reminds you every minute to come back.</p>` +
       `<div class="row end"><button type="button" data-brk="focus">Skip the break, focus again</button><button type="button" class="primary" data-brk="rest">Start break ☕</button></div>`
     : `<h2 id="brk-t" tabindex="-1">Break is over ⏰</h2><p>You have been on a break for <b id="brk-up">${mmss(restUp())}</b>. Time for the next 50 minutes of focus.</p>` +
@@ -2107,6 +2177,7 @@ function brkOpen(kind) {
       `<div class="row end"><button type="button" data-brk="pause">Pause the break</button><button type="button" data-brk="later">Not yet</button><button type="button" class="primary" data-brk="focus">Start focus 🎯</button></div>`;
   if (!brkDlg.open) brkDlg.showModal();
   brkAt = Date.now();
+  if (kind === "done") notify("Focus block done 🎯", "Time for a break. It has no set length.");
   document.getElementById("brk-t").focus({ preventScroll: true });
 }
 brkDlg.addEventListener("click", e => {
@@ -2116,7 +2187,10 @@ brkDlg.addEventListener("click", e => {
   brkDlg.close();
   if (a === "later") return;
   FX.unlock();
-  if (a === "rest") startRest(); else if (a === "pause") pauseRest(); else startFocus();
+  const t = S.timer;
+  if (a === "keep-away") t.away = 0;
+  else if (a === "skip-away") { const left = Math.max(0, t.endAt - t.away); Object.assign(t, { endAt: Date.now() + left, away: 0 }); }   // the block resumes where you left it
+  else if (a === "rest") startRest(); else if (a === "pause") pauseRest(); else startFocus();
   tmSave(); refresh();
   showGains(award());
   FX.sound("pop");
@@ -2124,12 +2198,16 @@ brkDlg.addEventListener("click", e => {
 brkDlg.addEventListener("close", () => {
   // Esc on "done" answers it too: no break for now (the timer offers Start break)
   if (brkDlg.dataset.kind === "done" && S.timer.ask) { S.timer.ask = false; tmSave(); }
+  if (brkDlg.dataset.kind === "away" && S.timer.away) { S.timer.away = 0; tmSave(); }   // Esc on "welcome back": the time counts
   if (brkGains.length) showGains(brkGains.splice(0), 300);
   runPending();
 });
 setInterval(() => {
-  const t = S.timer;
-  if (t.running && t.mode === "focus" && tmLeft() <= 0) {
+  const t = S.timer, now = Date.now();
+  if (now - lastTick > AWAY) goneSince(lastTick);   // the clock jumped: the PC slept or hibernated
+  lastTick = now;
+  if (t.away && here() && !brkDlg.open && !inTimed()) brkOpen("away");
+  if (t.running && t.mode === "focus" && !t.away && tmLeft() <= 0) {
     logFocus();
     tmSet("rest");
     t.ask = true;   // the prompt waits for an answer, in every tab and after a reload
@@ -2146,13 +2224,14 @@ setInterval(() => {
       nagKey = key;
       let heard = "";
       try { heard = localStorage.getItem(NAG_KEY) || ""; localStorage.setItem(NAG_KEY, key); } catch (e) {}
-      if (heard !== key) FX.sound("nag");   // another tab already knocked this minute
+      if (heard !== key) { FX.sound("nag"); notify("Break is over ⏰", `On a break for ${mmss(restUp())}. Time for the next focus block.`); }   // another tab already knocked this minute
       if (!brkDlg.open) { if (inTimed()) overHeld = true; else brkOpen("over"); }
     }
     if (overHeld && !brkDlg.open && !inTimed()) { overHeld = false; brkOpen("over"); }
   } else overHeld = false;
   // the timer moved on elsewhere (another tab, the server): a pop-up that no longer fits goes away
-  if (brkDlg.open && (brkDlg.dataset.kind === "over" ? !(t.mode === "rest" && t.running && restUp() >= REST_NAG) : !t.ask)) brkDlg.close();
+  const k = brkDlg.dataset.kind;
+  if (brkDlg.open && (k === "over" ? !(t.mode === "rest" && t.running && restUp() >= REST_NAG) : k === "away" ? !t.away : !t.ask)) brkDlg.close();
   if (t.running) tmRender();
 }, 1000);
 // Browsers keep sound off after a reload until the first click or key: take the first one anywhere, so reminders can be heard.

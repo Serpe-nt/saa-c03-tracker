@@ -114,7 +114,7 @@ button.st-lv:hover{background:rgba(234,243,255,.08)}
 .links a:hover{background:rgba(234,243,255,.16);border-color:var(--chalk)}
 
 /* ---------- paper sheets ---------- */
-.next,.panel,.dt,.card,.timer,dialog,.fx-banner{background:var(--card);color:var(--text);box-shadow:var(--shadow)}
+.next,.panel,.dt,.card,dialog,.fx-banner{background:var(--card);color:var(--text);box-shadow:var(--shadow)}
 
 /* the day to work on, with the one button that starts or continues it */
 .next{border-radius:10px;padding:14px 18px 18px;margin:0 0 14px;border-top:4px solid var(--accent)}
@@ -202,7 +202,7 @@ button.st-lv:hover{background:rgba(234,243,255,.08)}
 
 /* ---------- day flow: one step on one card, Back / Mark complete / Next under it ---------- */
 body.in-flow .tb{display:none}
-body.in-flow .wrap{padding-bottom:220px}   /* room to scroll the end of a long card clear of the buttons and the timer */
+body.in-flow .wrap{padding-bottom:220px}   /* room to scroll the end of a long card clear of the buttons */
 .fl-top{display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap;color:var(--chalk);margin-bottom:14px}
 .fl-top button{font-size:13px;padding:5px 10px}
 .fl-day{display:flex;gap:4px 10px;align-items:baseline;flex-wrap:wrap;flex:1 1 300px;min-width:0}
@@ -304,8 +304,8 @@ button.link{border:0;background:none;padding:0;color:var(--watch);text-decoratio
 @media (min-width:1400px){
   body.in-flow .wrap{max-width:1480px}
   .fl-body,.fl-body.no-l{grid-template-columns:minmax(230px,300px) minmax(0,820px) minmax(250px,330px);grid-template-areas:"left card right";justify-content:center;gap:18px}
-  /* they stay in view while the card scrolls; the bottom stays clear of the buttons and the timer */
-  .side{position:sticky;top:14px;max-height:calc(100vh - 230px);overflow:auto}
+  /* they stay in view while the card scrolls; the bottom stays clear of the buttons */
+  .side{position:sticky;top:46px;max-height:calc(100vh - 150px);overflow:auto}
 }
 .in-note{margin:4px 0 0;font-size:14.5px;white-space:pre-wrap;color:var(--muted)}
 
@@ -318,31 +318,42 @@ button.link{border:0;background:none;padding:0;color:var(--watch);text-decoratio
 .fl-mid{display:flex;gap:12px;align-items:center}
 .fl-ok{color:#a8f0b8;font:700 19px var(--display);white-space:nowrap}
 .fl-nav button.link{color:var(--chalk);font-size:14px}
-body.in-flow .timer{bottom:82px}
 
 /* glossary */
 .g{border-bottom:1px dotted currentColor;cursor:help;position:relative}
 .g:hover::after,.g:focus::after,.g.show::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 6px);width:max-content;max-width:min(290px,80vw);background:var(--tip-bg);color:var(--tip-ink);padding:8px 10px;border-radius:6px;font:400 13.5px/1.4 var(--body);z-index:30;white-space:normal;box-shadow:0 8px 20px rgba(0,0,0,.25);pointer-events:none;text-decoration:none}
 
-/* ---------- timer ---------- */
-.timer{position:fixed;right:18px;bottom:18px;z-index:20;border-radius:10px;padding:10px 14px 12px;min-width:176px;text-align:center;border-top:4px solid var(--line)}
-.timer.running{border-top-color:var(--accent)}
-.timer.break.running{border-top-color:var(--done)}
-.timer.over.running{border-top-color:var(--bad);animation:tm-over 1.6s ease-in-out infinite}
-.timer.over .tm-time,.timer.over .tm-mode{color:var(--bad)}
-@keyframes tm-over{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--bad) 45%,transparent),var(--shadow)}}
+/* ---------- timer: a strip along the top; it fills as the block runs, the chip at its end holds the controls ---------- */
+.timer{position:sticky;top:0;z-index:25;height:34px;background:color-mix(in srgb,var(--bp-deep) 88%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-bottom:1px solid rgba(234,243,255,.16)}
+.tm-bar{position:absolute;left:0;right:0;top:0;height:4px;background:rgba(234,243,255,.1)}
+.tm-fill{display:block;height:100%;width:0;background:var(--accent);box-shadow:0 0 10px rgba(255,153,0,.6);transition:width .9s linear}
+.timer.break .tm-fill{background:var(--done);box-shadow:0 0 10px rgba(95,211,122,.5)}
+.timer.over .tm-fill{background:var(--bad);animation:tm-over 1.6s ease-in-out infinite}
+.timer:not(.running) .tm-fill{opacity:.55}
+.tm-row{position:relative;max-width:1480px;margin:0 auto;height:100%;display:flex;justify-content:flex-end;align-items:center;padding:4px 16px 0}
+.tm-chip{display:flex;align-items:stretch;border:1px solid rgba(234,243,255,.35);border-radius:999px;overflow:hidden;background:rgba(234,243,255,.06)}
+.tm-chip button{border:0;border-radius:0;background:none;color:var(--chalk);font:600 14px var(--display);padding:2px 10px;min-height:24px}
+.tm-chip button:hover{background:rgba(234,243,255,.14)}
+.tm-go{border-right:1px solid rgba(234,243,255,.25)!important;font-size:12px!important;width:34px}
+.tm-face{display:flex;gap:8px;align-items:center}
+.tm-mode{color:var(--chalk);opacity:.8;font-weight:500;font-size:13px}
+.tm-time{font-variant-numeric:tabular-nums;letter-spacing:.02em;font-size:15px}
+.tm-caret{font-size:10px;opacity:.7}
+.timer.running .tm-chip{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,153,0,.18)}
+.timer.break.running .tm-chip{border-color:var(--done);box-shadow:0 0 0 2px rgba(95,211,122,.18)}
+.timer.over .tm-chip{border-color:var(--bad);box-shadow:0 0 0 2px rgba(255,128,128,.3)}
+.timer.over .tm-mode,.timer.over .tm-time{color:#ffc2c2}
+.timer.away .tm-mode{color:#ffd29e}
+.tm-pop{position:absolute;right:16px;top:36px;width:270px;background:var(--card);color:var(--text);box-shadow:var(--shadow);border-radius:10px;border-top:4px solid var(--accent);padding:10px 12px 12px;z-index:26}
+.tm-btns{display:flex;gap:6px}
+.tm-btns button{flex:1;font-size:13px;padding:6px 8px}
+.tm-info{margin:8px 0 0;font-size:13px;color:var(--muted)}
+.tm-perm{margin-top:8px;width:100%;font-size:13px;padding:6px 8px}
+@keyframes tm-over{50%{opacity:.45}}
 /* the pop-up when a focus block ends, and when the break has run past 10 minutes */
 dialog.brk{border-top-color:var(--done);width:min(460px,94vw)}
 dialog.brk[data-kind="over"]{border-top-color:var(--bad)}
 dialog.brk p{font-size:15.5px;margin:6px 0}
-.tm-min{position:absolute;top:4px;right:4px;border:0;background:none;padding:2px 7px;color:var(--muted)}
-.tm-mode{font:600 15px var(--display);color:var(--muted)}
-.tm-time{font:700 40px/1.05 var(--display);margin:0 0 8px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
-.tm-btns{display:flex;gap:6px;justify-content:center}
-.tm-btns button{padding:5px 10px;font-size:13px}
-.timer.min{min-width:0;padding:6px 12px;border-top-width:3px}
-.timer.min .tm-mode,.timer.min .tm-btns{display:none}
-.timer.min .tm-time{font-size:22px;margin:0 20px 0 0;cursor:pointer}
 
 /* ---------- dialogs ---------- */
 dialog{border:0;border-top:4px solid var(--accent);border-radius:10px;padding:18px 22px;max-width:min(540px,94vw)}
@@ -377,7 +388,8 @@ dialog h2{font:700 24px var(--display);margin:0 0 8px}
 .fx-toast.k-combo,.fx-toast.k-half{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,153,0,.22),var(--shadow)}
 dialog .fx-toast{bottom:26px}
 /* badges drop in at the top of the screen: right answers in a row, records, levels, badges earned */
-.fx-badges{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:62;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;width:max-content;max-width:94vw}
+.fx-badges{position:fixed;top:42px;left:50%;transform:translateX(-50%);z-index:62;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;width:max-content;max-width:94vw}
+dialog .fx-badges{top:14px}   /* a modal covers the timer strip */
 .fx-badge{--bd:var(--accent);position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;padding:7px 22px 7px 8px;border-radius:999px;background:var(--card);color:var(--text);
   box-shadow:0 0 0 2px var(--bd),0 0 22px color-mix(in srgb,var(--bd) 55%,transparent),0 12px 30px rgba(4,22,48,.45);animation:bd-in .65s cubic-bezier(.2,1.5,.35,1) both}
 .fx-badge.out{animation:bd-out .5s ease-in both}
@@ -434,9 +446,8 @@ dialog .fx-toast{bottom:26px}
   .fl-nav>button{font-size:15px;padding:10px 11px}
   .fl-nav .big{font-size:16px;padding:10px 14px}
   .db{grid-template-columns:110px 1fr 42px}
-  .timer{right:10px;bottom:10px;min-width:140px;padding:8px 10px}
-  body.in-flow .timer{bottom:72px}
-  .tm-time{font-size:30px}
+  .tm-row{padding:4px 10px 0}
+  .tm-pop{right:10px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 
@@ -646,7 +657,8 @@ dialog.qz{width:min(780px,96vw);max-width:none;max-height:92vh;padding:0;overflo
 .ach-x b{font:700 16px var(--display)}
 .ach-x .muted{font-size:12.5px}
 @media (max-width:640px){
-  .fx-badges{top:8px;gap:5px}
+  .fx-badges{top:40px;gap:5px}
+  dialog .fx-badges{top:8px}
   .fx-badge{gap:9px;padding:4px 16px 4px 5px}
   .bd-t{font-size:17px}
   .bd-s{font-size:12px}

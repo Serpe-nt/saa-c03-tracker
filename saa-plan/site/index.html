@@ -13,6 +13,22 @@
 </head>
 <body>
 
+<!-- Focus timer: a strip along the top of the window that fills as a block runs; its chip holds the controls -->
+<div id="timer" class="timer">
+  <div class="tm-bar" aria-hidden="true"><span class="tm-fill"></span></div>
+  <div class="tm-row">
+    <div class="tm-chip">
+      <button type="button" class="tm-go" data-tm="toggle"></button>
+      <button type="button" class="tm-face" data-tm="menu" aria-expanded="false" aria-controls="tm-pop"><span class="tm-mode"></span><span class="tm-time"></span><span class="tm-caret" aria-hidden="true">▾</span></button>
+    </div>
+    <div class="tm-pop" id="tm-pop" hidden>
+      <div class="tm-btns"><button type="button" data-tm="reset">↺ Reset</button><button type="button" data-tm="switch"></button></div>
+      <p class="tm-info"></p>
+      <button type="button" class="tm-perm" data-tm="perm" hidden>Turn on Windows notifications and away detection</button>
+    </div>
+  </div>
+</div>
+
 <!-- Blueprint drawings in the margins (decorative) -->
 <svg class="bp-art" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
@@ -189,18 +205,6 @@
   </div>
   <div class="fl-nav" id="fl-nav"></div>
 </div>
-</div>
-
-<!-- Focus timer -->
-<div id="timer" class="timer">
-  <button class="tm-min" data-tm="min" title="Minimise">–</button>
-  <div class="tm-mode"></div>
-  <div class="tm-time"></div>
-  <div class="tm-btns">
-    <button data-tm="toggle" class="primary"></button>
-    <button data-tm="reset" title="Reset">↺</button>
-    <button data-tm="switch"></button>
-  </div>
 </div>
 
 <!-- Cleanup check -->

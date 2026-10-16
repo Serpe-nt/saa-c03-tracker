@@ -61,6 +61,10 @@ The questions are original practice questions in the exam's style, not official 
 
 50 minutes of focus count down and are logged to the day you started them on. When they end, a pop-up offers a break (in every open tab, and again after a reload until you answer). The break has no set length: the clock counts up, and after 10 minutes it reminds you every minute to start the next block (a sound each minute; the pop-up only if it isn't already open). "Pause the break" in the pop-up, or Pause on the timer, stops the reminders. During the mock exam and the drill the pop-ups wait until you close them; the sound still reminds you.
 
+The timer is the strip along the top: the bar fills as the block runs; click the time for Reset, Break now/Focus now and the minutes logged today. A block starts by itself when you start a day or mark a step complete, unless one is already running or you're on a break.
+
+Away: in the timer's menu, "Turn on Windows notifications and away detection" lets Edge tell the page when the PC has had no mouse or keyboard for 5 minutes (when your screen goes off). The block then waits, and when you're back a pop-up asks whether that time counts. A PC that sleeps counts as away too. Notifications show the block's end and the break reminders on the other monitor, only when this window isn't the one you're using.
+
 After updating the site (`docker compose up -d --build`), reload every open tab and device: a tab still running the old page doesn't know the open-ended break and can reset it.
 
 ## Keep it up after reboots
