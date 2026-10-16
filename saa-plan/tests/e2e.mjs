@@ -180,31 +180,45 @@ try {
   assert.equal(await hash(page), `#${QA.id}/${QA.ids[0]}`);
 
   // ---------- helper material on the card ----------
-  log("a step card carries key points, AWS docs, exam topics and its own notes");
+  log("a step card carries key points; its panels carry AWS docs, terms, exam topics, practice and its own notes");
   await openCard(page, HELPDAY, HELP);
   assert.ok(await page.locator("#card .c-key li").count() >= 2, "key points");
   if (await page.evaluate(id => !!window.KEYS[id].why, HELP)) {
     assert.ok(await page.evaluate(() => { const w = document.querySelector("#card .c-why"), k = document.querySelector("#card .c-key"), where = document.querySelector("#card .c-w"); return !!w && w.compareDocumentPosition(k) & 4 && (!where || w.compareDocumentPosition(where) & 4); }), "why it exists comes before where to do it and before the details");
     assert.ok(await page.locator("#card .c-key .k-list .k-l").count() >= 2, "labelled points");
   }
-  assert.ok(await page.locator("#card .c-tags li").count() >= 1, "exam topics");
-  const links = await page.$$eval("#card .c-docs a", as => as.map(a => [a.href, a.target, a.rel]));
+  assert.ok(await page.locator("#side-r .c-tags li").count() >= 1, "exam topics in the exam panel");
+  const links = await page.$$eval("#side-l .c-docs a", as => as.map(a => [a.href, a.target, a.rel]));
   assert.ok(links.length >= 1 && links.every(([h, t, r]) => /^https:\/\/(docs\.)?aws\.amazon\.com\//.test(h) && t === "_blank" && r.includes("noopener")), "AWS docs open in a new tab");
-  await page.fill(`#card [data-inote="${HELP}"]`, "look at this again");
+  await page.fill(`#side-r [data-inote="${HELP}"]`, "look at this again");
   await page.waitForTimeout(600);
   assert.equal((await state(page)).inotes[HELP], "look at this again");
-  await page.click('#card details[data-sec="terms"] > summary');
+  assert.ok(await page.evaluate(() => document.querySelector('#side-l details[data-sec="terms"]').open), "terms start open in their panel");
   await page.screenshot({ path: path.join(SHOTS, "02-step-card.png"), fullPage: true });
+
+  log("wide screens: Look it up left of the card, On the exam right of it; narrower screens: under it");
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.waitForTimeout(300);
+  const box3 = () => Promise.all(["#side-l", "#card", "#side-r"].map(sel => page.$eval(sel, el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; })));
+  let [pl, pc, pr] = await box3();
+  assert.ok(pl.r <= pc.l && pc.r <= pr.l && Math.abs(pl.t - pc.t) < 2 && Math.abs(pr.t - pc.t) < 2, `beside the card, level with its top: ${JSON.stringify([pl, pc, pr])}`);
+  await page.screenshot({ path: path.join(SHOTS, "02b-step-card-wide.png") });
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.waitForTimeout(300);
+  [pl, pc, pr] = await box3();
+  assert.ok(pl.t >= pc.b && pr.t >= pc.b && pl.r <= pr.l, "under the card, side by side");
+  await page.click('#side-l details[data-sec="terms"] > summary');      // fold it
   await page.click("#fl-nav [data-next]");
-  if (await page.locator('#card details[data-sec="terms"]').count())
-    assert.ok(await page.evaluate(() => document.querySelector('#card details[data-sec="terms"]').open), "an opened helper list stays open on the next card");
+  if (await page.locator('#side-l details[data-sec="terms"]').count())
+    assert.ok(!(await page.evaluate(() => document.querySelector('#side-l details[data-sec="terms"]').open)), "a folded helper list stays folded on the next card");
 
   log("step practice: three questions on this step");
   // a tampered GIF pointer in this browser's preferences must not break the results
   await page.evaluate(() => { const u = JSON.parse(localStorage.getItem("saa-plan-v2-ui") || "{}"); u.gif = { ace: -1, pass: -1, fail: "x" }; localStorage.setItem("saa-plan-v2-ui", JSON.stringify(u)); });
   await page.reload();
   await openCard(page, HELPDAY, HELP);
-  await page.click(`#card [data-step-quiz="${HELP}"]`);
+  await page.click(`#side-r [data-step-quiz="${HELP}"]`);
   let s = await state(page);
   assert.equal(s.run.kind, "step");
   assert.equal(s.run.ids.length, 3);
@@ -238,7 +252,7 @@ try {
   assert.equal(g1 && g1.o, "ace", "every answer right: a GIF from the ace list");
   await page.click('#qz-body [data-qz="finish"]');
   assert.equal((await state(page)).run, null);
-  assert.match(await page.textContent("#card .c-prac"), /answered 3/);
+  assert.match(await page.textContent("#side-r .c-prac"), /answered 3/);
 
   // ---------- self-check card ----------
   log("self-check card: reveal the model answer, mark shaky");
@@ -762,7 +776,7 @@ try {
   await page.click("#sheet [data-sh-close]");
   assert.ok(await page.locator("#next .hero-t").count() === 1, "page still renders after the import");
   await openCard(page, "d1", "d1a2");
-  assert.equal(await page.inputValue('#card [data-inote="d1a2"]'), "<img src=x id=pwn4>", "a step note is shown as text");
+  assert.equal(await page.inputValue('#side-r [data-inote="d1a2"]'), "<img src=x id=pwn4>", "a step note is shown as text");
   await page.click('#fl-tools [data-sheet="daynotes"]');
   assert.match(await page.textContent("#sh-body .in-note"), /pwn4/);
   assert.equal(await page.locator("#pwn4, #pwn5").count(), 0, "notes are never rendered as markup");

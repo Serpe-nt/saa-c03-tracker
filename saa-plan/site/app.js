@@ -313,6 +313,7 @@ function termsIn(text) {
 
 // ---------- views: the overview, or one day shown one step at a time ----------
 const homeEl = document.getElementById("home"), flowEl = document.getElementById("flow"), cardEl = document.getElementById("card");
+const bodyEl = document.getElementById("fl-body"), sideL = document.getElementById("side-l"), sideR = document.getElementById("side-r");
 let view = { day: "", at: "" };   // day "" = overview. at = a step id, "quiz", or "done" (the day's summary).
 let shown = "", movedAt = 0;      // the card on screen and when it appeared
 // A day opens on its first open step, then on its quiz, then on its summary.
@@ -540,14 +541,18 @@ function renderFlow(moved) {
     (hasQuiz(d) ? `<span class="fl-g">${dot("quiz")}</span>` : "");
   document.getElementById("fl-count").textContent = at === "done" ? "Day complete" : `Step ${i + 1} of ${ids.length}`;
 
-  // Typing in a field on this card: leave the card alone, only the frame around it changes.
-  const typing = !moved && cardEl.contains(document.activeElement) && document.activeElement.matches("textarea,input");
+  // Typing in a field on the card or its panels: leave them alone, only the frame around them changes.
+  const typing = !moved && bodyEl.contains(document.activeElement) && document.activeElement.matches("textarea,input");
   if (!typing) {
     const answer = !moved && cardEl.querySelector(".card-a:not([hidden])");
+    const step = at !== "quiz" && at !== "done", side = step ? sideHTML(at) : { l: "", r: "" };
     cardEl.innerHTML = at === "quiz" ? quizCardHTML(d) : at === "done" ? doneCardHTML(d) : stepCardHTML(at);
+    sideL.innerHTML = side.l; sideR.innerHTML = side.r;
+    sideL.hidden = !side.l; sideR.hidden = !side.r;
+    bodyEl.classList.toggle("no-l", !side.l); bodyEl.classList.toggle("no-r", !side.r);
     applyGlossary(cardEl);
     if (answer) flip(at, true);
-    if (moved) { cardEl.classList.remove("in"); void cardEl.offsetWidth; cardEl.classList.add("in"); }
+    if (moved) for (const el of [cardEl, sideL, sideR]) { el.classList.remove("in"); void el.offsetWidth; el.classList.add("in"); }
   }
 
   // Back, the card's main action, Next
@@ -600,9 +605,12 @@ function tagStats() {
   }
   return m;
 }
-// A helper list on the card that folds; whether it is open is remembered across cards.
-const fold = (sec, title, n, body, openByDefault) =>
-  `<details class="c-fold" data-sec="${sec}"${(sec in ui ? ui[sec] : openByDefault) ? " open" : ""}><summary>${title} <span class="muted">${n}</span></summary>${body}</details>`;
+// A section of the card or a panel: a tinted box with an icon; its edge colour says what kind of thing it holds.
+const box = (kind, icon, title, body, cls = "") =>
+  `<section class="box b-${kind}${cls ? " " + cls : ""}"><h3 class="box-h"><span class="bi" aria-hidden="true">${icon}</span>${title}</h3>${body}</section>`;
+// A box that folds; whether it is open is remembered across cards, in this browser.
+const foldBox = (kind, icon, sec, title, n, body, openByDefault) =>
+  `<details class="box b-${kind} c-fold" data-sec="${sec}"${(sec in ui ? ui[sec] : openByDefault) ? " open" : ""}><summary class="box-h"><span class="bi" aria-hidden="true">${icon}</span>${title} <span class="muted">${n}</span></summary>${body}</details>`;
 function scoreFieldHTML(k) {
   const src = document.querySelector(`#scores [data-score="${k}"]`);
   if (!src) return "";
@@ -610,64 +618,71 @@ function scoreFieldHTML(k) {
   lab.querySelector("input").setAttribute("value", S.scores[k] ?? "");
   return `<div class="scores-grid c-score">${lab.outerHTML}</div>`;
 }
+// The card holds what you read for the step: why it exists, where to do it, the model answer, what to know, the exam trap.
+// Everything to look up or practise with sits in the panels beside it (sideHTML).
 function stepCardHTML(id) {
   const { d, g, it } = itemIndex[id], [, txt, note] = it;
-  const url = linkFor(g.link), n = g.items.length, kp = KEYS[id], qs = QREF[id] || [];
+  const url = linkFor(g.link), n = g.items.length, kp = KEYS[id];
   let h = `<div class="c-h"><span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span>` +
     (n > 1 ? `<span class="c-meta">${g.items.indexOf(it) + 1} of ${n}</span>` : "") +
     (g.min ? `<span class="c-meta">~${fmtH(g.min)}${n > 1 ? " for this block" : ""}</span>` : "") +
     (done(id) ? `<span class="pill ok">✓ Completed</span>` : "") + `</div>` +
     `<h2 class="c-t txt" tabindex="-1">${txt}</h2>` + (note ? `<p class="c-n txt">${note}</p>` : "");
   // Purpose first: the problem or need behind the step comes before where to do it and before any detail.
-  if (kp && kp.why) h += `<section class="c-why"><h3>${g.t === "setup" || g.t === "prep" ? "Why this step" : "Why it exists"}</h3><p class="txt">${kp.why}</p></section>`;
-  if (g.where || url) h += `<div class="c-w">${g.where ? `<span class="where">Where: ${g.where}</span>` : ""}${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</div>`;
+  if (kp && kp.why) h += box("why", "💡", g.t === "setup" || g.t === "prep" ? "Why this step" : "Why it exists", `<p class="txt">${kp.why}</p>`, "c-why");
+  if (g.where || url) h += `<div class="box b-where c-w"><span class="bi" aria-hidden="true">📍</span>${g.where ? `<span class="where">Where: ${g.where}</span>` : `<span class="where"></span>`}${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</div>`;
   if (SCORE_AT[id]) h += scoreFieldHTML(SCORE_AT[id]);
   if (d.decision === id) { const [cls, v] = verdictHTML(); h += `<div class="verdict ${cls}" data-verdict>${v}</div>`; }
   if (g.t === "check" && CARDS[id]) {
-    h += `<div class="c-check"><p class="muted">Explain it out loud first, then open the model answer and compare.</p>` +
+    h += box("check", "🧠", "Self-check", `<p class="muted">Explain it out loud first, then open the model answer and compare.</p>` +
       `<button type="button" class="flip${S.conf[id] === "shaky" ? " shaky" : ""}" data-flip="${id}" aria-expanded="false" aria-controls="ca-${id}">${flipLabel(id)}</button>` +
       `<div class="card-a" id="ca-${id}" hidden><div class="card-t">${CARDS[id]}</div><div class="card-b"><span class="muted">How close were you?</span>` +
-      `<button type="button" data-conf="ok" data-cid="${id}">Got it</button><button type="button" data-conf="shaky" data-cid="${id}">Shaky</button></div></div></div>`;
+      `<button type="button" data-conf="ok" data-cid="${id}">Got it</button><button type="button" data-conf="shaky" data-cid="${id}">Shaky</button></div></div>`, "c-check");
   }
-
   if (kp) {
     // a point is [label, text]; a bare string is the older form
     const pts = kp.k || [], labelled = pts.some(Array.isArray);
-    if (pts.length || kp.trap) h += `<section class="c-sec c-key"><h3>${kp.why ? "What to know" : "Key points"}</h3>` +
-      (pts.length ? `<ul${labelled ? ' class="k-list"' : ""}>${pts.map(x => (Array.isArray(x) ? `<li><b class="k-l">${x[0]}</b><span>${x[1]}</span></li>` : `<li>${x}</li>`)).join("")}</ul>` : "") +
-      (kp.trap ? `<p class="c-trap"><b>Exam trap.</b> ${kp.trap}</p>` : "") + `</section>`;
+    if (pts.length) h += box("know", "📘", kp.why ? "What to know" : "Key points",
+      `<ul${labelled ? ' class="k-list"' : ""}>${pts.map(x => (Array.isArray(x) ? `<li><b class="k-l">${x[0]}</b><span>${x[1]}</span></li>` : `<li>${x}</li>`)).join("")}</ul>`, "c-key");
+    if (kp.trap) h += box("trap", "⚠️", "Exam trap", `<p>${kp.trap}</p>`, "c-trap");
   }
-
+  return h;
+}
+// The two panels beside the card. l = "Look it up": the AWS pages and the terms. r = "On the exam": the exam topics
+// with your accuracy and a practice round, how the exam words these topics, and your own notes.
+function sideHTML(id) {
+  const { it } = itemIndex[id], [, txt, note] = it, kp = KEYS[id], qs = QREF[id] || [];
   const docs = stepDocs(id), tags = stepTags(id);
-  if (docs.length || tags.length) {
-    const acc = tagStats();
-    h += `<section class="c-sec c-two">` +
-      (docs.length ? `<div><h3>AWS docs</h3><ul class="c-docs">${docs.map(([l, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(l)} ↗</a></li>`).join("")}</ul></div>` : "") +
-      (tags.length ? `<div><h3>Exam topics</h3><ul class="c-tags">${tags.map(t => {
-        const a = acc[t];
-        return `<li><span>${esc(t)}</span><span class="tr"><span class="fi${a && a[0] / a[1] < 0.7 ? " low" : ""}" style="width:${a ? pct(a[0], a[1]) : 0}%"></span></span><span class="wk-n">${a ? `${a[0]}/${a[1]}` : "new"}</span></li>`;
-      }).join("")}</ul><p class="muted c-hint">Your quiz answers on each topic so far, right of all.</p></div>` : "") + `</section>`;
-  }
-
   const terms = termsIn(strip(`${txt} ${note || ""} ${kp ? `${kp.why || ""} ${(kp.k || []).flat().join(" ")} ${kp.trap || ""}` : ""}`)).slice(0, 8);
   const cues = [];
   for (const t of tags) for (const c of CUES) if ((CUE_TAGS[c[0]] || []).includes(t) && !cues.includes(c) && cues.length < 4) cues.push(c);
-  if (terms.length) h += fold("terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, false);
-  if (cues.length) h += fold("cues", "Exam wording on these topics", cues.length,
-    `<table class="cues"><thead><tr><th>When you read</th><th>It usually points to</th><th>Example</th></tr></thead><tbody>` +
-    cues.map(c => `<tr><td><b>${esc(c[0])}</b></td><td>${esc(c[1])}</td><td class="muted">${esc(c[2])}</td></tr>`).join("") + `</tbody></table>`, false);
 
-  h += `<label class="notes-l c-notes">My notes on this step <span class="saved" data-saved="${id}">saved</span>` +
-    `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
+  let l = "";
+  if (docs.length) l += box("docs", "📄", "AWS docs", `<ul class="c-docs">${docs.map(([t, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a></li>`).join("")}</ul>`);
+  if (terms.length) l += foldBox("terms", "📖", "terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, true);
 
-  if (qs.length) {
-    const seen = qs.filter(q => S.qs[q.id]), right = seen.filter(q => S.qs[q.id].last).length;
-    const live = S.run && !S.run.done && S.run.kind === "step" && S.run.item === id;
-    h += `<div class="c-prac"><span>${plural(qs.length, "quiz question")} ${qs.length === 1 ? "covers" : "cover"} this step.` +
-      (seen.length ? ` You have answered ${seen.length}, ${right} right at the last try.` : "") + `</span>` +
-      `<button type="button" data-step-quiz="${id}">${live ? "Resume practice" : `Try ${Math.min(QZ.STEP, qs.length)} now`}</button></div>`;
+  let r = "";
+  if (tags.length || qs.length) {
+    const acc = tagStats();
+    let b = "";
+    if (tags.length) b += `<ul class="c-tags">${tags.map(t => {
+      const a = acc[t];
+      return `<li><span>${esc(t)}</span><span class="tr"><span class="fi${a && a[0] / a[1] < 0.7 ? " low" : ""}" style="width:${a ? pct(a[0], a[1]) : 0}%"></span></span><span class="wk-n">${a ? `${a[0]}/${a[1]}` : "new"}</span></li>`;
+    }).join("")}</ul><p class="muted c-hint">Your quiz answers on each topic so far, right of all.</p>`;
+    if (qs.length) {
+      const seen = qs.filter(q => S.qs[q.id]), right = seen.filter(q => S.qs[q.id].last).length;
+      const live = S.run && !S.run.done && S.run.kind === "step" && S.run.item === id;
+      b += `<div class="c-prac"><span>${plural(qs.length, "quiz question")} ${qs.length === 1 ? "covers" : "cover"} this step.` +
+        (seen.length ? ` You have answered ${seen.length}, ${right} right at the last try.` : "") + `</span>` +
+        `<button type="button" data-step-quiz="${id}">${live ? "Resume practice" : `Try ${Math.min(QZ.STEP, qs.length)} now`}</button></div>`;
+    }
+    r += box("exam", "📊", "Exam topics", b);
   }
-  return h;
+  if (cues.length) r += foldBox("cues", "🗣", "cues", "Exam wording on these topics", cues.length,
+    `<ul class="cue-l">${cues.map(c => `<li><b>${esc(c[0])}</b><span>→ ${esc(c[1])}</span><span class="muted">${esc(c[2])}</span></li>`).join("")}</ul>`, true);
+  r += `<label class="box b-notes c-notes"><span class="box-h"><span class="bi" aria-hidden="true">📝</span>My notes on this step <span class="saved" data-saved="${id}">saved</span></span>` +
+    `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
+  return { l: l && `<div class="side-t">Look it up</div>${l}`, r: `<div class="side-t">On the exam</div>${r}` };
 }
 function quizCardHTML(d) {
   const r = S.quiz[d.id], tries = r ? r.tries.length : 0, ok = quizOk(d), live = liveQuiz(d);
@@ -1711,8 +1726,8 @@ flowEl.addEventListener("click", e => {
     else { flip(id, false); save(); refresh(); }
   }
 });
-// <details> toggles don't bubble: catch them on the way down and remember the choice.
-cardEl.addEventListener("toggle", e => {
+// <details> toggles don't bubble: catch them on the way down (card and panels) and remember the choice.
+bodyEl.addEventListener("toggle", e => {
   const sec = e.target.dataset && e.target.dataset.sec;
   if (!sec) return;
   ui[sec] = e.target.open;

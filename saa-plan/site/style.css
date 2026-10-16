@@ -186,7 +186,7 @@ button.st-lv:hover{background:rgba(234,243,255,.08)}
 .t-watch{color:var(--watch)}.t-play{color:var(--play)}.t-prep{color:var(--prep)}.t-build{color:var(--build)}.t-check{color:var(--check)}.t-setup{color:var(--setup)}
 .n{display:block;color:var(--muted);font-size:14px}
 .notes-l{display:block;margin-top:14px;font:600 16px var(--display);color:var(--muted)}
-.notes-l textarea{display:block;width:100%;margin-top:4px;min-height:68px;resize:vertical;font:15px/1.5 var(--body);padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--text);
+.notes-l textarea,.b-notes textarea{display:block;width:100%;margin-top:4px;min-height:68px;resize:vertical;font:15px/1.5 var(--body);padding:9px 11px;border:1px solid var(--line);border-radius:6px;color:var(--text);
   background:var(--field) repeating-linear-gradient(transparent 0 23.5px,var(--line) 23.5px 24.5px);background-attachment:local;line-height:24.5px}
 .saved{font:400 13px var(--body);opacity:0;transition:opacity .3s;margin-left:6px;color:var(--done)}
 .saved.show{opacity:1}
@@ -222,11 +222,7 @@ body.in-flow .wrap{padding-bottom:220px}   /* room to scroll the end of a long c
 .c-t{font:400 21px/1.4 var(--body);margin:12px 0 6px;max-width:62ch;outline:0}
 .c-t b{font-weight:600}
 .c-n{color:var(--muted);font-size:15.5px;margin:0 0 4px;max-width:72ch}
-.c-w{display:flex;gap:8px 14px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:14px;padding:9px 12px;background:var(--field);border:1px solid var(--line);border-radius:8px}
-.c-w .where{margin:0;flex:1 1 260px;font-size:14px}
 .c-score{margin-top:12px}
-.c-check{margin-top:14px}
-.c-check p{margin:0 0 8px;font-size:14.5px}
 .c-st{font-size:16px;margin:14px 0 4px;max-width:72ch}
 .c-st.ok{color:var(--done);font-weight:600}
 .c-open{margin:6px 0 0;padding-left:20px;display:grid;gap:5px;font-size:15px}
@@ -236,40 +232,73 @@ body.in-flow .wrap{padding-bottom:220px}   /* room to scroll the end of a long c
 .c-facts dd{margin:2px 0 0;font:600 20px/1.2 var(--display)}
 button.link{border:0;background:none;padding:0;color:var(--watch);text-decoration:underline;font:inherit;text-align:left;display:inline;border-radius:2px}
 
-/* helper material for the step */
-.c-sec{margin-top:18px;padding-top:14px;border-top:1px dashed var(--line)}
-.c-sec h3,.c-fold summary{font:700 17px var(--display);margin:0 0 6px}
-.c-key ul{margin:0;padding-left:20px;display:grid;gap:7px;font-size:15.5px;max-width:74ch}
+/* ---------- the step: each part in a tinted box with an icon; the edge colour says what the box holds ---------- */
+.box{--edge:var(--line);display:block;margin-top:12px;padding:10px 14px 12px;border:1px solid color-mix(in srgb,var(--edge) 28%,var(--line));border-left:4px solid var(--edge);border-radius:8px;background:color-mix(in srgb,var(--edge) 7%,var(--card))}
+.box-h{display:flex;gap:8px;align-items:center;font:700 16px var(--display);margin:0 0 6px;color:color-mix(in srgb,var(--edge) 55%,var(--text))}
+.box-h .bi{font-size:15px;line-height:1}
+.box>p{margin:0}
+.b-why{--edge:var(--accent)}
+.b-why p{font-size:16.5px;line-height:1.5}
+.b-where{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;background:var(--field)}
+.b-where .where{margin:0;flex:1 1 240px;font-size:14px}
+.b-know{--edge:var(--watch)}
+.b-trap{--edge:var(--warn)}
+.b-trap p{font-size:15px}
+.b-check{--edge:var(--check)}
+.b-check>p{font-size:14.5px;margin:0 0 8px}
+.b-exam{--edge:var(--quiz)}
+.b-cues{--edge:var(--play)}
+.b-docs,.b-terms{--edge:var(--check)}
+.b-notes{background:var(--card)}
+.b-notes textarea{margin-top:2px;min-height:96px;font-size:14.5px}
+/* what to know: labelled points, so the list can be scanned */
+.c-key ul{margin:0;padding-left:20px;display:grid;gap:7px;font-size:15.5px}
 .c-key b{font-weight:600}
-/* purpose first: why the thing exists, before where to do it and before the details */
-.c-why{margin:14px 0 4px;padding:11px 14px 12px;border-left:4px solid var(--accent);background:var(--accent-soft,rgba(255,153,0,.09));border-radius:0 8px 8px 0;max-width:78ch}
-.c-why h3{font:700 15px var(--display);margin:0 0 4px;color:var(--muted)}
-.c-why p{margin:0;font-size:16.5px;line-height:1.5}
-/* labelled points: the label says what the point is about, so the list can be scanned */
-.c-key ul.k-list{list-style:none;padding:0;gap:0;max-width:86ch}
-.k-list li{display:grid;grid-template-columns:minmax(120px,178px) 1fr;gap:2px 18px;padding:8px 0;border-top:1px solid var(--line)}
+.c-key ul.k-list{list-style:none;padding:0;gap:0}
+.k-list li{display:grid;grid-template-columns:minmax(120px,170px) 1fr;gap:2px 16px;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--watch) 18%,var(--line))}
 .k-list li:first-child{border-top:0;padding-top:2px}
 .k-list .k-l{font-weight:700}
-.c-trap{margin:12px 0 0;padding:9px 12px;border-left:3px solid var(--warn);background:var(--warn-soft);border-radius:0 6px 6px 0;font-size:15px;max-width:74ch}
-.c-trap b{color:var(--warn)}
-.c-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px 30px}
-.c-docs{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:15px}
-.c-tags{list-style:none;margin:0;padding:0;display:grid;gap:7px;font-size:14.5px}
-.c-tags li{display:grid;grid-template-columns:minmax(0,1fr) 72px 40px;gap:10px;align-items:center}
+/* the panels: docs, terms, exam topics, practice, exam wording, notes */
+.c-docs{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:14.5px}
+.c-tags{list-style:none;margin:0;padding:0;display:grid;gap:7px;font-size:14px}
+.c-tags li{display:grid;grid-template-columns:minmax(0,1fr) 60px 36px;gap:8px;align-items:center}
 .c-tags .tr{height:8px;background:var(--line);border-radius:4px;overflow:hidden;display:block}
 .c-tags .fi{display:block;height:100%;background:var(--watch);border-radius:4px}
 .c-tags .fi.low{background:var(--accent)}
-.c-hint{font-size:13px;margin:7px 0 0}
-.c-fold{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
-.c-fold summary{cursor:pointer;margin:0}
-.c-fold summary .muted{font:400 14px var(--body)}
+.c-hint{font-size:12.5px;margin:6px 0 0}
+.c-fold summary{cursor:pointer;list-style:none;margin:0}
+.c-fold summary::-webkit-details-marker{display:none}
+.c-fold summary::after{content:"＋";margin-left:auto;color:var(--muted);font:400 14px var(--body)}
+.c-fold[open] summary::after{content:"－"}
+.c-fold summary .muted{font:400 13.5px var(--body)}
 .c-fold[open] summary{margin-bottom:8px}
-.c-terms{margin:0;display:grid;gap:6px;font-size:14.5px}
-.c-terms div{display:grid;grid-template-columns:minmax(110px,170px) 1fr;gap:10px}
+.c-terms{margin:0;display:grid;gap:8px;font-size:14px}
+.c-terms div{display:grid;gap:1px}
 .c-terms dt{font-weight:600}
 .c-terms dd{margin:0;color:var(--muted)}
-.c-notes{margin-top:16px;padding-top:12px;border-top:1px dashed var(--line)}
-.c-prac{display:flex;gap:8px 14px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:14px;padding:9px 12px;border-radius:8px;background:var(--quiz-soft);font-size:14.5px}
+.cue-l{list-style:none;margin:0;padding:0;display:grid;gap:9px;font-size:14px}
+.cue-l li{display:grid;gap:1px}
+.cue-l .muted{font-size:13px}
+.c-prac{display:flex;gap:8px 12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed color-mix(in srgb,var(--quiz) 35%,var(--line));font-size:14px}
+.side{background:var(--card);color:var(--text);box-shadow:var(--shadow);border-radius:10px;padding:10px 14px 14px;border-top:4px solid var(--check)}
+.side-r{border-top-color:var(--quiz)}
+.side-t{font:700 18px var(--display);margin:0}
+.side.in{animation:card-in .2s ease-out}
+/* where they go: under the card (phones: one column, the exam panel first), beside it from 1400px */
+.fl-body{display:grid;gap:14px;align-items:start;grid-template-areas:"card" "right" "left"}
+#card{grid-area:card;min-width:0}
+#side-r{grid-area:right;min-width:0}
+#side-l{grid-area:left;min-width:0}
+@media (min-width:761px){
+  .fl-body{grid-template-columns:1fr 1fr;grid-template-areas:"card card" "left right"}
+  .fl-body.no-l{grid-template-areas:"card card" "right right"}
+}
+@media (min-width:1400px){
+  body.in-flow .wrap{max-width:1480px}
+  .fl-body,.fl-body.no-l{grid-template-columns:minmax(230px,300px) minmax(0,820px) minmax(250px,330px);grid-template-areas:"left card right";justify-content:center;gap:18px}
+  /* they stay in view while the card scrolls; the bottom stays clear of the buttons and the timer */
+  .side{position:sticky;top:14px;max-height:calc(100vh - 230px);overflow:auto}
+}
 .in-note{margin:4px 0 0;font-size:14.5px;white-space:pre-wrap;color:var(--muted)}
 
 /* the three buttons stay at the bottom of the window */

@@ -180,7 +180,12 @@
     <div class="fl-strip" id="fl-strip"></div>
     <span class="fl-count" id="fl-count"></span>
   </div>
-  <article id="card" class="card" aria-live="polite"></article>
+  <!-- the step in the middle; on wide screens "Look it up" on its left and "On the exam" on its right, below it on narrower ones -->
+  <div class="fl-body" id="fl-body">
+    <article id="card" class="card" aria-live="polite"></article>
+    <aside id="side-r" class="side side-r" aria-label="On the exam" hidden></aside>
+    <aside id="side-l" class="side side-l" aria-label="Look it up" hidden></aside>
+  </div>
   <div class="fl-nav" id="fl-nav"></div>
 </div>
 </div>
