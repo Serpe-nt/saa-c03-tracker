@@ -31,7 +31,8 @@ const DEF = {
   settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true, gif: true },
   // Focus (mode "focus") counts down: endAt, left, from. The break (mode "rest") has no set length and counts up:
   // at = when it last started running, up = seconds banked before a pause.
-  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, at: 0, up: 0, min: matchMedia("(max-width:640px)").matches },
+  // ts = when the timer last changed (merges keep the later one), day = the day a focus block credits, ask = the "done" prompt waits.
+  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, at: 0, up: 0, ts: 0, day: "", ask: false, min: matchMedia("(max-width:640px)").matches },
   savedAt: 0
 };
 const FOCUS = 50 * 60;      // a focus block, in seconds
@@ -51,6 +52,7 @@ const isObj = v => kind(v) === "object";
 function merge(a, b) {
   if (!isObj(b)) return a;
   for (const k in b) {
+    if (k === "__proto__" || k === "constructor" || k === "prototype") continue;   // JSON.parse makes these own keys: never walk into a prototype
     const ka = kind(a[k]), kb = kind(b[k]);
     if (k in a && ka !== "null" && ka !== kb) continue;
     if (ka === "object" && kb === "object") merge(a[k], b[k]);
@@ -60,6 +62,8 @@ function merge(a, b) {
 }
 // Entries inside the maps have no defaults to check against, so validate them one by one.
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const isDay = v => typeof v === "string" && ISO.test(v) && v >= "2000-01-01" && v <= "2999-12-31" && !isNaN(Date.parse(v));
+const int0 = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(num0(v))));
 const num0 = (v, d = 0) => (typeof v === "number" && isFinite(v) ? v : d);
 const str0 = v => (typeof v === "string" ? v : "");
 const ints = v => Array.isArray(v) && v.every(Number.isInteger);
@@ -85,15 +89,15 @@ function clean(s) {
   keep(s.inotes, v => typeof v === "string");
   for (const k in s.inotes) s.inotes[k] = s.inotes[k].slice(0, NOTE_MAX);
   keep(s.scores, v => typeof v === "string" || typeof v === "number");
-  keep(s.dayDone, v => ISO.test(v));
+  keep(s.dayDone, isDay);
   keep(s.quiz, v => isObj(v) && Array.isArray(v.tries));
   for (const r of Object.values(s.quiz)) {
-    r.best = num0(r.best); r.passed = ISO.test(r.passed) ? r.passed : "";
+    r.best = num0(r.best); r.passed = isDay(r.passed) ? r.passed : "";
     r.tries = r.tries.filter(isObj).map(t => ({ at: str0(t.at), score: num0(t.score), n: num0(t.n) }));
   }
   keep(s.qs, isObj);
-  for (const k in s.qs) { const q = s.qs[k]; s.qs[k] = { seen: num0(q.seen), right: num0(q.right), last: q.last ? 1 : 0, at: str0(q.at) }; }
-  keep(s.srs, v => isObj(v) && ISO.test(v.due));
+  for (const k in s.qs) { const q = s.qs[k], seen = int0(q.seen, 0, 1e6); s.qs[k] = { seen, right: int0(q.right, 0, seen), last: q.last ? 1 : 0, at: str0(q.at) }; }
+  keep(s.srs, v => isObj(v) && isDay(v.due));
   for (const k in s.srs) s.srs[k] = { step: num0(s.srs[k].step), due: s.srs[k].due };
   keep(s.book, isObj);
   for (const k in s.book) { const b = s.book[k]; s.book[k] = { at: str0(b.at), misses: num0(b.misses, 1), note: str0(b.note).slice(0, 300), fixed: !!b.fixed }; }
@@ -101,11 +105,12 @@ function clean(s) {
     dom: Array.isArray(m.dom) ? m.dom.slice(0, 4).map(x => (Array.isArray(x) ? [num0(x[0]), num0(x[1])] : [0, 0])) : [] }));
   keep(s.conf, v => v === "ok" || v === "shaky");
   keep(s.log, v => typeof v === "number" && isFinite(v) && v >= 0);
+  for (const k in s.log) s.log[k] = Math.min(s.log[k], 24 * 60);
   keep(s.warm, v => v === "done" || v === "skip");
   s.slips = s.slips.filter(x => isObj(x) && Number.isInteger(x.from) && Number.isInteger(x.n) && x.n > 0 && x.n < 100).map(x => ({ from: x.from, n: x.n }));
   s.drill = { best: num0(s.drill.best), runs: num0(s.drill.runs) };
-  keep(s.ach, v => ISO.test(v));
-  s.rowBest = Math.max(0, Math.round(num0(s.rowBest)));
+  keep(s.ach, isDay);
+  s.rowBest = int0(s.rowBest, 0, 1000);
   if (!ISO.test(s.settings.start)) s.settings.start = DEF.settings.start;
   if (s.settings.exam && !ISO.test(s.settings.exam)) s.settings.exam = "";
   if (!/^https?:\/\//i.test(s.settings.portal)) s.settings.portal = "";
@@ -114,9 +119,14 @@ function clean(s) {
   if (t.mode === "break") { t.mode = "rest"; t.running = false; t.up = 0; }
   if (t.mode !== "focus" && t.mode !== "rest") t.mode = "focus";
   t.left = Math.min(FOCUS, Math.max(0, Math.round(num0(t.left, FOCUS))));
-  t.endAt = num0(t.endAt); t.from = num0(t.from); t.at = num0(t.at);
+  t.endAt = num0(t.endAt); t.from = Math.min(FOCUS, Math.max(0, num0(t.from))); t.at = num0(t.at);
   t.up = Math.min(86400, Math.max(0, num0(t.up)));
-  if (t.running && !(t.mode === "rest" ? t.at > 0 : t.endAt > 0)) t.running = false;   // running needs its clock
+  t.ts = num0(t.ts);
+  if (!PLAN.some(d => d.id === t.day)) t.day = "";
+  if (t.ask && (t.mode !== "rest" || t.running)) t.ask = false;   // the prompt only waits on a break not yet started
+  // Running needs a clock that makes sense: a focus block ends within 50 minutes from now, a break began in the last day.
+  const now = Date.now();
+  if (t.running && !(t.mode === "rest" ? t.at > now - 864e5 && t.at < now + 6e4 : t.endAt > 0 && t.endAt < now + FOCUS * 1000 + 6e4)) t.running = false;
   s.savedAt = num0(s.savedAt);
   s.run = cleanRun(s.run);
   return s;
@@ -129,7 +139,8 @@ function cleanRun(r) {
     t0: num0(r.t0), end: num0(r.end), done: !!r.done, view: r.view === "grid" ? "grid" : "", seen: !!r.seen, only: r.only !== false,
     score: num0(r.score), mins: num0(r.mins), cel: ["all", "week", "day"].includes(r.cel) ? r.cel : "", mockNew: !!r.mockNew,
     // right answers in a row now and at most in this run; XP when it started (-1: not known, a run from before XP)
-    row: Math.max(0, Math.round(num0(r.row))), rowMax: Math.max(0, Math.round(num0(r.rowMax))), xp0: num0(r.xp0, -1)
+    row: int0(r.row, 0, r.ids.length), rowMax: int0(r.rowMax, 0, r.ids.length), best0: int0(r.best0, 0, 1000), xp0: num0(r.xp0, -1), rec: !!r.rec,   // rec: "New record" said in this run
+    xp1: num0(r.xp1, -1), gif: typeof r.gif === "string" && /^[A-Za-z0-9]{1,32}$/.test(r.gif) ? r.gif : ""   // XP and the GIF at the finish
   };
   for (const id of r.ids) {
     if (isObj(r.ord) && ints(r.ord[id])) out.ord[id] = r.ord[id];
@@ -164,7 +175,7 @@ function save() {
 
 // ---------- indexes ----------
 const DAYS = PLAN.filter(d => d.id);
-const itemIndex = {};
+const itemIndex = Object.create(null);
 DAYS.forEach(d => d.groups.forEach((g, gi) => {
   g.key = d.id + "g" + gi;
   g.items.forEach(it => { itemIndex[it[0]] = { d, g, it }; });
@@ -172,7 +183,7 @@ DAYS.forEach(d => d.groups.forEach((g, gi) => {
 const LAST = DAYS[DAYS.length - 1].day;
 const TP = QZ.topics(PLAN, STEP_TAGS);   // what each day teaches; the day quizzes are drawn from it
 // Questions by id and by plan step (the ones that name the step, plus the ones on a topic it teaches), and the steps that teach each topic.
-const QBY = {}, QREF = {}, TAG_STEPS = {}, ORDER = {};
+const QBY = Object.create(null), QREF = {}, TAG_STEPS = {}, ORDER = {};
 BANK.forEach(q => { QBY[q.id] = q; });
 Object.keys(itemIndex).forEach((id, i) => {
   ORDER[id] = i;
@@ -791,7 +802,7 @@ const ACH = [
   { id: "focus10", i: "⏱", t: "Deep work", d: "10 hours of focus time logged.", xp: 150, ok: c => c.focus >= 600 },
   { id: "mock80", i: "🎓", t: "Exam ready", d: "80% or more on a mock exam.", xp: 300, ok: c => c.mock >= 80 }
 ];
-const ACH_BY = Object.fromEntries(ACH.map(a => [a.id, a]));
+const ACH_BY = Object.assign(Object.create(null), Object.fromEntries(ACH.map(a => [a.id, a])));
 // A title for every two levels; the plan's XP adds up to about level 20 by exam day.
 const RANKS = ["Cloud curious", "Console clicker", "IAM apprentice", "Subnet scout", "VPC builder", "Load balancer", "Auto scaler", "Multi-AZ", "Well-Architected", "Solutions architect"];
 const rankOf = n => RANKS[Math.min(RANKS.length - 1, Math.floor((n - 1) / 2))];
@@ -805,6 +816,7 @@ function xpTotal() {
   return x;
 }
 function levelOf(x) {
+  x = Number.isFinite(x) && x > 0 ? Math.min(x, 1e12) : 0;
   let n = Math.max(1, Math.floor((1 + Math.sqrt(1 + x / 10)) / 2));
   while (lvAt(n + 1) <= x) n++;
   while (n > 1 && lvAt(n) > x) n--;
@@ -823,25 +835,26 @@ function achCtx() {
     warm: Object.values(S.warm).filter(v => v === "done").length,
     drill: S.drill.best,
     focus: Object.values(S.log).reduce((a, b) => a + b, 0),
-    mock: Math.max(0, ...S.mocks.map(m => m.pct))
+    mock: S.mocks.reduce((a, m) => Math.max(a, m.pct), 0)
   };
 }
 // Earn every badge whose condition holds now. row = right answers in a row in the quiz on screen.
 // Returns the new ones; the caller shows them (a streak badge names the badge it earned itself).
-function award(row = 0) {
+// persist = false at boot: saving before the first sync would make this copy look newer than the server's.
+function award(row = 0, persist = true) {
   const c = achCtx(), got = [];
   for (const a of ACH) if (!S.ach[a.id] && (a.row ? row >= a.row : a.ok(c))) { S.ach[a.id] = today(); got.push(a); }
-  if (got.length) save();
+  if (got.length && persist) save();
   return got;
 }
-let lvShown = 0;   // the level on screen; a higher one gets announced
-const syncLevel = () => { lvShown = levelOf(xpTotal()).n; };
+let lvShown = 0;   // the highest level on screen so far; only a level above it gets announced
+const syncLevel = () => { lvShown = Math.max(lvShown, levelOf(xpTotal()).n); };
 // New badges, then a new level, each as a badge at the top of the screen.
 function showGains(got, delay = 0) {
   got.forEach((a, k) => setTimeout(() => { FX.sound("unlock"); FX.badge(a.i, a.t, `New badge, +${a.xp} XP`, "gold"); }, delay + k * 650));
-  const n = levelOf(xpTotal()).n;
-  if (lvShown && n > lvShown) setTimeout(() => { FX.sound("level"); FX.badge("⭐", `Level ${n}`, n % 2 && n < RANKS.length * 2 ? `New title: ${rankOf(n)}` : rankOf(n), "level"); }, delay + got.length * 650);
-  lvShown = n;
+  const n = levelOf(xpTotal()).n, was = lvShown;
+  if (was && n > was) setTimeout(() => { FX.sound("level"); FX.badge("⭐", `Level ${n}`, rankOf(n) !== rankOf(was) ? `New title: ${rankOf(n)}` : rankOf(n), "level"); }, delay + got.length * 650);
+  lvShown = Math.max(lvShown, n);
 }
 
 // ---------- scores ----------
@@ -938,10 +951,9 @@ function renderPractice() {
 const qzDlg = document.getElementById("quiz"), qzBody = document.getElementById("qz-body");
 // The card's height lets the study panel beside it line up with its top edge (style.css, .qz-side).
 new ResizeObserver(() => qzDlg.style.setProperty("--qzdh", qzDlg.offsetHeight + "px")).observe(qzDlg);
-let sel = [];        // options picked for the current question, not yet checked
+let picks = {};      // question id → options picked, not yet checked (memory only; kept while you move between questions)
 let fresh = false;   // the answer on screen was checked just now: animate it (going back to it later does not)
 let comboFx = "";    // "up" when the run of right answers just grew, "broke" when a miss ended one
-let recShown = false;   // "New record" is announced once a quiz
 // Right answers in a row (run.row) get a badge at these marks; the tier sets its look.
 const ROW_TIERS = [[30, "👑", "Flawless", "epic"], [25, "💎", "Untouchable", "epic"], [20, "🌟", "Legendary", "epic"], [15, "⚡", "Unstoppable", "gold"], [10, "🔥", "On fire", "gold"], [5, "🔥", "On a roll", "silver"], [3, "🔥", "Warming up", "bronze"]];
 const ROW_MARKS = ROW_TIERS.map(x => x[0]);
@@ -973,6 +985,7 @@ function pruneRun(r) {
   r.i = r.ids.slice(0, r.i).filter(id => QBY[id]).length;
   r.ids = r.ids.filter(id => QBY[id]);
   for (const k of Object.keys(r.ans)) if (!QBY[k]) delete r.ans[k];
+  if (r.done && r.kind !== "mock") r.score = r.ids.filter(id => QZ.isRight(QBY[id], r.ans[id])).length;
 }
 function renderQuiz() {
   if (intro) return renderIntro();
@@ -1004,10 +1017,9 @@ function startRun(kind, of) {
   const ord = {};
   qs.forEach(q => { ord[q.id] = QZ.order(q); });
   const now = Date.now();
-  recShown = false;
   S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "",
-    row: 0, rowMax: 0, xp0: xpTotal() };
-  sel = [];
+    row: 0, rowMax: 0, best0: S.rowBest, xp0: xpTotal(), rec: false };
+  picks = {};
   save(); refresh(); openQuiz();
 }
 function promptMock() {
@@ -1094,13 +1106,13 @@ function nextOpen(r) {
   return -1;
 }
 function renderQ() {
-  const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), ans = r.ans[id], n = r.ids.length;
+  const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), ans = r.ans[id], n = r.ids.length, sel = picks[id] || [];
   r.ord[id] = ord;
   const answered = Object.keys(r.ans).filter(k => QBY[k]);
   const right = answered.filter(k => QZ.isRight(QBY[k], r.ans[k])).length;
   head(runTitle(r), [`Question ${r.i + 1} of ${n}`, `<span class="ok">✓ ${right}</span>`, `<span class="bad">✗ ${answered.length - right}</span>`, comboHTML(r)], answered.length / n * 100);
   // Previous and Next move one question either way and never answer; the main button checks, then goes on to the next open question.
-  const prev = `<button type="button" data-qz="prev"${r.i ? "" : " disabled"}>← Previous</button>`;
+  const prev = n > 1 ? `<button type="button" data-qz="prev"${r.i ? "" : " disabled"}>← Previous</button>` : "";
   const skip = r.i + 1 < n ? `<button type="button" data-qz="skip">Next →</button>` : "";
   if (!ans) {
     const multi = q.a.length > 1;
@@ -1121,11 +1133,13 @@ function renderQ() {
 // Go to question i of the run (Previous, Next, the squares, Continue). Answers stay as they are.
 function goQ(i) {
   const r = S.run;
-  if (!r || r.done || r.kind === "mock" || i < 0 || i >= r.ids.length || i === r.i) return;
-  r.i = i; sel = [];
+  if (!r || r.done || r.kind === "mock" || drill || intro || i < 0 || i >= r.ids.length || i === r.i) return;
+  r.i = i;
   save(); renderQ(); qzDlg.scrollTop = 0;
   refocus(r.ans[r.ids[i]] ? '[data-qz="next"]' : ".qz-o");
 }
+// After Previous, Next or Flag in the mock: the same control again, or the main one where it is gone (the last question).
+const mockFocus = a => (qzBody.querySelector(`[data-qz="${a}"]`) || qzBody.querySelector(".mk-a .primary") || qzBody).focus({ preventScroll: true });
 // Re-rendering replaces the buttons; put focus back somewhere sensible inside the dialog.
 function refocus(sel) {
   const el = qzBody.querySelector(sel);
@@ -1147,24 +1161,27 @@ function pick(oi) {
     return;
   }
   if (r.ans[id]) return;
+  let sel = picks[id] || [];
   if (q.a.length === 1) sel = [oi];
   else if (sel.includes(oi)) sel = sel.filter(x => x !== oi);
-  else if (sel.length < q.a.length) sel.push(oi);
+  else if (sel.length < q.a.length) sel = sel.concat(oi);
+  picks[id] = sel;
   renderQ();
   refocus(sel.length === q.a.length ? '[data-qz="check"]' : `[data-o="${oi}"]`);
 }
 function check() {
   const r = S.run, id = r.ids[r.i], q = QBY[id];
+  const sel = picks[id] || [];
   if (r.ans[id] || sel.length !== q.a.length) return;
   r.ans[id] = sel.slice();
-  sel = [];
+  delete picks[id];
   const ok = QZ.isRight(q, r.ans[id]);
   learn(q, ok);
-  const was = r.row, best = S.rowBest;
+  const was = r.row, best = r.best0;
   r.row = ok ? r.row + 1 : 0;
   r.rowMax = Math.max(r.rowMax, r.row);
-  S.rowBest = Math.max(best, r.row);
-  const record = ok && r.row > best && best >= 3 && !recShown;   // past your longest run ever, said once a quiz
+  S.rowBest = Math.max(S.rowBest, r.row);
+  const record = ok && r.row > best && best >= 3 && !r.rec;   // past your longest run from before this quiz, said once a quiz
   const got = award(r.row);
   fresh = true;
   comboFx = ok ? (r.row >= 2 ? "up" : "") : was >= 2 ? "broke" : "";
@@ -1182,7 +1199,7 @@ function check() {
     FX.badge(icon, `${r.row} in a row`, a ? `New badge: ${a.t}, +${a.xp} XP` : name, tier);
   }
   else { FX.sound("pop"); FX.sparkle(verdict); }
-  if (record) { recShown = true; const n = r.row; setTimeout(() => FX.badge("🏅", "New record", `${n} in a row beats your best of ${best}`, "gold"), 450); }
+  if (record) { r.rec = true; save(); const n = r.row; setTimeout(() => FX.badge("🏅", "New record", `${n} in a row beats your best of ${best}`, "gold"), 450); }
   showGains(rest, 700);
 }
 function nextQ() {
@@ -1208,6 +1225,7 @@ function finishRun() {
   }
   if (r.kind === "warm") S.warm[t] = "done";
   let got = award();
+  r.xp1 = xpTotal(); r.gif = pickGif(outcome(r));
   save(); refresh(); renderQuiz();
   // the results are on screen: celebrate there (the day's own celebration follows when they are closed)
   const n = r.ids.length, clean = r.score === n;
@@ -1243,10 +1261,10 @@ function outcome(r) {
 // Stars, the level with the XP this quiz earned, and the longest run of right answers.
 function rewardHTML(r) {
   const o = outcome(r), [sc, n] = r.kind === "mock" ? [r.res.score, r.res.n] : [r.score, r.ids.length];
-  const stars = o === "ace" ? 3 : o === "fail" ? 0 : sc / n >= (r.kind === "mock" ? 0.8 : 0.95) ? 2 : 1;
-  const L = levelOf(xpTotal()), gain = r.xp0 >= 0 ? L.x - r.xp0 : 0;
+  const stars = o === "ace" ? 3 : o === "fail" ? 0 : sc / n >= (r.kind === "day" ? 0.95 : 0.8) ? 2 : 1;
+  const L = levelOf(r.xp1 >= 0 ? r.xp1 : xpTotal()), gain = r.xp0 >= 0 ? L.x - r.xp0 : 0;
   const from = r.xp0 >= L.from ? (r.xp0 - L.from) / (L.to - L.from) * 100 : 0;   // a level gained: the bar fills from empty
-  const row = r.rowMax >= 2 ? `Longest run of right answers: ${r.rowMax}${r.rowMax >= 3 && r.rowMax >= S.rowBest ? ", your record" : ""}. ` : "";
+  const row = r.rowMax >= 2 ? `Longest run of right answers: ${r.rowMax}${r.rowMax < 3 ? "" : r.rowMax > r.best0 ? ", your best yet" : r.rowMax === r.best0 ? ", equal to your best" : ""}. ` : "";
   return `<div class="qz-rw"><div class="stars" role="img" aria-label="${stars} of 3 stars">${[0, 1, 2].map(k => `<span class="${k < stars ? "on" : ""}" style="animation-delay:${0.2 + k * 0.25}s">★</span>`).join("")}</div>` +
     `<div class="rw-x"><div class="rw-l"><b>Level ${L.n}</b><span class="muted">${rankOf(L.n)}</span>${gain > 0 ? `<span class="xp-up">+${gain} XP</span>` : ""}</div>` +
     `<span class="xpbar"><span style="--from:${from}%;width:${L.pct}%"></span></span>` +
@@ -1254,17 +1272,22 @@ function rewardHTML(r) {
 }
 // A South Park GIF for the outcome (gifs.js), taken in turn from its list so it changes every time.
 // Loaded from GIPHY; if that fails (offline, a GIF taken down) the space closes again.
-let gifRun = { t0: -1, g: null };
+const gifList = o => ((window.GIFS || {})[o] || []).filter(g => Array.isArray(g) && /^[A-Za-z0-9]+$/.test(g[0]));
+// The next GIF of an outcome's list, chosen when the quiz finishes and kept in the run.
+function pickGif(o) {
+  const list = gifList(o);
+  if (!list.length) return "";
+  const at = isObj(ui.gif) && Number.isInteger(ui.gif[o]) && ui.gif[o] >= 0 ? ui.gif[o] % list.length : Math.floor(Math.random() * list.length);
+  ui.gif = { ...(isObj(ui.gif) ? ui.gif : {}), [o]: (at + 1) % list.length };
+  try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {}
+  return list[at][0];
+}
 function gifHTML(r) {
-  const o = outcome(r), list = ((window.GIFS || {})[o] || []).filter(g => Array.isArray(g) && /^[A-Za-z0-9]+$/.test(g[0]));
+  const list = gifList(outcome(r));
   if (!S.settings.gif || !list.length) return "";
-  if (gifRun.t0 !== r.t0) {
-    const at = isObj(ui.gif) && Number.isInteger(ui.gif[o]) ? ui.gif[o] : Math.floor(Math.random() * list.length);
-    gifRun = { t0: r.t0, g: list[at % list.length] };
-    ui.gif = { ...(isObj(ui.gif) ? ui.gif : {}), [o]: (at + 1) % list.length };
-    try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {}
-  }
-  const [id, alt] = gifRun.g, still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let g = list.find(x => x[0] === r.gif);
+  if (!g) { r.gif = pickGif(outcome(r)); g = list.find(x => x[0] === r.gif); save(); }   // a run finished before GIFs, or the list changed
+  const [id, alt] = g, still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   return `<figure class="qz-gif"><img src="https://media.giphy.com/media/${id}/${still ? "giphy_s" : "giphy"}.gif" alt="${esc(alt || "South Park")}" referrerpolicy="no-referrer" decoding="async"><figcaption>via GIPHY</figcaption></figure>`;
 }
 // the score box: the number, what it means, and the GIF beside it
@@ -1274,7 +1297,10 @@ function resHTML(r, cls, score, msg) {
 }
 function hookGif() {
   const img = qzBody.querySelector(".qz-gif img");
-  if (img) img.addEventListener("error", () => { const f = img.closest(".qz-gif"); f.closest(".qz-res").classList.remove("has-gif"); f.remove(); });
+  if (!img) return;
+  const drop = () => { const f = img.closest(".qz-gif"); if (f) { f.closest(".qz-res").classList.remove("has-gif"); f.remove(); } };
+  img.addEventListener("error", drop);
+  setTimeout(() => { if (!img.naturalWidth) drop(); }, 20000);
 }
 function renderResult() {
   const r = S.run, n = r.ids.length;
@@ -1351,6 +1377,7 @@ function finishMock(auto) {
   r.mins = Math.round((Math.min(Date.now(), r.end) - r.t0) / 60000);
   S.mocks.push({ at: today(), score: res.score, n: res.n, pct: res.pct, dom: res.dom, mins: r.mins });
   const got = award();
+  r.xp1 = xpTotal(); r.gif = pickGif(outcome(r));
   save(); refresh();
   showGains(got, 1000);
   if (res.pct >= 80) setTimeout(() => FX.pass(), 300);   // a comfortable margin on a full mock exam
@@ -1448,7 +1475,7 @@ qzDlg.addEventListener("click", e => {
   const dr = e.target.closest("[data-dr]");
   if (dr) { drillPick(+dr.dataset.dr); return; }
   const go = e.target.closest("[data-go]");
-  if (go) {
+  if (go && S.run) {
     if (S.run.kind !== "mock") { goQ(+go.dataset.go); return; }
     S.run.i = +go.dataset.go; S.run.view = ""; save(); renderQuiz(); qzDlg.scrollTop = 0; return;
   }
@@ -1459,14 +1486,15 @@ qzDlg.addEventListener("click", e => {
   const a = b.dataset.qz, r = S.run;
   if (a === "close") qzDlg.close();
   else if (a === "go") { const fn = intro.go; intro = null; fn(); }
+  else if (!r) qzDlg.close();   // the run went away under the dialog (another device or tab)
   else if (a === "check") check();
   else if (a === "next") nextQ();
   else if (a === "finish") finishResults();
   else if (a === "retake") { const day = r.day; S.run = null; startRun("day", day); }
-  else if (a === "prev") { if (r.kind === "mock") { r.i = Math.max(0, r.i - 1); save(); renderMockQ(); } else goQ(r.i - 1); }
+  else if (a === "prev") { if (r.kind === "mock") { r.i = Math.max(0, r.i - 1); save(); renderMockQ(); mockFocus(a); } else goQ(r.i - 1); }
   else if (a === "skip") goQ(r.i + 1);
-  else if (a === "mnext") { r.i = Math.min(r.ids.length - 1, r.i + 1); save(); renderMockQ(); qzDlg.scrollTop = 0; }
-  else if (a === "flag") { const id = r.ids[r.i]; if (r.flag[id]) delete r.flag[id]; else r.flag[id] = 1; save(); renderMockQ(); }
+  else if (a === "mnext") { r.i = Math.min(r.ids.length - 1, r.i + 1); save(); renderMockQ(); qzDlg.scrollTop = 0; mockFocus(a); }
+  else if (a === "flag") { const id = r.ids[r.i]; if (r.flag[id]) delete r.flag[id]; else r.flag[id] = 1; save(); renderMockQ(); mockFocus(a); }
   else if (a === "grid") { r.view = "grid"; save(); renderGrid(); qzDlg.scrollTop = 0; }
   else if (a === "back") { r.view = ""; save(); renderMockQ(); }
   else if (a === "finish-mock") finishMock(false);
@@ -1478,9 +1506,9 @@ qzDlg.addEventListener("change", e => {
 document.addEventListener("keydown", e => {
   if (!qzDlg.open || brkDlg.open || e.target.matches("input,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
-  if (drill && !drill.done) {
+  if (drill) {
     const n = k.length === 1 ? Math.max("1234".indexOf(k), "abcd".indexOf(k)) : -1;
-    if (n >= 0) { e.preventDefault(); drillPick(n); }
+    if (n >= 0 && !drill.done) { e.preventDefault(); drillPick(n); }
     return;
   }
   const r = S.run;
@@ -1494,7 +1522,7 @@ document.addEventListener("keydown", e => {
     return;
   }
   if (r.kind === "mock") {
-    if (k === "arrowright" || k === "enter") { const nb = qzBody.querySelector('[data-qz="mnext"]'); if (nb) { e.preventDefault(); nb.click(); } }
+    if (k === "arrowright" || k === "enter") { const nb = qzBody.querySelector(k === "enter" ? ".mk-a .primary" : '[data-qz="mnext"]'); if (nb) { e.preventDefault(); nb.click(); } }
     else if (k === "arrowleft") { e.preventDefault(); qzBody.querySelector('[data-qz="prev"]')?.click(); }
     else if (k === "f") { e.preventDefault(); qzBody.querySelector('[data-qz="flag"]')?.click(); }
     return;
@@ -1502,7 +1530,8 @@ document.addEventListener("keydown", e => {
   if (k === "arrowleft" || k === "arrowright") { e.preventDefault(); goQ(r.i + (k === "arrowright" ? 1 : -1)); return; }
   if (k === "enter") {
     const p = qzBody.querySelector('[data-qz="check"]:not([disabled]),[data-qz="next"]');
-    if (p) { e.preventDefault(); p.click(); }
+    if (p || e.target.closest(".qz-o")) e.preventDefault();   // Space or A–E pick; Enter on an option alone does nothing
+    if (p) p.click();
   }
 });
 qzDlg.addEventListener("close", () => {
@@ -1783,7 +1812,9 @@ fileIn.onchange = () => {
     const next = JSON.parse(t);
     if (!isObj(next) || !isObj(next.settings)) throw new Error("not an export");
     S = parseState(next);
+    S.timer = Object.assign(clone(DEF.timer), { min: S.timer.min });   // an export carries a timer from another time: start it idle
     DAYS.forEach(markDayDone);
+    award();
     save(); setDlg.close("x"); rebuild(); restoreScores();
     FX.banner("Progress imported", "", "info");
   }).catch(() => alert("That file isn't a valid progress export. Nothing was changed."));
@@ -1793,6 +1824,7 @@ document.getElementById("s-reset").onclick = () => {
   if (!confirm("Clear all ticks, notes, scores and quiz history? (Settings are kept.)")) return;
   const keep = S.settings;
   S = clone(DEF); S.settings = keep;
+  lvShown = 0;
   save(); setDlg.close("x"); rebuild(); restoreScores();
 };
 function restoreScores() { document.querySelectorAll("[data-score]").forEach(inp => { inp.value = S.scores[inp.dataset.score] ?? ""; }); }
@@ -1801,100 +1833,127 @@ function restoreScores() { document.querySelectorAll("[data-score]").forEach(inp
 // A focus block counts down from 50 minutes. When it ends, a pop-up offers a break. The break has no set length:
 // it counts up, and once it passes 10 minutes it reminds you every minute to start the next focus block, with
 // the pop-up when it isn't up already and with the sound alone when it is, so reminders never pile up.
+// Several tabs: the "done" prompt (timer.ask) shows in each and closes in each once answered; a reminder's
+// sound plays once a minute for all of them (NAG_KEY).
 const tm = document.getElementById("timer");
 const brkDlg = document.getElementById("brk"), brkBody = document.getElementById("brk-body");
-let nagAt = -1;   // the minute past 10 of the break that the last reminder was for
-const tmLeft = () => S.timer.running ? Math.max(0, Math.round((S.timer.endAt - Date.now()) / 1000)) : S.timer.left;
-const restUp = () => Math.max(0, Math.round(S.timer.up + (S.timer.running ? (Date.now() - S.timer.at) / 1000 : 0)));
-const mmss = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-// Credit focused time to the day you're working on: the one open on screen, else the one the overview points at.
+const NAG_KEY = KEY + "-nag";   // "<break start>:<minute>" of the last reminder sound, shared by this browser's tabs
+let nagKey = "";                // the same, for the pop-up of this tab
+let brkAt = 0, brkGains = [];   // when the pop-up opened (a click right after is ignored); badges to show once it closes
+const tmLeft = () => S.timer.running ? Math.min(FOCUS, Math.max(0, Math.round((S.timer.endAt - Date.now()) / 1000))) : S.timer.left;
+const restUp = () => Math.min(86400, Math.max(0, Math.round(S.timer.up + (S.timer.running ? (Date.now() - S.timer.at) / 1000 : 0))));
+const mmss = s => (s >= 3600 ? `${Math.floor(s / 3600)}:` : "") + `${String(Math.floor(s / 60) % (s >= 3600 ? 60 : 1e9)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+const workDay = () => dayOf(view.day) || (nextStep() || {}).d;
+// Every change to the timer carries its own time, so a merge keeps the timer that changed last (not whichever copy saved last).
+function tmSave() { S.timer.ts = Date.now(); save(); tmRender(); }
+// Credit focused time to the day the block was started on (or, for a block from before that was kept, the day you're on).
 function logFocus() {
   const t = S.timer;
   if (t.mode !== "focus" || !t.running) return;
-  const sec = (t.from || FOCUS) - tmLeft();
-  const d = dayOf(view.day) || (nextStep() || {}).d;
+  const sec = (t.from > 0 ? t.from : FOCUS) - tmLeft();
+  const d = dayOf(t.day) || workDay();
   if (sec < 30 || !d) return;
   S.log[d.id] = (S.log[d.id] || 0) + sec / 60;
 }
 function tmRender() {
-  const t = S.timer, rest = t.mode === "rest", s = rest ? restUp() : tmLeft(), over = rest && s >= REST_NAG;
+  const t = S.timer, rest = t.mode === "rest", s = rest ? restUp() : tmLeft(), over = rest && t.running && s >= REST_NAG;
   tm.classList.toggle("running", t.running);
   tm.classList.toggle("break", rest);
-  tm.classList.toggle("over", over && t.running);
+  tm.classList.toggle("over", over);
   tm.classList.toggle("min", !!t.min);
-  tm.querySelector(".tm-mode").textContent = !rest ? "50-minute focus" : over ? "Break is over" : "Break";
+  tm.querySelector(".tm-mode").textContent = !rest ? "50-minute focus" : over ? "Break is over" : !t.running && s ? "Break, paused" : "Break";
   tm.querySelector(".tm-time").textContent = mmss(s);
   tm.querySelector('[data-tm="toggle"]').textContent = t.running ? "Pause" : rest ? (s ? "Resume" : "Start break") : s === FOCUS ? "Start" : "Resume";
   tm.querySelector('[data-tm="switch"]').textContent = rest ? "Focus" : "Break";
   tm.querySelector('[data-tm="min"]').textContent = t.min ? "+" : "–";
-  document.title = t.running ? `${mmss(s)} ${!rest ? "🎯" : over ? "⏰" : "☕"} · SAA-C03 Plan` : "SAA-C03 Plan";
+  document.title = t.running ? `${mmss(s)} ${!rest ? "🎯" : over ? "⏰" : "☕"} · SAA-C03 Plan` : t.ask ? "Focus block done 🎯 · SAA-C03 Plan" : "SAA-C03 Plan";
   const up = document.getElementById("brk-up");
   if (up) up.textContent = mmss(restUp());
 }
-function tmSet(mode) { Object.assign(S.timer, { mode, running: false, left: FOCUS, up: 0, at: 0 }); nagAt = -1; save(); tmRender(); }
-const startFocus = () => { logFocus(); Object.assign(S.timer, { mode: "focus", running: true, left: FOCUS, from: FOCUS, endAt: Date.now() + FOCUS * 1000, up: 0, at: 0 }); };
-const startRest = () => { logFocus(); Object.assign(S.timer, { mode: "rest", running: true, up: 0, at: Date.now() }); nagAt = -1; };
+function tmSet(mode) { Object.assign(S.timer, { mode, running: false, left: FOCUS, up: 0, at: 0, ask: false }); tmSave(); }
+const startFocus = () => { logFocus(); Object.assign(S.timer, { mode: "focus", running: true, left: FOCUS, from: FOCUS, endAt: Date.now() + FOCUS * 1000, up: 0, at: 0, ask: false, day: (workDay() || {}).id || "" }); };
+const startRest = () => { logFocus(); Object.assign(S.timer, { mode: "rest", running: true, up: 0, at: Date.now(), ask: false }); };
+const pauseRest = () => { Object.assign(S.timer, { up: restUp(), running: false }); };
 tm.addEventListener("click", e => {
   const b = e.target.closest("[data-tm]");
   const a = b ? b.dataset.tm : e.target.closest(".tm-time") && S.timer.min ? "min" : null;
   if (!a) return;
   const t = S.timer, rest = t.mode === "rest";
   if (a === "toggle") {
-    if (t.running) { if (rest) t.up = restUp(); else { logFocus(); t.left = tmLeft(); } t.running = false; }
-    else { FX.unlock(); if (rest) t.at = Date.now(); else { t.from = t.left; t.endAt = Date.now() + t.left * 1000; } t.running = true; }
-  } else if (a === "reset" || a === "switch") { logFocus(); tmSet(a === "reset" ? t.mode : rest ? "focus" : "rest"); refresh(); return; }
+    if (t.running) { if (rest) pauseRest(); else { logFocus(); t.left = tmLeft(); t.running = false; } }
+    else {
+      FX.unlock();
+      if (rest) { t.at = Date.now(); t.ask = false; }
+      else { if (t.left <= 0) t.left = FOCUS; t.from = t.left; t.endAt = Date.now() + t.left * 1000; t.day = (workDay() || {}).id || ""; }   // paused at 00:00: a new block
+      t.running = true;
+    }
+  } else if (a === "reset" || a === "switch") { logFocus(); tmSet(a === "reset" ? t.mode : rest ? "focus" : "rest"); refresh(); showGains(award()); return; }
   else if (a === "min") { t.min = !t.min; }
-  save(); tmRender();
-  if (a !== "min") refresh();
+  tmSave();
+  if (a !== "min") { refresh(); showGains(award()); }
 });
 // The pop-up: "done" when a focus block has just ended, "over" when the break has run past 10 minutes.
-// It is a modal of its own, so it also comes up over an open quiz (and the quiz keys wait under it).
+// It is a modal of its own, so it also comes up over an open quiz (and the quiz keys wait under it). The keyboard
+// goes to its heading, not a button, so a key typed for something else (a note, a quiz answer) doesn't answer it.
 function brkOpen(kind) {
   brkDlg.dataset.kind = kind;
   brkBody.innerHTML = kind === "done"
-    ? `<h2 id="brk-t">Focus block done 🎯</h2><p>50 minutes of focus. Take a break now: it has no set length. The clock counts up, and after ${REST_NAG / 60} minutes it reminds you every minute to come back.</p>` +
+    ? `<h2 id="brk-t" tabindex="-1">Focus block done 🎯</h2><p>50 minutes of focus. Take a break now: it has no set length. The clock counts up, and after ${REST_NAG / 60} minutes it reminds you every minute to come back.</p>` +
       `<div class="row end"><button type="button" data-brk="focus">Skip the break, focus again</button><button type="button" class="primary" data-brk="rest">Start break ☕</button></div>`
-    : `<h2 id="brk-t">Break is over ⏰</h2><p>You have been on a break for <b id="brk-up">${mmss(restUp())}</b>. Time for the next 50 minutes of focus.</p>` +
-      `<p class="muted">Away for longer? Pause or reset the break on the timer and the reminders stop.</p>` +
-      `<div class="row end"><button type="button" data-brk="later">In a minute</button><button type="button" class="primary" data-brk="focus">Start focus 🎯</button></div>`;
+    : `<h2 id="brk-t" tabindex="-1">Break is over ⏰</h2><p>You have been on a break for <b id="brk-up">${mmss(restUp())}</b>. Time for the next 50 minutes of focus.</p>` +
+      `<p class="muted">Away for longer? Pause the break and the reminders stop until you resume it.</p>` +
+      `<div class="row end"><button type="button" data-brk="pause">Pause the break</button><button type="button" data-brk="later">Not yet</button><button type="button" class="primary" data-brk="focus">Start focus 🎯</button></div>`;
   if (!brkDlg.open) brkDlg.showModal();
-  brkBody.querySelector(".primary").focus();
+  brkAt = Date.now();
+  document.getElementById("brk-t").focus({ preventScroll: true });
 }
 brkDlg.addEventListener("click", e => {
   const b = e.target.closest("[data-brk]");
-  if (!b) return;
+  if (!b || Date.now() - brkAt < 400) return;   // a click meant for what was under the pointer when it opened
   const a = b.dataset.brk;
   brkDlg.close();
   if (a === "later") return;
   FX.unlock();
-  if (a === "rest") startRest(); else startFocus();
-  save(); tmRender(); refresh();
+  if (a === "rest") startRest(); else if (a === "pause") pauseRest(); else startFocus();
+  tmSave(); refresh();
+  showGains(award());
   FX.sound("pop");
 });
-brkDlg.addEventListener("close", runPending);
+brkDlg.addEventListener("close", () => {
+  // Esc on "done" answers it too: no break for now (the timer offers Start break)
+  if (brkDlg.dataset.kind === "done" && S.timer.ask) { S.timer.ask = false; tmSave(); }
+  if (brkGains.length) showGains(brkGains.splice(0), 300);
+  runPending();
+});
 setInterval(() => {
   const t = S.timer;
   if (t.running && t.mode === "focus" && tmLeft() <= 0) {
     logFocus();
     tmSet("rest");
+    t.ask = true;   // the prompt waits for an answer, in every tab and after a reload
+    tmSave();
     refresh();
     FX.sound("timer");
-    brkOpen("done");
     FX.sparkle(tm);   // a full focus block is something finished too
-    showGains(award(), 600);
+    brkGains.push(...award());
   }
-  if (t.running && t.mode === "rest") {
-    const s = restUp();
-    if (s >= REST_NAG && Math.floor((s - REST_NAG) / 60) !== nagAt) {
-      nagAt = Math.floor((s - REST_NAG) / 60);
-      FX.sound("nag");
+  if (t.ask && !brkDlg.open) brkOpen("done");
+  if (t.running && t.mode === "rest" && restUp() >= REST_NAG) {
+    const key = `${t.at}:${Math.floor((restUp() - REST_NAG) / 60)}`;   // a new or resumed break starts its own minutes
+    if (key !== nagKey) {
+      nagKey = key;
+      let heard = "";
+      try { heard = localStorage.getItem(NAG_KEY) || ""; localStorage.setItem(NAG_KEY, key); } catch (e) {}
+      if (heard !== key) FX.sound("nag");   // another tab already knocked this minute
       if (!brkDlg.open) brkOpen("over");
     }
   }
   // the timer moved on elsewhere (another tab, the server): a pop-up that no longer fits goes away
-  if (brkDlg.open && (brkDlg.dataset.kind === "over" ? !(t.mode === "rest" && t.running) : !(t.mode === "rest" && !t.running && !t.up))) brkDlg.close();
+  if (brkDlg.open && (brkDlg.dataset.kind === "over" ? !(t.mode === "rest" && t.running && restUp() >= REST_NAG) : !t.ask)) brkDlg.close();
   if (t.running) tmRender();
 }, 1000);
+// Browsers keep sound off after a reload until the first click or key: take the first one anywhere, so reminders can be heard.
+for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, () => FX.unlock(), { capture: true, passive: true });
 
 // ---------- server sync (only when served by the Go backend; otherwise browser-only) ----------
 // localStorage stays the working copy. The server keeps one revisioned document. If this copy is
@@ -1937,6 +1996,7 @@ function mergeDocs(local, remote) {
   m.drill = { best: Math.max(m.drill.best, older.drill.best), runs: Math.max(m.drill.runs, older.drill.runs) };
   for (const k in older.ach) if (!m.ach[k] || older.ach[k] < m.ach[k]) m.ach[k] = older.ach[k];
   m.rowBest = Math.max(m.rowBest, older.rowBest);
+  if (older.timer.ts > newer.timer.ts) m.timer = clone(older.timer);   // the timer that changed last, not the copy that saved last
   m.run = local.run || remote.run;      // the run on this screen stays
   m.savedAt = Date.now();
   return m;
@@ -1944,6 +2004,7 @@ function mergeDocs(local, remote) {
 // Re-render after the state was replaced from outside (server or another tab).
 function applyState() {
   DAYS.forEach(markDayDone);
+  award();
   rebuild(); restoreScores(); tmRender();
   if (qzDlg.open && !drill && !intro && S.run) renderQuiz();
   if (shDlg.open && shDlg.dataset.kind !== "daynotes") renderSheet();   // never redraw a notes box under the cursor
@@ -2007,7 +2068,7 @@ setInterval(() => { if (todayIdx() !== lastIdx || today() !== lastDate) { lastId
 
 // Days ticked off before quizzes existed count as done once their quiz is passed.
 DAYS.forEach(markDayDone);
-award();
+award(0, false);   // saved with the next change, or after the first sync (applyState)
 document.getElementById("places").open = Object.keys(S.ticks).length === 0;
 document.getElementById("tb-sub").textContent = `SAA-C03 in ${DAYS.length} days`;
 restoreScores();

@@ -58,7 +58,9 @@ The questions are original practice questions in the exam's style, not official 
 
 ## Focus timer
 
-50 minutes of focus count down and are logged to the day you're working on. When they end, a pop-up offers a break. The break has no set length: the clock counts up, and after 10 minutes it reminds you every minute to start the next block (a sound each minute; the pop-up only if it isn't already open). Pause or reset the break to stop the reminders.
+50 minutes of focus count down and are logged to the day you started them on. When they end, a pop-up offers a break (in every open tab, and again after a reload until you answer). The break has no set length: the clock counts up, and after 10 minutes it reminds you every minute to start the next block (a sound each minute; the pop-up only if it isn't already open). "Pause the break" in the pop-up, or Pause on the timer, stops the reminders.
+
+After updating the site (`docker compose up -d --build`), reload every open tab and device: a tab still running the old page doesn't know the open-ended break and can reset it.
 
 ## Keep it up after reboots
 
