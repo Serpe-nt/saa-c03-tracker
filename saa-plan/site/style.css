@@ -30,7 +30,7 @@
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html{background:var(--bp-deep)}
+html{background:var(--bp-deep);scrollbar-gutter:stable}   /* the card doesn't jump sideways when one step is long enough to scroll and the next isn't */
 body{
   margin:0;min-height:100vh;color:var(--text);font:16px/1.5 var(--body);
   background-color:var(--bp);
@@ -50,6 +50,7 @@ body{
 .bp-art text.sm{font-size:13px;font-weight:500}
 .bp-art text.xs{font-size:11px;font-weight:500}
 @media (max-width:1300px){.bp-art{opacity:.55}}
+body.in-flow .bp-art{opacity:.35}   /* dimmer while you study a step, so the margins don't pull the eye from the card */
 
 .wrap{position:relative;z-index:1;max-width:900px;margin:0 auto;padding:22px 16px 140px}
 a{color:var(--watch)}
@@ -211,8 +212,18 @@ body.in-flow .wrap{padding-bottom:220px}   /* room to scroll the end of a long c
 .fl-tt{font:600 20px/1.2 var(--display)}
 .fl-dd{font-size:13.5px;color:var(--chalk-dim)}
 .fl-tools{display:flex;gap:6px;flex-wrap:wrap}
-.fl-prog{display:flex;gap:8px 14px;align-items:center;margin-bottom:12px}
-.fl-strip{display:flex;gap:2px 10px;flex-wrap:wrap;flex:1}
+/* the dots in the middle over the card, the count at the card's right edge */
+.fl-prog{display:flex;gap:8px 16px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.fl-strip{display:flex;gap:2px 10px;flex-wrap:wrap;justify-content:center;min-width:0}
+.fl-g.cur{box-shadow:inset 0 -2px 0 rgba(234,243,255,.45);border-radius:1px}   /* the block you are in */
+.fl-blk{flex-basis:100%;text-align:center;font:500 14px var(--display);color:var(--chalk-dim);margin-top:-4px}
+.fl-blk:empty{display:none}
+@media (min-width:761px){
+  .fl-prog{display:grid;grid-template-columns:minmax(110px,1fr) auto minmax(110px,1fr);row-gap:4px}
+  .fl-strip{grid-column:2;grid-row:1}
+  .fl-count{grid-column:3;grid-row:1;justify-self:end}
+  .fl-blk{grid-column:2;grid-row:2;margin-top:0}
+}
 .fl-g{display:inline-flex;gap:1px}
 .dot{width:22px;height:22px;padding:0;border:0;background:none;display:inline-grid;place-items:center;border-radius:50%}
 .dot::before{content:"";width:12px;height:12px;border-radius:50%;border:1.5px solid rgba(234,243,255,.6);transition:background .2s,border-color .2s}
@@ -293,25 +304,28 @@ button.link{border:0;background:none;padding:0;color:var(--watch);text-decoratio
 .side-r{border-top-color:var(--quiz)}
 .side-t{font:700 18px var(--display);margin:0}
 .side.in{animation:card-in .2s ease-out}
-/* where they go: under the card (phones: one column, the exam panel first), beside it from 1400px */
+/* Where they go. Only the page scrolls: no panel has a scroll bar of its own, everything shows in full.
+   The card is read first; "On the exam" follows it, for after reading; "Look it up" is for while reading:
+   a rail to the card's right on wide screens, the last panel under it on narrower ones. */
 .fl-body{display:grid;gap:14px;align-items:start;grid-template-areas:"card" "right" "left"}
 #card{grid-area:card;min-width:0}
 #side-r{grid-area:right;min-width:0}
 #side-l{grid-area:left;min-width:0}
-@media (min-width:761px){
-  .fl-body{grid-template-columns:1fr 1fr;grid-template-areas:"card card" "left right"}
-  .fl-body.no-l{grid-template-areas:"card card" "right right"}
-}
-@media (min-width:1400px){
-  body.in-flow .wrap{max-width:1480px}
-  .fl-body,.fl-body.no-l{grid-template-columns:minmax(230px,300px) minmax(0,820px) minmax(250px,330px);grid-template-areas:"left card right";justify-content:center;gap:18px}
-  /* they stay in view while the card scrolls; the bottom stays clear of the buttons */
-  .side{position:sticky;top:46px;max-height:calc(100vh - 150px);overflow:auto}
+.side-cols{display:grid;gap:0 14px;align-items:start}
+@media (min-width:761px){.side-cols{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* the card stays in the middle at one width on every step (the dots and the buttons line up with it); the rail
+   takes the margin on its right, the one on its left stays empty, and the rail's length only lengthens the page */
+@media (min-width:1300px){
+  body.in-flow .wrap{max-width:1680px}
+  .fl-prog{width:min(860px,100% - 600px);margin-inline:auto}   /* as wide as the card: 2 × 280 margin + 2 × 20 gap */
+  .fl-body{grid-template-columns:minmax(280px,1fr) minmax(0,860px) minmax(280px,1fr);grid-template-rows:auto 1fr;grid-template-areas:". card left" ". right left";gap:18px 20px}
+  #side-l{max-width:360px}
+  #side-l .side-cols{grid-template-columns:minmax(0,1fr)}
 }
 .in-note{margin:4px 0 0;font-size:14.5px;white-space:pre-wrap;color:var(--muted)}
 
 /* the three buttons stay at the bottom of the window */
-.fl-nav{position:fixed;left:0;right:0;bottom:0;z-index:15;display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:12px max(16px,calc((100vw - 868px)/2));
+.fl-nav{position:fixed;left:0;right:0;bottom:0;z-index:15;display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:12px max(16px,calc((100% - 868px)/2));
   background:color-mix(in srgb,var(--bp-deep) 90%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid rgba(234,243,255,.22)}
 .fl-b{justify-self:start}
 .fl-n{justify-self:end}
@@ -319,6 +333,12 @@ button.link{border:0;background:none;padding:0;color:var(--watch);text-decoratio
 .fl-mid{display:flex;gap:12px;align-items:center}
 .fl-ok{color:#a8f0b8;font:700 19px var(--display);white-space:nowrap}
 .fl-nav button.link{color:var(--chalk);font-size:14px}
+/* key caps for ← → and Enter; on touch screens and phones the arrows are plain arrows and Enter goes */
+.kh{display:inline-block;min-width:1.55em;padding:0 .3em;background:none;color:inherit;border:1px solid currentColor;border-bottom-width:2px;border-radius:4px;font:600 .8em/1.4 var(--body);text-align:center;opacity:.8;vertical-align:.08em}
+.kh-w{margin-left:.55em;font-size:.68em;padding:0 .4em}
+@media (hover:none),(max-width:640px){.kh{border:0;padding:0;min-width:0;font:inherit;opacity:1;vertical-align:baseline}.kh-w{display:none}}
+/* Back and Next line up with the card's edges (16 page + 280 margin + 20 gap while the margins are at their narrowest) */
+@media (min-width:1300px){.fl-nav{padding-inline:max(316px,calc((100% - 860px)/2))}}
 
 /* glossary */
 .g{border-bottom:1px dotted currentColor;cursor:help;position:relative}
@@ -751,7 +771,8 @@ dialog.qz{width:min(780px,96vw);max-width:none;max-height:92vh;padding:0;overflo
 
 /* ---------- focus view: the card alone, a little larger ---------- */
 body.focus-view #side-l,body.focus-view #side-r{display:none!important}
-body.focus-view .fl-body{grid-template-columns:minmax(0,980px)!important;grid-template-areas:"card"!important;justify-content:center}
+body.focus-view .fl-body{grid-template-columns:minmax(0,980px)!important;grid-template-rows:auto!important;grid-template-areas:"card"!important;justify-content:center}
+@media (min-width:1300px){body.focus-view .fl-nav{padding-inline:max(16px,calc((100% - 980px)/2))}body.focus-view .fl-prog{width:min(980px,100%)}}
 body.focus-view #card{zoom:1.06}
 :root[data-size="l"] body.focus-view #card{zoom:1.17}
 :root[data-size="xl"] body.focus-view #card{zoom:1.3}

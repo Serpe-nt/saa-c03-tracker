@@ -612,7 +612,7 @@ function renderFlow(moved) {
   const d = dayOf(view.day), ids = stepIds(d), at = view.at, i = ids.indexOf(at);
   document.getElementById("fl-day").innerHTML = `<span class="fl-dn">Day ${d.day}</span><span class="fl-tt">${d.title}</span>` +
     `<span class="fl-dd">${fmtD(dayDate(d.day))}</span>${d.day === todayIdx() ? `<span class="today-badge">Today</span>` : ""}`;
-  const tools = [`<button type="button" class="ghost" data-focus-view aria-pressed="${!!ui.focusView}" title="Hide the panels beside the card (F)">${ui.focusView ? "⤡ Show panels" : "⤢ Focus view"}</button>`,
+  const tools = [`<button type="button" class="ghost" data-focus-view aria-pressed="${!!ui.focusView}" title="Hide the panels around the card (F)">${ui.focusView ? "⤡ Show panels" : "⤢ Focus view"}</button>`,
     `<button type="button" class="ghost" data-search title="Search (Ctrl+K)">🔍</button>`,
     `<button type="button" class="ghost" data-sheet="daynotes">📝 Day notes</button>`];
   if (d.groups.some(g => g.t === "build")) tools.push(`<button type="button" class="ghost" data-cleanup="${d.id}">🧹 Cleanup check</button>`);
@@ -624,9 +624,13 @@ function renderFlow(moved) {
     const on = id === "quiz" ? quizOk(d) : done(id), t = stepTitle(id);
     return `<button type="button" class="dot${on ? " on" : ""}${id === "quiz" ? " qd" : ""}${id === fxMark.pop ? " pop" : ""}" data-at="${id}"${id === at ? ' aria-current="step"' : ""} title="${esc(t)}" aria-label="${esc(`Step ${ids.indexOf(id) + 1}: ${t}${on ? " (done)" : ""}`)}"></button>`;
   };
-  document.getElementById("fl-strip").innerHTML = d.groups.map(g => `<span class="fl-g${g.key === fxMark.wave ? " wave" : ""}">${g.items.map(it => dot(it[0])).join("")}</span>`).join("") +
-    (hasQuiz(d) ? `<span class="fl-g">${dot("quiz")}</span>` : "");
+  // the block you are in is underlined in the strip and named under it
+  const gi = d.groups.findIndex(g => g.items.some(it => it[0] === at)), cur = gi >= 0 && d.groups[gi];
+  document.getElementById("fl-strip").innerHTML = d.groups.map((g, k) => `<span class="fl-g${g.key === fxMark.wave ? " wave" : ""}${k === gi ? " cur" : ""}">${g.items.map(it => dot(it[0])).join("")}</span>`).join("") +
+    (hasQuiz(d) ? `<span class="fl-g${at === "quiz" ? " cur" : ""}">${dot("quiz")}</span>` : "");
   document.getElementById("fl-count").textContent = at === "done" ? "Day complete" : `Step ${i + 1} of ${ids.length}`;
+  document.getElementById("fl-blk").textContent = at === "quiz" ? "End-of-day quiz" : !cur ? ""
+    : d.groups.length > 1 ? `${cur.label || TAGS[cur.t]}, block ${gi + 1} of ${d.groups.length}` : cur.label || TAGS[cur.t];
 
   // Typing in a field on the card or its panels: leave them alone, only the frame around them changes.
   const typing = !moved && bodyEl.contains(document.activeElement) && document.activeElement.matches("textarea,input");
@@ -647,25 +651,27 @@ function renderFlow(moved) {
   // Back, the card's main action, Next
   const back = at === "done" ? ids[ids.length - 1] : ids[i - 1] || "";
   const next = at === "done" ? "" : ids[i + 1] || (dayDone(d) ? "done" : "");
+  // the keys that press them (the keydown handler below) show as key caps; on touch screens the arrows stay plain arrows
+  const kh = k => `<kbd class="kh${k.length > 1 ? " kh-w" : ""}" aria-hidden="true">${k}</kbd>`, enter = ` aria-keyshortcuts="Enter"`;
   let mid, isDone = false;
   if (at === "done") {
     const nx = DAYS.find(x => x.day > d.day && !dayDone(x));
-    mid = nx ? `<a class="btn primary big" href="#${nx.id}" data-main data-start-day>Start Day ${nx.day}</a>` : `<button type="button" class="primary big" data-home data-main>Back to the overview</button>`;
+    mid = nx ? `<a class="btn primary big" href="#${nx.id}" data-main data-start-day${enter}>Start Day ${nx.day}${kh("Enter")}</a>` : `<button type="button" class="primary big" data-home data-main${enter}>Back to the overview${kh("Enter")}</button>`;
   } else if (at === "quiz") {
     const r = S.quiz[d.id], live = liveQuiz(d);
     isDone = quizOk(d) && !live;
     mid = isDone ? `<span class="fl-ok">✓ Passed</span>`
-      : `<button type="button" class="primary big" data-quiz-start="${d.id}" data-main${itemsDone(d) || live ? "" : " disabled"}>${live ? "Resume quiz" : r && r.tries.length ? "Retake quiz" : "Start quiz"}</button>`;
+      : `<button type="button" class="primary big" data-quiz-start="${d.id}" data-main${enter}${itemsDone(d) || live ? "" : " disabled"}>${live ? "Resume quiz" : r && r.tries.length ? "Retake quiz" : "Start quiz"}${kh("Enter")}</button>`;
   } else {
     isDone = done(at);
     mid = isDone ? `<span class="fl-ok">✓ Completed</span><button type="button" class="link" data-undo="${at}">Undo</button>`
-      : `<button type="button" class="primary big" data-complete="${at}" data-main>✓ Mark complete</button>`;
+      : `<button type="button" class="primary big" data-complete="${at}" data-main${enter}>✓ Mark complete${kh("Enter")}</button>`;
   }
   const nextMain = isDone && next;
   document.getElementById("fl-nav").innerHTML =
-    `<button type="button" class="fl-b ghost" data-back data-at="${back}"${back ? "" : " disabled"}>← Back</button>` +
+    `<button type="button" class="fl-b ghost" data-back data-at="${back}" aria-keyshortcuts="ArrowLeft"${back ? "" : " disabled"}>${kh("←")} Back</button>` +
     `<div class="fl-mid">${mid}</div>` +
-    (at === "done" ? `<span></span>` : `<button type="button" class="fl-n ${nextMain ? "primary" : "ghost"}" data-next data-at="${next}"${nextMain ? " data-main" : ""}${next ? "" : " disabled"}>Next →</button>`);
+    (at === "done" ? `<span></span>` : `<button type="button" class="fl-n ${nextMain ? "primary" : "ghost"}" data-next data-at="${next}" aria-keyshortcuts="ArrowRight${nextMain ? " Enter" : ""}"${nextMain ? " data-main" : ""}${next ? "" : " disabled"}>Next ${kh("→")}</button>`);
 }
 
 // Docs for a step: the pages its key points cite, then the AWS pages its own quiz questions point to most often
@@ -851,8 +857,11 @@ function stepCardHTML(id) {
   if (g.t === "build" && (BILL.steps[id] || g.items.indexOf(it) === g.items.length - 1)) h += costBoxHTML(d);
   return h + dgHTML(id);
 }
-// The two panels beside the card. l = "Look it up": the AWS pages and the terms. r = "On the exam": the exam topics
-// with your accuracy and a practice round, how the exam words these topics, and your own notes.
+// Two lists side by side when there is room (CSS decides); one alone needs no columns.
+const sideCols = (a, b) => (a && b ? `<div class="side-cols"><div class="side-col">${a}</div><div class="side-col">${b}</div></div>` : a + b);
+// The two panels around the card. l = "Look it up", the rail to the card's right: the AWS pages and the terms, for
+// while you read. r = "On the exam", under the card, for after it: the exam topics with your accuracy and a practice
+// round, look-alikes, how the exam words these topics, and your own notes.
 function sideHTML(id) {
   const { it } = itemIndex[id], [, txt, note] = it, kp = KEYS[id], qs = QREF[id] || [];
   const docs = stepDocs(id), tags = stepTags(id);
@@ -860,10 +869,11 @@ function sideHTML(id) {
   const cues = [];
   for (const t of tags) for (const c of CUES) if ((CUE_TAGS[c[0]] || []).includes(t) && !cues.includes(c) && cues.length < 4) cues.push(c);
 
-  let l = "";
-  if (docs.length) l += box("docs", "📄", "AWS docs", `<ul class="c-docs">${docs.map(([t, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a></li>`).join("")}</ul>`);
-  if (terms.length) l += foldBox("terms", "📖", "terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, true);
+  const l = sideCols(
+    docs.length ? box("docs", "📄", "AWS docs", `<ul class="c-docs">${docs.map(([t, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a></li>`).join("")}</ul>`) : "",
+    terms.length ? foldBox("terms", "📖", "terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, true) : "");
 
+  // how you stand and what to tell apart in one column, how the exam words it in the other
   let r = "";
   if (tags.length || qs.length) {
     const acc = tagStats();
@@ -881,10 +891,10 @@ function sideHTML(id) {
     }
     r += box("exam", "📊", "Exam topics", b);
   }
-  if (cues.length) r += foldBox("cues", "🗣", "cues", "Exam wording on these topics", cues.length,
-    `<ul class="cue-l">${cues.map(c => `<li><b>${esc(c[0])}</b><span>→ ${esc(c[1])}</span><span class="muted">${esc(c[2])}</span></li>`).join("")}</ul>`, true);
   const las = LA.filter(e => (e.tags || []).some(t => tags.includes(t))).slice(0, 4);
   if (las.length) r += box("look", "⚖️", "Look-alikes on these topics", `<ul class="c-la">${las.map(e => `<li><button type="button" class="link" data-look="${esc(e.id)}">${esc(e.title)}</button></li>`).join("")}</ul>`);
+  r = sideCols(r, cues.length ? foldBox("cues", "🗣", "cues", "Exam wording on these topics", cues.length,
+    `<ul class="cue-l">${cues.map(c => `<li><b>${esc(c[0])}</b><span>→ ${esc(c[1])}</span><span class="muted">${esc(c[2])}</span></li>`).join("")}</ul>`, true) : "");
   r += `<label class="box b-notes c-notes"><span class="box-h"><span class="bi" aria-hidden="true">📝</span>My notes on this step <span class="saved" data-saved="${id}">saved</span></span>` +
     `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
   return { l: l && `<div class="side-t">Look it up</div>${l}`, r: `<div class="side-t">On the exam</div>${r}` };

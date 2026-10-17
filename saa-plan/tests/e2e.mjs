@@ -196,18 +196,30 @@ try {
   assert.ok(await page.evaluate(() => document.querySelector('#side-l details[data-sec="terms"]').open), "terms start open in their panel");
   await page.screenshot({ path: path.join(SHOTS, "02-step-card.png"), fullPage: true });
 
-  log("wide screens: Look it up left of the card, On the exam right of it; narrower screens: under it");
+  log("wide screens: the card in the middle, On the exam under it, Look it up to its right; narrower screens: both under it; only the page scrolls");
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.evaluate(() => scrollTo(0, 0));
   await page.waitForTimeout(300);
-  const box3 = () => Promise.all(["#side-l", "#card", "#side-r"].map(sel => page.$eval(sel, el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; })));
-  let [pl, pc, pr] = await box3();
-  assert.ok(pl.r <= pc.l && pc.r <= pr.l && Math.abs(pl.t - pc.t) < 2 && Math.abs(pr.t - pc.t) < 2, `beside the card, level with its top: ${JSON.stringify([pl, pc, pr])}`);
+  const box3 = () => Promise.all(["#side-l", "#card", "#side-r", "#fl-strip"].map(sel => page.$eval(sel, el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; })));
+  // no part of the day view keeps its own scroll bar: what doesn't fit lengthens the page
+  const ownScroll = () => page.evaluate(() => [...document.querySelectorAll("#flow *")].filter(e => /auto|scroll/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1).map(e => e.id || e.className));
+  let [pl, pc, pr, ps] = await box3();
+  const mid = b => (b.l + b.r) / 2;
+  assert.ok(pc.r <= pl.l && Math.abs(pl.t - pc.t) < 2, `Look it up right of the card, level with its top: ${JSON.stringify([pl, pc])}`);
+  assert.ok(pr.t >= pc.b && Math.abs(pr.l - pc.l) < 2 && Math.abs(pr.r - pc.r) < 2, "On the exam under the card, as wide as it");
+  assert.ok(Math.abs(mid(pc) - 1600 / 2) < 12 && Math.abs(mid(ps) - mid(pc)) < 2, `the card in the middle of the window, the dots in the middle over it: ${JSON.stringify([pc, ps])}`);
+  assert.deepEqual(await ownScroll(), [], "nothing scrolls on its own");
+  const [bk, bn] = await page.evaluate(id => { const d = window.PLAN.find(x => x.groups && x.groups.some(g => g.items.some(it => it[0] === id))); return [d.groups.findIndex(g => g.items.some(it => it[0] === id)) + 1, d.groups.length]; }, HELP);
+  assert.equal(await page.locator("#fl-strip .fl-g.cur").count(), 1, "the block you are in is underlined in the strip");
+  if (bn > 1) assert.match(await page.textContent("#fl-blk"), new RegExp(`, block ${bk} of ${bn}$`), "and named under it");
+  const navKeys = await page.$$eval("#fl-nav [aria-keyshortcuts]", bs => bs.map(b => b.getAttribute("aria-keyshortcuts")).join(" "));
+  assert.ok(/ArrowLeft/.test(navKeys) && /ArrowRight/.test(navKeys) && /Enter/.test(navKeys), `the bar's buttons name their keys: ${navKeys}`);
   await page.screenshot({ path: path.join(SHOTS, "02b-step-card-wide.png") });
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.waitForTimeout(300);
-  [pl, pc, pr] = await box3();
-  assert.ok(pl.t >= pc.b && pr.t >= pc.b && pl.r <= pr.l, "under the card, side by side");
+  [pl, pc, pr, ps] = await box3();
+  assert.ok(pr.t >= pc.b && pl.t >= pr.b && Math.abs(mid(ps) - mid(pc)) < 2, "under the card: On the exam, then Look it up; the dots over the card's middle");
+  assert.deepEqual(await ownScroll(), [], "nothing scrolls on its own");
   await page.click('#side-l details[data-sec="terms"] > summary');      // fold it
   await page.click("#fl-nav [data-next]");
   if (await page.locator('#side-l details[data-sec="terms"]').count())
