@@ -867,7 +867,7 @@ try {
   await ctx.close();
 
   // ---------- reading: display settings, focus view, the card's own question, search (browser-only, its own context) ----------
-  log("display settings, focus view, the one question on a card, search over everything");
+  log("display settings, focus view, the knowledge check on a card, search over everything");
   ({ ctx, page } = await newPage({ viewport: { width: 1600, height: 1000 } }));
   await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
   await page.goto(BASE);
@@ -879,7 +879,7 @@ try {
   await page.click('#settings button[value="save"]');
   await page.waitForFunction(() => !document.getElementById("settings").open && document.documentElement.dataset.theme, null, { timeout: 3000 }).catch(() => {});   // the dialog's close event comes a moment after the click
   assert.deepEqual(await page.evaluate(() => [document.documentElement.dataset.theme, document.documentElement.dataset.size]), ["dark", "l"], "theme and text size apply");
-  assert.equal(await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--card").trim()), "#10233b", "dark colours although the system is light");
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--card").trim()), "#202531", "dark colours (the palette's black-90 card) although the system is light");
   await page.reload();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark", "and stay after a reload");
   await openCard(page, HELPDAY, HELP);
@@ -889,7 +889,7 @@ try {
   await page.screenshot({ path: path.join(SHOTS, "21-focus-view-dark-large.png") });
   await page.keyboard.press("f");
   assert.ok(await page.locator("#side-r").isVisible(), "F brings them back");
-  // the card's own question took the place of Test me: written for the card, asked only there, counted like a quiz answer
+  // the card's knowledge check (one question of its own) took the place of Test me: written for the card, asked only there, counted like a quiz answer
   assert.equal(await page.locator("#card [data-test]").count(), 0, "no Test me any more");
   const cq = await page.evaluate(() => {
     const id = Object.keys(window.KEYS).find(k => window.KEYS[k].q && window.KEYS[k].q.a.length === 1);
@@ -1307,10 +1307,10 @@ try {
   assert.match(await page.textContent("#ready .rd-all"), /^77%/, "weighted like the exam: (90·30 + 40·26 + 90·24 + 90·20) / 100");
   assert.match(await page.textContent("#ready .rd-next"), /D2 Resilient/, "study next comes from the weakest domain");
   await page.locator("#progress").screenshot({ path: path.join(SHOTS, "31-readiness-trends.png") });
-  const ch = page.locator('#trends .tr[data-chart="acc"]');
+  const ch = page.locator('#trends .tr-fig[data-chart="acc"]');
   assert.equal(await ch.locator("circle.dot").count(), 3, "a point for each day with answers");
-  assert.equal(await page.locator('#trends .tr[data-chart="focus"] path.mk').count(), 3);
-  const hi = await page.evaluate(() => { const r = document.querySelectorAll('#trends .tr[data-chart="acc"] .hit'); return r.length - 2; });
+  assert.equal(await page.locator('#trends .tr-fig[data-chart="focus"] path.mk').count(), 3);
+  const hi = await page.evaluate(() => { const r = document.querySelectorAll('#trends .tr-fig[data-chart="acc"] .hit'); return r.length - 2; });
   await ch.locator(`.hit[data-i="${hi}"]`).hover();
   assert.match(await ch.locator(".tt").textContent(), /^75%15 of 20 right/, "the tooltip adds up both devices of a day");
   await ch.focus();
@@ -1319,7 +1319,7 @@ try {
   await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("ArrowLeft");
   assert.match(await ch.locator(".tt").textContent(), /^95%19 of 20 right/, "the arrow keys read the days");
-  const xpT = page.locator('#trends .tr[data-chart="xp"]');
+  const xpT = page.locator('#trends .tr-fig[data-chart="xp"]');
   await xpT.locator(`.hit[data-i="${hi - 1}"]`).hover();
   assert.match(await xpT.locator(".tt").textContent(), /^120 XP/, "a day's XP is the next day's starting total minus its own");
   await page.click("#trends [data-trend-table]");
@@ -1327,7 +1327,7 @@ try {
   await page.click('#trends [data-trend="30"]');
   assert.equal(await page.locator("#trends .tr-tab tbody tr").count(), 30);
   await page.click("#trends [data-trend-table]");
-  assert.equal(await page.locator('#trends .tr[data-chart="acc"] .hit').count(), 30);
+  assert.equal(await page.locator('#trends .tr-fig[data-chart="acc"] .hit').count(), 30);
   await page.click('#ready .rd-next [data-step-quiz]');
   await page.waitForSelector("#quiz[open] #qz-body .qz-o");
   assert.equal((await state(page)).run.kind, "step", "Try 3 questions starts step practice");

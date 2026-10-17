@@ -52,9 +52,9 @@ How many are needed: a quiz takes 30, and a retake should be able to show differ
 - Use current service names. Where the exam guide still uses an older name, write "new name (formerly old name)" once in the explanation.
 - One question = one decision. Before adding, grep the bank for the concept and run `node tools/similar.mjs` afterwards.
 
-## The card's one question
+## The card's knowledge check
 
-Every card ends with one question of its own (`KEYS[id].q` in `site/keys/*.js`, written next to the card it belongs to). It replaced "Test me" at the owner's request.
+Every card ends with a knowledge check: one question of its own (`KEYS[id].q` in `site/keys/*.js`, written next to the card it belongs to). It replaced "Test me" at the owner's request.
 
 - **Asked only on its card.** It is not in the bank (`window.QUIZ`): no day quiz, mock, warm-up, drill or step practice draws it. An answer counts like a quiz answer (XP, topic accuracy, readiness; a miss goes to the notebook and comes back in review), under the id `card-<step id>`. Never rename a step id that has one.
 - **Unique.** Unlike every bank question and every other card's: `data.test.mjs` rejects a shared stem, and `node tools/similar.mjs 0.30` must list no pair with a `card-` question (rewrite the card's question, never the bank's).

@@ -67,7 +67,7 @@ const CHAL = [
   { id: "warm", i: "☕", k: "w", n: 4, t: n => `Do the morning warm-up on ${n} days`, can: () => Object.keys(S.srs).length >= 5 },
   { id: "drill", i: "⚡", k: "dr", n: 3, t: n => `Run the “Which service?” drill ${n} times` },
   // the id is the one Test me's challenge had, so a week that drew it keeps it; it now counts the cards' own questions
-  { id: "recall", i: "🧠", k: "cq", n: 15, t: n => `Answer ${n} card questions right`, can: () => CARDQS.filter(q => !(S.qs[q.id] || {}).right).length >= 15 }
+  { id: "recall", i: "🧠", k: "cq", n: 15, t: n => `Get ${n} knowledge checks right`, can: () => CARDQS.filter(q => !(S.qs[q.id] || {}).right).length >= 15 }
 ];
 const CHAL_BY = Object.assign(Object.create(null), Object.fromEntries(CHAL.map(c => [c.id, c])));
 const CHAL_KEYS = [...new Set(CHAL.map(c => c.k))];
@@ -874,7 +874,7 @@ function stepCardHTML(id) {
   }
   // billable things: on the steps that create something, and on the block's last step (the cleanup)
   if (g.t === "build" && (BILL.steps[id] || g.items.indexOf(it) === g.items.length - 1)) h += costBoxHTML(d);
-  // after the reading, one question on what this card taught; then your notes close the article, like the comments under a post
+  // after the reading, the knowledge check: one question on what this card taught; then your notes close the article, like the comments under a post
   return h + dgHTML(id) + cardQHTML(id) +
     `<label class="box b-notes c-notes"><span class="box-h"><span class="bi" aria-hidden="true">📝</span>My notes on this step <span class="saved" data-saved="${id}">saved</span></span>` +
     `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
@@ -1347,7 +1347,7 @@ function renderTrends() {
       data.slice().reverse().map(d => `<tr><th scope="row">${esc(fmtD(parseDate(d.k)))}</th><td>${d.a || "–"}</td><td>${d.a ? `${Math.round(d.r / d.a * 100)}%` : "–"}</td><td>${d.f ? fmtH(d.f) : "–"}</td><td>${d.x == null ? "–" : d.x}</td></tr>`).join("") + `</tbody></table></div>`;
     return;
   }
-  el.innerHTML = ctl + `<div class="tr-grid">${TRENDS.map(c => `<figure class="tr" data-chart="${c.id}" tabindex="0" aria-label="${esc(c.t)}. Use the arrow keys to read each day.">` +
+  el.innerHTML = ctl + `<div class="tr-grid">${TRENDS.map(c => `<figure class="tr-fig" data-chart="${c.id}" tabindex="0" aria-label="${esc(c.t)}. Use the arrow keys to read each day.">` +
     `<figcaption>${esc(c.t)}</figcaption>${chartSVG(data, c.val, c.o)}<div class="tt" hidden></div></figure>`).join("")}</div>`;
 }
 // The hover layer: one tooltip per chart, a hairline on the day under the pointer (or chosen with the arrow keys).
@@ -2419,7 +2419,7 @@ document.addEventListener("keydown", e => {
 });
 document.getElementById("b-search").onclick = openSearch;
 
-// ---------- the focus view, and the one question on a card ----------
+// ---------- the focus view, and the knowledge check on a card ----------
 function toggleFocusView() { ui.focusView = !ui.focusView; saveUI(); applyDisplay(); if (view.day) renderFlow(false); }
 // On screen only: the card it belongs to, the options' order (shuffled, as in the quizzes), your picks and, once
 // checked, your answer. The answer itself is recorded by learn(), like a quiz answer.
@@ -2439,7 +2439,7 @@ function cardQHTML(id) {
       `<div class="cq-a"><button type="button" data-cq-check${cardQ.sel.length === q.a.length ? "" : " disabled"}>Check answer</button>` +
       (s && s.seen ? `<span class="muted">Last time: ${s.last ? "right" : "missed"}.</span>` : "") + `</div>`;
   }
-  return box("q", "❓", "One question", b, "c-q");
+  return box("q", "❓", "Knowledge check", b, "c-q");
 }
 function cardQClick(b) {
   const q = CARDQ[cardQ.id], ds = b.dataset;
@@ -2730,12 +2730,12 @@ document.addEventListener("click", e => {
   if (jp) jumpTo(jp.dataset.jump);
 });
 const trEl = document.getElementById("trends");
-trEl.addEventListener("pointermove", e => { const h = e.target.closest(".hit"); if (h) trendShow(h.closest(".tr"), +h.dataset.i); });
-trEl.addEventListener("pointerout", e => { const f = e.target.closest(".tr"); if (f && !f.contains(e.relatedTarget) && document.activeElement !== f) trendHide(f); });
-trEl.addEventListener("focusin", e => { const f = e.target.closest(".tr"); if (f) trendShow(f, f.dataset.i ? +f.dataset.i : trendCache.length - 1); });
-trEl.addEventListener("focusout", e => { const f = e.target.closest(".tr"); if (f) trendHide(f); });
+trEl.addEventListener("pointermove", e => { const h = e.target.closest(".hit"); if (h) trendShow(h.closest(".tr-fig"), +h.dataset.i); });
+trEl.addEventListener("pointerout", e => { const f = e.target.closest(".tr-fig"); if (f && !f.contains(e.relatedTarget) && document.activeElement !== f) trendHide(f); });
+trEl.addEventListener("focusin", e => { const f = e.target.closest(".tr-fig"); if (f) trendShow(f, f.dataset.i ? +f.dataset.i : trendCache.length - 1); });
+trEl.addEventListener("focusout", e => { const f = e.target.closest(".tr-fig"); if (f) trendHide(f); });
 trEl.addEventListener("keydown", e => {
-  const f = e.target.closest(".tr");
+  const f = e.target.closest(".tr-fig");
   if (!f || (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End")) return;
   e.preventDefault();
   const i = +(f.dataset.i ?? trendCache.length - 1), n = trendCache.length - 1;
