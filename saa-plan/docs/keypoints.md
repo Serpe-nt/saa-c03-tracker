@@ -70,7 +70,7 @@ Every card gets `head` and `idea`, and steps you carry out get `do` and `done`, 
 - **Concise:** at most 5 points as a rule (6 when a topic has no other card), no sentence that repeats another part of the card.
 - **Accurate:** restating needs no new source, but `do` and `done` are instructions the owner will follow in the console: each must hold for the step as the plan sets it up (the previous steps, the policies they create). Writing the pilots found two gaps that way: the role in `d4b2` also needs `AmazonSSMManagedInstanceCore` for Session Manager to connect, and the bucket policy from `d4b1` allows `s3:GetObject` only, so the test is `aws s3 cp …/hello.txt -`, not `aws s3 ls`. And the Security pillar has seven design principles; the old point listed six.
 - **Teach it like a teacher** (the owner's words: "Imagine yourself as a teacher that teaches me"). `why` opens the problem as a short scene, one or two sentences in which it bites ("A script on your EC2 instance has to read files from a bucket. The quick fix is to paste an access key …"), then says the need in one plain sentence. A scene is framing: it needs no source, but it must be something that really happens, and it must not slip in a fact the card doesn't back.
-- **One question per card** (`q`), on every card, setup and admin steps included (there the question is about safety, cost or exam technique). See "The card's one question" in `questions.md` for the rules.
+- **A knowledge check on every card** (`q`, one question), setup and admin steps included (there the question is about safety, cost or exam technique). See "The card's knowledge check" in `questions.md` for the rules.
 - Points can be reordered freely: "Test me", whose marks were kept by point position, is gone.
 
 ### The rest
