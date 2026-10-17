@@ -490,16 +490,13 @@ function refresh() {
   document.getElementById("tb-exam").textContent = fmtD(examD);
   document.getElementById("tb-exam-k").textContent = S.settings.exam ? "Exam (booked)" : "Exam";
 
-  // status line
+  // where the plan stands: in the head of the card at the top, next to today's date
   const st = [];
   if (ti < 1) {
     st.push(`<span>Starts <b>${fmtD(dayDate(1))}</b> (in ${plural(1 - ti, "day")})</span>`);
   } else if (ti > LAST) {
     st.push(`<span>Plan period ended ${fmtD(dayDate(LAST))}</span>`);
   } else {
-    const td = DAYS[ti - 1];
-    st.push(`<span><b>Today:</b> ${td.title}</span>`);
-    st.push(dayDone(td) ? `<span class="pill ok">Today done</span>` : `<span>~${fmtH(dayLeft(td))} left today</span>`);
     const overdue = DAYS.filter(d => d.day < ti).reduce((a, d) => a + dayLeft(d), 0);
     if (overdue > 0) st.push(`<span class="pill ${overdue > 180 ? "bad" : "warn"}">Behind: ~${fmtH(overdue)} from earlier days</span>`);
     else if (DAYS.some(d => d.day > ti && dIds(d).some(done))) st.push(`<span class="pill ok">Ahead of plan</span>`);
@@ -508,11 +505,10 @@ function refresh() {
   if (S.settings.exam && dayDate(LAST) > parseDate(S.settings.exam)) st.push(`<span class="pill bad">Plan now ends after your booked exam</span>`);
   const daysToExam = diffDays(examD, new Date());
   if (daysToExam >= 0) st.push(`<span>${daysToExam ? `Exam in <b>${plural(daysToExam, "day")}</b>` : "<b>Exam today</b>"}</span>`);
-  document.getElementById("status").innerHTML = st.join("");
 
   if (stamp()) save();
   renderSlip();
-  renderNext(ti);
+  renderNext(ti, st);
   renderStats(dn, total);
   renderToday();
   renderRunning();
@@ -546,7 +542,7 @@ function applySlip(v) {
   FX.banner("Schedule moved", `Day ${d.day} is today. Day ${LAST} is now ${fmtD(dayDate(LAST))}.`, "info");
 }
 
-// ---------- overview: the day to work on, with one button to start or continue ----------
+// ---------- overview, today first: the day to work on, its next step and one big button to start or continue ----------
 function nextStep() {
   for (const d of DAYS) {
     for (const g of d.groups) for (const it of g.items) if (!done(it[0])) return { d, g, it };
@@ -567,41 +563,53 @@ function warmInfo() {
 function warmHTML() {
   const w = warmInfo();
   if (!w) return "";
+  // the warm-up's Start is not orange: the card's one orange button is the day's
   return w.kind === "warm"
-    ? `<div class="nx-warm"><span>☕ <b>Warm-up:</b> ${plural(w.n, "quick question")} from yesterday before you start. Recalling it now is what makes it stick.</span><span class="nx-wb"><button type="button" class="primary" data-warm="start">Start</button><button type="button" data-warm="skip">Skip today</button></span></div>`
+    ? `<div class="nx-warm"><span>☕ <b>Warm-up:</b> ${plural(w.n, "quick question")} from yesterday before you start. Recalling it now is what makes it stick.</span><span class="nx-wb"><button type="button" class="nx-wgo" data-warm="start">Start the warm-up</button><button type="button" data-warm="skip">Skip today</button></span></div>`
     : `<div class="nx-warm"><span>🔁 <b>${plural(w.n, "missed question")}</b> ${w.n === 1 ? "is" : "are"} due for review.</span><span class="nx-wb"><button type="button" data-review>Review now</button></span></div>`;
 }
 const liveQuiz = d => !!(S.run && S.run.kind === "day" && S.run.day === d.id && !S.run.done);
-function renderNext(ti) {
+// The card at the top of the overview. Its day is the one with the earliest open step (today's, unless you are behind
+// or ahead); left: the day, its goal and its progress; right: the next step in a box of its block's colour, with the
+// one big button under it. The head holds today's date and where the plan stands (st, from refresh).
+function renderNext(ti, st) {
   const el = document.getElementById("next");
-  const pre = warmHTML();
-  const n = nextStep();
+  const pre = warmHTML(), n = nextStep(), td = ti >= 1 && ti <= LAST ? DAYS[ti - 1] : null;
+  const head = (k, date) => `<div class="nx-h"><span class="nx-k">${k}</span>${date ? `<span class="nx-d">${date}</span>` : ""}<span class="nx-st">${st.join("")}</span></div>`;
   if (!n) {
     el.className = "next all-done";
-    el.innerHTML = pre + `<div>Every day is done. 🚀 Go pass SAA-C03.</div>` +
-      `<div class="nx-a center"><button type="button" class="primary" data-mock>${S.run && S.run.kind === "mock" && !S.run.done ? "Resume mock exam" : "Take a mock exam"}</button></div>`;
+    el.innerHTML = pre + head("All done", fmtD(new Date())) + `<p class="nx-fin">Every day is done. 🚀 Go pass SAA-C03.</p>` +
+      `<div class="nx-a center"><button type="button" class="primary big" data-mock>${S.run && S.run.kind === "mock" && !S.run.done ? "Resume mock exam" : "Take a mock exam"}</button></div>`;
     return;
   }
   el.className = "next";
-  const { d } = n, ids = dIds(d), k = ids.filter(done).length;
-  const when = d.day < ti ? `<span class="pill warn">from Day ${d.day}</span>` : d.day > ti && ti >= 1 ? `<span class="pill ok">working ahead</span>` : "";
-  let step, act;
+  const { d } = n, ids = dIds(d), k = ids.filter(done).length, cards = stepIds(d), at = n.quiz ? "quiz" : n.it[0];
+  // the card is on another day than the calendar's: say which day today is on the plan
+  const cal = td && td !== d ? `<p class="nx-cal">Today on the plan: Day ${td.day}, ${td.title}${dayDone(td) ? ` <span class="pill ok">✓ Done</span>` : `, about ${fmtH(dayLeft(td))}`}</p>` : "";
+  // one segment per card, grouped like the day's blocks: the done ones filled, the next one outlined
+  const seg = id => `<i class="${(id === "quiz" ? quizOk(d) : done(id)) ? "on" : id === at ? "nx" : ""}${id === "quiz" ? " q" : ""}"></i>`;
+  const segs = d.groups.map(g => `<span style="flex:${g.items.length}">${gIds(g).map(seg).join("")}</span>`).join("") + (hasQuiz(d) ? `<span style="flex:1">${seg("quiz")}</span>` : "");
+  let edge, kick, body, act;
   if (n.quiz) {
     const r = S.quiz[d.id], tries = r ? r.tries.length : 0, live = liveQuiz(d);
-    step = `<span class="tag t-quiz">Quiz</span><span>${live ? `You are on question ${S.run.i + 1} of ${S.run.ids.length}.` : tries ? `Best so far ${r.best} of ${QZ.DAILY}. A retake draws different questions.` : `Every step is done. ${QZ.DAILY} questions, pass at ${QZ.needed(QZ.DAILY)}.`}</span>`;
+    edge = "quiz"; kick = "Up next";
+    body = `<span class="tag t-quiz">Quiz</span><p class="nx-step">${live ? `You are on question ${S.run.i + 1} of ${S.run.ids.length}.` : tries ? `Best so far ${r.best} of ${QZ.DAILY}. A retake draws different questions.` : `Every step is done. ${QZ.DAILY} questions, pass at ${QZ.needed(QZ.DAILY)}.`}</p>`;
     act = `<button type="button" class="primary big" data-quiz-start="${d.id}">${live ? "Resume quiz" : tries ? `Retake the Day ${d.day} quiz` : `Take the Day ${d.day} quiz`}</button>` +
       `<a class="btn" href="#${d.id}/quiz">Open Day ${d.day}</a>`;
   } else {
-    step = `<span class="tag t-${n.g.t}">${n.g.label || TAGS[n.g.t]}</span><span>${n.it[1]}</span>`;
-    act = `<a class="btn primary big" href="#${d.id}" data-start-day>${k ? "Continue" : "Start"} Day ${d.day}</a>`;
+    edge = TAGS[n.g.t] ? n.g.t : "check"; kick = k ? "Next step" : "First step";
+    body = `<span class="tag t-${edge}">${n.g.label || TAGS[n.g.t]}</span><p class="nx-step">${n.it[1]}</p>` +
+      (n.g.where ? `<p class="nx-where"><span aria-hidden="true">📍</span> ${n.g.where}</p>` : "");
+    act = `<a class="btn primary big" href="#${d.id}" data-start-day>${k ? "Continue" : "Start"} Day ${d.day} <span aria-hidden="true">→</span></a>`;
   }
-  el.innerHTML = pre +
-    `<div class="nx-h"><span class="nx-k">${d.day === ti ? "Today" : "Next up"}</span><span>${fmtD(dayDate(d.day))}</span>${when}</div>` +
+  // before Day 1 the head already says when the plan starts
+  el.innerHTML = pre + head(d.day === ti ? "Today" : "Next up", d.day === ti ? fmtD(dayDate(d.day)) : ti < 1 ? "" : `planned for ${fmtD(dayDate(d.day))}`) + cal +
+    `<div class="nx-body"><div class="nx-day">` +
     `<div class="hero"><span class="hero-n"><small>Day</small>${d.day}</span><div><h2 class="hero-t">${d.title}</h2><p class="goal">${d.goal}</p></div></div>` +
-    `<div class="hero-p"><span class="pbar"><span style="width:${pct(k, stepIds(d).length)}%"></span></span>` +
-    `<span class="muted">${k} of ${ids.length} steps done${hasQuiz(d) ? ", then the quiz" : ""}. About ${fmtH(dayLeft(d))} left.</span></div>` +
-    `<div class="hero-nx"><span class="muted">${n.quiz ? "Up next" : k ? "Next step" : "First step"}</span>${step}</div>` +
-    `<div class="nx-a">${act}</div>`;
+    `<div class="hero-p"><div class="segs" role="img" aria-label="${k} of ${ids.length} steps done">${segs}</div>` +
+    `<span class="muted">${k} of ${ids.length} steps done${hasQuiz(d) ? ", then the quiz" : ""}. About ${fmtH(dayLeft(d))} left.</span></div></div>` +
+    `<div class="box nx-go" style="--edge:var(--${edge})"><div class="nx-gk"><span>${kick}</span><span class="muted">Step ${cards.indexOf(at) + 1} of ${cards.length}</span></div>` +
+    body + `<div class="nx-a">${act}</div></div></div>`;
 }
 
 // ---------- day flow: one card at a time ----------
@@ -612,7 +620,7 @@ function renderFlow(moved) {
   const d = dayOf(view.day), ids = stepIds(d), at = view.at, i = ids.indexOf(at);
   document.getElementById("fl-day").innerHTML = `<span class="fl-dn">Day ${d.day}</span><span class="fl-tt">${d.title}</span>` +
     `<span class="fl-dd">${fmtD(dayDate(d.day))}</span>${d.day === todayIdx() ? `<span class="today-badge">Today</span>` : ""}`;
-  const tools = [`<button type="button" class="ghost" data-focus-view aria-pressed="${!!ui.focusView}" title="Hide the panels beside the card (F)">${ui.focusView ? "⤡ Show panels" : "⤢ Focus view"}</button>`,
+  const tools = [`<button type="button" class="ghost" data-focus-view aria-pressed="${!!ui.focusView}" title="Hide the panels around the card (F)">${ui.focusView ? "⤡ Show panels" : "⤢ Focus view"}</button>`,
     `<button type="button" class="ghost" data-search title="Search (Ctrl+K)">🔍</button>`,
     `<button type="button" class="ghost" data-sheet="daynotes">📝 Day notes</button>`];
   if (d.groups.some(g => g.t === "build")) tools.push(`<button type="button" class="ghost" data-cleanup="${d.id}">🧹 Cleanup check</button>`);
@@ -624,9 +632,13 @@ function renderFlow(moved) {
     const on = id === "quiz" ? quizOk(d) : done(id), t = stepTitle(id);
     return `<button type="button" class="dot${on ? " on" : ""}${id === "quiz" ? " qd" : ""}${id === fxMark.pop ? " pop" : ""}" data-at="${id}"${id === at ? ' aria-current="step"' : ""} title="${esc(t)}" aria-label="${esc(`Step ${ids.indexOf(id) + 1}: ${t}${on ? " (done)" : ""}`)}"></button>`;
   };
-  document.getElementById("fl-strip").innerHTML = d.groups.map(g => `<span class="fl-g${g.key === fxMark.wave ? " wave" : ""}">${g.items.map(it => dot(it[0])).join("")}</span>`).join("") +
-    (hasQuiz(d) ? `<span class="fl-g">${dot("quiz")}</span>` : "");
+  // the block you are in is underlined in the strip and named under it
+  const gi = d.groups.findIndex(g => g.items.some(it => it[0] === at)), cur = gi >= 0 && d.groups[gi];
+  document.getElementById("fl-strip").innerHTML = d.groups.map((g, k) => `<span class="fl-g${g.key === fxMark.wave ? " wave" : ""}${k === gi ? " cur" : ""}">${g.items.map(it => dot(it[0])).join("")}</span>`).join("") +
+    (hasQuiz(d) ? `<span class="fl-g${at === "quiz" ? " cur" : ""}">${dot("quiz")}</span>` : "");
   document.getElementById("fl-count").textContent = at === "done" ? "Day complete" : `Step ${i + 1} of ${ids.length}`;
+  document.getElementById("fl-blk").textContent = at === "quiz" ? "End-of-day quiz" : !cur ? ""
+    : d.groups.length > 1 ? `${cur.label || TAGS[cur.t]}, block ${gi + 1} of ${d.groups.length}` : cur.label || TAGS[cur.t];
 
   // Typing in a field on the card or its panels: leave them alone, only the frame around them changes.
   const typing = !moved && bodyEl.contains(document.activeElement) && document.activeElement.matches("textarea,input");
@@ -647,25 +659,27 @@ function renderFlow(moved) {
   // Back, the card's main action, Next
   const back = at === "done" ? ids[ids.length - 1] : ids[i - 1] || "";
   const next = at === "done" ? "" : ids[i + 1] || (dayDone(d) ? "done" : "");
+  // the keys that press them (the keydown handler below) show as key caps; on touch screens the arrows stay plain arrows
+  const kh = k => `<kbd class="kh${k.length > 1 ? " kh-w" : ""}" aria-hidden="true">${k}</kbd>`, enter = ` aria-keyshortcuts="Enter"`;
   let mid, isDone = false;
   if (at === "done") {
     const nx = DAYS.find(x => x.day > d.day && !dayDone(x));
-    mid = nx ? `<a class="btn primary big" href="#${nx.id}" data-main data-start-day>Start Day ${nx.day}</a>` : `<button type="button" class="primary big" data-home data-main>Back to the overview</button>`;
+    mid = nx ? `<a class="btn primary big" href="#${nx.id}" data-main data-start-day${enter}>Start Day ${nx.day}${kh("Enter")}</a>` : `<button type="button" class="primary big" data-home data-main${enter}>Back to the overview${kh("Enter")}</button>`;
   } else if (at === "quiz") {
     const r = S.quiz[d.id], live = liveQuiz(d);
     isDone = quizOk(d) && !live;
     mid = isDone ? `<span class="fl-ok">✓ Passed</span>`
-      : `<button type="button" class="primary big" data-quiz-start="${d.id}" data-main${itemsDone(d) || live ? "" : " disabled"}>${live ? "Resume quiz" : r && r.tries.length ? "Retake quiz" : "Start quiz"}</button>`;
+      : `<button type="button" class="primary big" data-quiz-start="${d.id}" data-main${enter}${itemsDone(d) || live ? "" : " disabled"}>${live ? "Resume quiz" : r && r.tries.length ? "Retake quiz" : "Start quiz"}${kh("Enter")}</button>`;
   } else {
     isDone = done(at);
     mid = isDone ? `<span class="fl-ok">✓ Completed</span><button type="button" class="link" data-undo="${at}">Undo</button>`
-      : `<button type="button" class="primary big" data-complete="${at}" data-main>✓ Mark complete</button>`;
+      : `<button type="button" class="primary big" data-complete="${at}" data-main${enter}>✓ Mark complete${kh("Enter")}</button>`;
   }
   const nextMain = isDone && next;
   document.getElementById("fl-nav").innerHTML =
-    `<button type="button" class="fl-b ghost" data-back data-at="${back}"${back ? "" : " disabled"}>← Back</button>` +
+    `<button type="button" class="fl-b ghost" data-back data-at="${back}" aria-keyshortcuts="ArrowLeft"${back ? "" : " disabled"}>${kh("←")} Back</button>` +
     `<div class="fl-mid">${mid}</div>` +
-    (at === "done" ? `<span></span>` : `<button type="button" class="fl-n ${nextMain ? "primary" : "ghost"}" data-next data-at="${next}"${nextMain ? " data-main" : ""}${next ? "" : " disabled"}>Next →</button>`);
+    (at === "done" ? `<span></span>` : `<button type="button" class="fl-n ${nextMain ? "primary" : "ghost"}" data-next data-at="${next}" aria-keyshortcuts="ArrowRight${nextMain ? " Enter" : ""}"${nextMain ? " data-main" : ""}${next ? "" : " disabled"}>Next ${kh("→")}</button>`);
 }
 
 // Docs for a step: the pages its key points cite, then the AWS pages its own quiz questions point to most often
@@ -851,8 +865,11 @@ function stepCardHTML(id) {
   if (g.t === "build" && (BILL.steps[id] || g.items.indexOf(it) === g.items.length - 1)) h += costBoxHTML(d);
   return h + dgHTML(id);
 }
-// The two panels beside the card. l = "Look it up": the AWS pages and the terms. r = "On the exam": the exam topics
-// with your accuracy and a practice round, how the exam words these topics, and your own notes.
+// Two lists side by side when there is room (CSS decides); one alone needs no columns.
+const sideCols = (a, b) => (a && b ? `<div class="side-cols"><div class="side-col">${a}</div><div class="side-col">${b}</div></div>` : a + b);
+// The two panels around the card. l = "Look it up", the rail to the card's right: the AWS pages and the terms, for
+// while you read. r = "On the exam", under the card, for after it: the exam topics with your accuracy and a practice
+// round, look-alikes, how the exam words these topics, and your own notes.
 function sideHTML(id) {
   const { it } = itemIndex[id], [, txt, note] = it, kp = KEYS[id], qs = QREF[id] || [];
   const docs = stepDocs(id), tags = stepTags(id);
@@ -860,10 +877,11 @@ function sideHTML(id) {
   const cues = [];
   for (const t of tags) for (const c of CUES) if ((CUE_TAGS[c[0]] || []).includes(t) && !cues.includes(c) && cues.length < 4) cues.push(c);
 
-  let l = "";
-  if (docs.length) l += box("docs", "📄", "AWS docs", `<ul class="c-docs">${docs.map(([t, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a></li>`).join("")}</ul>`);
-  if (terms.length) l += foldBox("terms", "📖", "terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, true);
+  const l = sideCols(
+    docs.length ? box("docs", "📄", "AWS docs", `<ul class="c-docs">${docs.map(([t, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a></li>`).join("")}</ul>`) : "",
+    terms.length ? foldBox("terms", "📖", "terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, true) : "");
 
+  // how you stand and what to tell apart in one column, how the exam words it in the other
   let r = "";
   if (tags.length || qs.length) {
     const acc = tagStats();
@@ -881,10 +899,10 @@ function sideHTML(id) {
     }
     r += box("exam", "📊", "Exam topics", b);
   }
-  if (cues.length) r += foldBox("cues", "🗣", "cues", "Exam wording on these topics", cues.length,
-    `<ul class="cue-l">${cues.map(c => `<li><b>${esc(c[0])}</b><span>→ ${esc(c[1])}</span><span class="muted">${esc(c[2])}</span></li>`).join("")}</ul>`, true);
   const las = LA.filter(e => (e.tags || []).some(t => tags.includes(t))).slice(0, 4);
   if (las.length) r += box("look", "⚖️", "Look-alikes on these topics", `<ul class="c-la">${las.map(e => `<li><button type="button" class="link" data-look="${esc(e.id)}">${esc(e.title)}</button></li>`).join("")}</ul>`);
+  r = sideCols(r, cues.length ? foldBox("cues", "🗣", "cues", "Exam wording on these topics", cues.length,
+    `<ul class="cue-l">${cues.map(c => `<li><b>${esc(c[0])}</b><span>→ ${esc(c[1])}</span><span class="muted">${esc(c[2])}</span></li>`).join("")}</ul>`, true) : "");
   r += `<label class="box b-notes c-notes"><span class="box-h"><span class="bi" aria-hidden="true">📝</span>My notes on this step <span class="saved" data-saved="${id}">saved</span></span>` +
     `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
   return { l: l && `<div class="side-t">Look it up</div>${l}`, r: `<div class="side-t">On the exam</div>${r}` };
@@ -971,15 +989,15 @@ function setTick(id, val, srcEl) {
   if (billed.length) setTimeout(() => FX.toast(`🧾 On your <b>still running</b> list: ${billed.map(esc).join(", ")}`), 900);
   if (val) {
     // effects start from the button that was pressed, so fire them before the card is redrawn
-    const nowDay = dayDone(d);
-    if (!was.a && DAYS.every(dayDone)) celebrate("all", d);
-    else if (!was.w && week.every(dayDone)) celebrate("week", d);
-    else if (!was.d && nowDay) celebrate("day", d);
+    let cel = 0;   // how long a top rung's banner stays up
+    if (!was.a && DAYS.every(dayDone)) cel = celebrate("all", d);
+    else if (!was.w && week.every(dayDone)) cel = celebrate("week", d);
+    else if (!was.d && dayDone(d)) cel = celebrate("day", d);
     else if (!was.g && groupDone(g)) blockDone(d, g, srcEl);
     else stepDone(d, g, srcEl);
     markStrip(id, !was.g && groupDone(g) ? g.key : "");
     const builds = d.groups.filter(x => x.t === "build");
-    if (g.t === "build" && !was.g && builds.every(groupDone)) setTimeout(() => whenFree(() => openCleanup(d.id)), nowDay ? 3400 : 1100);
+    if (g.t === "build" && !was.g && builds.every(groupDone)) setTimeout(() => whenFree(() => openCleanup(d.id)), cel ? cel + 200 : 1100);
   }
   showGains(val ? award() : [], 1200);
   refresh();
@@ -994,16 +1012,19 @@ function complete(id, srcEl) {
   const ids = dIds(d), i = ids.indexOf(id);
   move(ids.slice(i + 1).concat(ids.slice(0, i)).find(x => !done(x)) || (dayDone(d) ? "done" : hasQuiz(d) ? "quiz" : id));
 }
+// The top rungs. Returns how long the banner stays up, so what follows (the cleanup check, the mock's prompt) waits for it.
 function celebrate(kind, d) {
   const sk = streak();
   const skTxt = sk > 1 ? ` · 🔥 ${sk}-day streak` : "";
-  if (kind === "all") { FX.all(); FX.banner(`All ${DAYS.length} days done 🚀`, "Go pass SAA-C03.", "all"); }
+  let ms;
+  if (kind === "all") { FX.all(); ms = FX.banner(`All ${DAYS.length} days done`, "Go pass SAA-C03.", "all", "🚀"); }
   else if (kind === "week") {
     const w = WEEK[d.id], next = WEEKS[w + 1];
-    FX.week(); FX.banner(`Week ${w + 1} complete 🏆`, (next ? `Next: ${strip(next)}.` : "Only the exam left.") + skTxt, "week");
+    FX.week(); ms = FX.banner(`Week ${w + 1} complete`, (next ? `Next: ${strip(next)}.` : "Only the exam left.") + skTxt, "week", "🏆");
   }
-  else { FX.day(); FX.banner(`Day ${d.day} complete 🎉`, `${DAYS.filter(dayDone).length}/${DAYS.length} days done${skTxt}`, "day"); }
+  else { FX.day(); ms = FX.banner(`Day ${d.day} complete`, `${DAYS.filter(dayDone).length}/${DAYS.length} days done${skTxt}`, "day", "🎉"); }
   if ([3, 5, 7, 10, 14, 21].includes(sk)) setTimeout(() => FX.badge("🔥", `${sk} days in a row`, "A study streak", sk >= 10 ? "epic" : "gold"), 3400);
+  return ms;
 }
 
 // ---------- XP, levels and badges ----------
@@ -1382,7 +1403,7 @@ function renderScores() {
   if (q7 != null) sum.push(`QS ${Math.round(q7 / 20 * 100)}%`);
   if (q13 != null) sum.push(`retake ${Math.round(q13 / 20 * 100)}%`);
   if (pe != null) sum.push(`practice exam ${pe}`);
-  document.getElementById("score-sum").textContent = sum.length ? "· " + sum.join(" · ") : "";
+  document.getElementById("score-sum").textContent = sum.join(", ");
 }
 // A score can be typed in the 📊 Scores panel or on the card of the step that asks for it: keep both in step.
 document.addEventListener("input", e => {
@@ -1438,10 +1459,12 @@ const qzDlg = document.getElementById("quiz"), qzBody = document.getElementById(
 new ResizeObserver(() => qzDlg.style.setProperty("--qzdh", qzDlg.offsetHeight + "px")).observe(qzDlg);
 let picks = {};      // question id → options picked, not yet checked (memory only; kept while you move between questions)
 let fresh = false;   // the answer on screen was checked just now: animate it (going back to it later does not); "xp" when it earned XP
-let comboFx = "";    // "up" when the run of right answers just grew, "broke" when a miss ended one
+let comboFx = "";    // the answer just checked, for the combo meter: "up" (right), "broke" (a miss ended a run of 2 or more), "miss"
+let comboWas = 0;    // the run a miss just ended
 // Right answers in a row (run.row) get a badge at these marks; the tier sets its look.
 const ROW_TIERS = [[30, "👑", "Flawless", "epic"], [25, "💎", "Untouchable", "epic"], [20, "🌟", "Legendary", "epic"], [15, "⚡", "Unstoppable", "gold"], [10, "🔥", "On fire", "gold"], [5, "🔥", "On a roll", "silver"], [3, "🔥", "Warming up", "bronze"]];
 const ROW_MARKS = ROW_TIERS.map(x => x[0]);
+const ROW_UP = ROW_MARKS.slice().reverse();   // 3, 5, 10 … 30
 let intro = null;    // { title, html, go, goLabel } shown before a quiz or mock starts
 let drill = null;    // "Which service?" round, kept in memory only
 
@@ -1586,18 +1609,32 @@ function learn(q, ok) {
 }
 
 // ---------- quizzes: day, review, warm-up (feedback after every answer) ----------
-// The run of right answers in the quiz's header: it heats up as it grows and breaks on a miss.
-function comboHTML(r) {
-  if (comboFx === "broke") return `<span class="qz-combo broke">💔 Streak lost</span>`;
-  if (r.row < 2) return "";
-  return `<span class="qz-combo h${r.row >= 10 ? 3 : r.row >= 5 ? 2 : 1}${comboFx === "up" ? " up" : ""}" title="Right answers in a row">🔥 ${r.row} in a row</span>`;
+// Where a run of n right answers stands on the way to the next streak badge: to = that mark (the mark itself when
+// n has just reached it), pct = how full the bar between the mark before it and that one is.
+function comboStep(n) {
+  const to = ROW_UP.find(m => m >= n) || ROW_UP[ROW_UP.length - 1], from = [0, ...ROW_UP].filter(m => m < to).pop();
+  return { to, pct: Math.max(0, Math.min(100, (n - from) / (to - from) * 100)) };
 }
-// One square per question: right, wrong, not answered yet. Click one to go there.
+// The combo meter in the quiz's header (not in the mock exam): the run of right answers and a bar that fills towards
+// the next streak badge. It heats up as the run grows (h0–h4), bursts at each mark and drains with a crack on a miss.
+function comboHTML(r) {
+  if (r.ids.length < 3) return "";
+  const n = r.row, { to, pct } = comboStep(n), meter = (w, from) => `<span class="cb-m" aria-hidden="true"><i style="width:${w}%;--from:${from}%"></i></span>`;
+  if (comboFx === "broke") return `<span class="qz-cb broke" title="Right answers in a row">` +
+    `<span class="cb-f" aria-hidden="true">💔</span><span class="cb-n">Streak lost <small>at ${comboWas}</small></span>${meter(0, comboStep(comboWas).pct)}<span class="cb-to">${to}</span></span>`;
+  const h = n >= 20 ? 4 : n >= 10 ? 3 : n >= 5 ? 2 : n >= 3 ? 1 : 0, prev = comboStep(Math.max(0, n - 1));
+  const fx = comboFx === "up" ? (ROW_MARKS.includes(n) ? " boom" : " up") : comboFx === "miss" ? " miss" : "";
+  const from = comboFx === "miss" ? comboStep(comboWas).pct : comboFx === "up" && prev.to === to ? prev.pct : comboFx === "up" ? 0 : pct;
+  return `<span class="qz-cb h${h}${fx}" title="Right answers in a row; the next streak badge at ${to}">` +
+    `<span class="cb-f" aria-hidden="true">🔥</span><span class="cb-n"><b>${n}</b> in a row</span>` +
+    `${meter(pct, from)}<span class="cb-to">${n >= to ? "★" : to}</span></span>`;
+}
+// One square per question: right, wrong, not answered yet. Click one to go there. The one just answered pops.
 function mapHTML(r) {
   if (r.ids.length < 2) return "";
   return `<div class="qz-map">${r.ids.map((k, i) => {
     const a = r.ans[k], st = !a ? "" : QZ.isRight(QBY[k], a) ? "ok" : "bad";
-    return `<button type="button" tabindex="-1" data-go="${i}" class="${st}${i === r.i ? " cur" : ""}" aria-label="Question ${i + 1}${st === "ok" ? ", right" : st ? ", wrong" : ""}"></button>`;
+    return `<button type="button" tabindex="-1" data-go="${i}" class="${st}${i === r.i ? " cur" : ""}${i === r.i && fresh && st ? " just" : ""}" aria-label="Question ${i + 1}${st === "ok" ? ", right" : st ? ", wrong" : ""}"></button>`;
   }).join("")}</div>`;
 }
 // The next question not answered yet after the one on screen, wrapping round; -1 when every one is answered.
@@ -1609,8 +1646,8 @@ function renderQ() {
   const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), ans = r.ans[id], n = r.ids.length, sel = picks[id] || [];
   r.ord[id] = ord;
   const answered = Object.keys(r.ans).filter(k => QBY[k]);
-  const right = answered.filter(k => QZ.isRight(QBY[k], r.ans[k])).length;
-  head(runTitle(r), [`Question ${r.i + 1} of ${n}`, `<span class="ok">✓ ${right}</span>`, `<span class="bad">✗ ${answered.length - right}</span>`, comboHTML(r)], answered.length / n * 100);
+  const right = answered.filter(k => QZ.isRight(QBY[k], r.ans[k])).length, bump = c => fresh && (comboFx === "up") === (c === "ok") ? " bump" : "";
+  head(runTitle(r), [`Question ${r.i + 1} of ${n}`, `<span class="ok${bump("ok")}">✓ ${right}</span>`, `<span class="bad${bump("bad")}">✗ ${answered.length - right}</span>`, comboHTML(r)], answered.length / n * 100);
   // Previous and Next move one question either way and never answer; the main button checks, then goes on to the next open question.
   const prev = n > 1 ? `<button type="button" data-qz="prev"${r.i ? "" : " disabled"}>← Previous</button>` : "";
   const skip = r.i + 1 < n ? `<button type="button" data-qz="skip">Next →</button>` : "";
@@ -1685,21 +1722,22 @@ function check() {
   const record = ok && r.row > best && best >= 3 && !r.rec;   // past your longest run from before this quiz, said once a quiz
   const got = award(r.row);
   fresh = earned ? "xp" : true;
-  comboFx = ok ? (r.row >= 2 ? "up" : "") : was >= 2 ? "broke" : "";
+  comboFx = ok ? "up" : was >= 2 ? "broke" : "miss"; comboWas = was;
   save(); renderQ();
   refocus('[data-qz="next"]');
-  const verdict = qzBody.querySelector(".qz-verdict");
+  const verdict = qzBody.querySelector(".qz-verdict"), meter = document.querySelector("#qz-meta .qz-cb");
   verdict.scrollIntoView({ block: "nearest" });
+  // every answer has a sound (right ones climb with the run) and something to see; the mock exam has none of this
   let rest = got;
-  if (!ok) FX.sound("miss");
+  if (!ok) FX.wrong(was, meter);
   else if (ROW_MARKS.includes(r.row)) {
     // the streak's badge drops in at the top; when it also earns a badge, it says so instead of a second one
     const [, icon, name, tier] = ROW_TIERS.find(x => x[0] === r.row), a = got.find(x => x.row === r.row);
     rest = got.filter(x => x !== a);
-    FX.combo(r.row, verdict);
+    FX.combo(r.row, verdict, meter);
     FX.badge(icon, `${r.row} in a row`, a ? `New badge: ${a.t}, +${a.xp} XP` : name, tier);
   }
-  else { FX.sound("pop"); FX.sparkle(verdict); }
+  else FX.right(r.row, verdict, meter);
   if (record) { r.rec = true; save(); const n = r.row; setTimeout(() => FX.badge("🏅", "New record", `${n} in a row beats your best of ${best}`, "gold"), 450); }
   showGains(rest, 700);
 }
@@ -1834,9 +1872,9 @@ function finishResults() {
   refresh();
   if (r.kind === "day") {
     const d = dayOf(r.day);
-    if (r.cel) celebrate(r.cel, d);
+    const cel = r.cel ? celebrate(r.cel, d) : 0;
     if (r.cel && view.day === d.id) move("done");   // the day's summary, with the button for the next day
-    if (r.mockNew) setTimeout(() => whenFree(promptMock), 3800);
+    if (r.mockNew) setTimeout(() => whenFree(promptMock), (cel || 3200) + 600);   // after the celebration
   }
 }
 
@@ -3119,7 +3157,6 @@ setInterval(() => { if (todayIdx() !== lastIdx || today() !== lastDate) { lastId
 // Days ticked off before quizzes existed count as done once their quiz is passed.
 DAYS.forEach(markDayDone);
 award(0, false);   // saved with the next change, or after the first sync (applyState)
-document.getElementById("places").open = Object.keys(S.ticks).length === 0;
 document.getElementById("tb-sub").textContent = `SAA-C03 in ${DAYS.length} days`;
 restoreScores();
 rebuild();

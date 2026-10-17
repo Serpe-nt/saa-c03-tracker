@@ -100,24 +100,27 @@
   </div>
 </header>
 
-<!-- Overview: where you stand, one button to start or continue, the days as tiles -->
+<!-- Overview, today first: the day to work on with its next step and one big button, then what needs you today
+     (still running, today's goal), practice, where you stand (numbers, readiness, trends, scores), the days as tiles -->
 <div id="home">
-<div id="status" class="status"></div>
 <div id="slip" class="slip" role="status" hidden></div>
 
 <section id="next" class="next" aria-live="polite"></section>
 
-<section class="stats" aria-label="Progress">
+<section id="running" class="running" aria-live="polite" hidden></section>
+<section id="today" class="today" aria-label="Today's goal and this week's challenges" hidden></section>
+
+<details class="panel" id="practice" open>
+  <summary>🎯 Practice <span id="pr-sum" class="muted"></span></summary>
+  <p class="p-intro">A day of new material ends with a 30-question quiz you pass at 90%. Around it: reviews of what you missed, a quick service drill, your wrong-answer notebook, a weak-spot map, and a full mock exam once the lectures and labs are done.</p>
+  <div class="grid" id="pr-grid"></div>
+</details>
+
+<h2 class="ov-h" id="stand-h">Where you stand</h2>
+<section class="stats" aria-labelledby="stand-h">
   <div class="st-grid" id="stats"></div>
   <div class="bar"><div id="bar"></div></div>
 </section>
-
-<section id="today" class="today" aria-label="Today's goal and this week's challenges" hidden></section>
-<section id="running" class="running" aria-live="polite" hidden></section>
-
-<nav id="links" class="links" aria-label="Quick links"></nav>
-
-<div id="map" class="map"></div>
 
 <details class="panel" id="progress" open>
   <summary>📈 Readiness and trends</summary>
@@ -127,7 +130,27 @@
   </div>
 </details>
 
-<details class="panel" id="places">
+<details class="panel" id="scores" open>
+  <summary>📊 Scores <span id="score-sum" class="muted"></span></summary>
+  <div class="scores-grid">
+    <label><span>Official Practice Question Set, first try</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs7"> / 20</span></label>
+    <label><span>Domain 1 Practice questions — Secure</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b1"> %</span></label>
+    <label><span>Domain 2 Practice questions — Resilient</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b2"> %</span></label>
+    <label><span>Domain 3 Practice questions — High-performing</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b3"> %</span></label>
+    <label><span>Domain 4 Practice questions — Cost</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b4"> %</span></label>
+    <label><span>Official Practice Exam</span><span class="in"><input type="number" min="100" max="1000" inputmode="numeric" data-score="pe"> / 1000</span></label>
+    <label><span>Official Practice Question Set, retake</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs13"> / 20</span></label>
+  </div>
+  <div id="dom-bars" class="dom-bars"></div>
+  <div class="verdict" data-verdict></div>
+  <div id="time-log" class="time-log"></div>
+</details>
+
+<div id="map" class="map"></div>
+
+<nav id="links" class="links" aria-label="Quick links"></nav>
+
+<details class="panel" id="places" open>
   <summary>🗺 Where things happen: 4 separate places</summary>
   <p class="p-intro">AWS splits learning, the actual cloud, and exam booking into different sites with different logins. Every step says which one it uses.</p>
   <div class="grid">
@@ -172,28 +195,6 @@
   <p class="rules"><b>Rules:</b> lectures first, then their labs, in the order of the plan. Watch lectures at 1.25–1.5×. Labs beat videos — if short on time, cut video, never labs. In ③ your own account, delete what you built every day. For every wrong practice answer, write why each wrong option is wrong. Dotted-underlined terms on a step show a definition on hover.</p>
 </details>
 
-<details class="panel" id="scores">
-  <summary>📊 Scores <span id="score-sum" class="muted"></span></summary>
-  <div class="scores-grid">
-    <label><span>Official Practice Question Set, first try</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs7"> / 20</span></label>
-    <label><span>Domain 1 Practice questions — Secure</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b1"> %</span></label>
-    <label><span>Domain 2 Practice questions — Resilient</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b2"> %</span></label>
-    <label><span>Domain 3 Practice questions — High-performing</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b3"> %</span></label>
-    <label><span>Domain 4 Practice questions — Cost</span><span class="in"><input type="number" min="0" max="100" inputmode="numeric" data-score="b4"> %</span></label>
-    <label><span>Official Practice Exam</span><span class="in"><input type="number" min="100" max="1000" inputmode="numeric" data-score="pe"> / 1000</span></label>
-    <label><span>Official Practice Question Set, retake</span><span class="in"><input type="number" min="0" max="20" inputmode="numeric" data-score="qs13"> / 20</span></label>
-  </div>
-  <div id="dom-bars" class="dom-bars"></div>
-  <div class="verdict" data-verdict></div>
-  <div id="time-log" class="time-log"></div>
-</details>
-
-<details class="panel" id="practice">
-  <summary>🎯 Practice <span id="pr-sum" class="muted"></span></summary>
-  <p class="p-intro">A day of new material ends with a 30-question quiz you pass at 90%. Around it: reviews of what you missed, a quick service drill, your wrong-answer notebook, a weak-spot map, and a full mock exam once the lectures and labs are done.</p>
-  <div class="grid" id="pr-grid"></div>
-</details>
-
 <p class="foot">Course, module, lesson and lab names follow the outlines of the AWS Solutions Architect Learning Plan (Includes Labs) and the Exam Prep Plan (SAA-C03) as Skill Builder listed them on 12 October 2026. If a name is worded differently in your view, go by the order: lectures first, then their labs. Quiz and mock questions are original practice questions written in the exam's style, not official AWS questions. Progress is saved on the server when it runs from Docker, and in this browser either way; export a backup in ⚙ Settings now and then.</p>
 </div>
 
@@ -207,6 +208,7 @@
   <div class="fl-prog">
     <div class="fl-strip" id="fl-strip"></div>
     <span class="fl-count" id="fl-count"></span>
+    <span class="fl-blk" id="fl-blk"></span>
   </div>
   <!-- the step in the middle; on wide screens "Look it up" on its left and "On the exam" on its right, below it on narrower ones -->
   <div class="fl-body" id="fl-body">

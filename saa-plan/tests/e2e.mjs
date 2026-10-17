@@ -117,6 +117,23 @@ try {
   assert.match(await page.textContent("#next"), /Start Day 1/);
   await page.screenshot({ path: path.join(SHOTS, "01-overview.png"), fullPage: false });
 
+  log("today first: the day and its next step at the top, with one big button; the numbers and the tiles further down");
+  const topBox = () => page.evaluate(() => {
+    const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width }; };
+    return { next: r("#next"), day: r("#next .nx-day"), go: r("#next .nx-go"), big: r("#next .nx-go .big"), stats: r("#stats"), map: r("#map"), h: innerHeight };
+  });
+  let tb = await topBox();
+  assert.ok(tb.next.b <= tb.stats.t && tb.stats.t <= tb.map.t, "the card for today comes first, then the numbers, then the day tiles");
+  assert.ok(tb.go.l >= tb.day.r && Math.abs(tb.go.t - tb.day.t) < 2, `the next step beside the day: ${JSON.stringify([tb.day, tb.go])}`);
+  assert.ok(tb.big.b <= tb.h, "the big button is on the first screen");
+  assert.equal(await page.locator("#next .primary").count(), 1, "one orange button on the card");
+  assert.equal(await page.locator("#next .segs i").count(), D1.ids.length + (D1.quiz ? 1 : 0), "one segment per card of the day");
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  tb = await topBox();
+  assert.ok(tb.next.w > 1100 && tb.go.l >= tb.day.r && tb.big.b <= tb.h, `a full-screen window: the overview takes more of it, still side by side: ${JSON.stringify(tb.next)}`);
+  await page.screenshot({ path: path.join(SHOTS, "01b-overview-wide.png") });
+  await page.setViewportSize({ width: 1200, height: 900 });
+
   // ---------- one step per card ----------
   log("Start Day 1 opens the first step alone on a card");
   await page.click('#next a[href="#d1"]');
@@ -196,18 +213,30 @@ try {
   assert.ok(await page.evaluate(() => document.querySelector('#side-l details[data-sec="terms"]').open), "terms start open in their panel");
   await page.screenshot({ path: path.join(SHOTS, "02-step-card.png"), fullPage: true });
 
-  log("wide screens: Look it up left of the card, On the exam right of it; narrower screens: under it");
+  log("wide screens: the card in the middle, On the exam under it, Look it up to its right; narrower screens: both under it; only the page scrolls");
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.evaluate(() => scrollTo(0, 0));
   await page.waitForTimeout(300);
-  const box3 = () => Promise.all(["#side-l", "#card", "#side-r"].map(sel => page.$eval(sel, el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; })));
-  let [pl, pc, pr] = await box3();
-  assert.ok(pl.r <= pc.l && pc.r <= pr.l && Math.abs(pl.t - pc.t) < 2 && Math.abs(pr.t - pc.t) < 2, `beside the card, level with its top: ${JSON.stringify([pl, pc, pr])}`);
+  const box3 = () => Promise.all(["#side-l", "#card", "#side-r", "#fl-strip"].map(sel => page.$eval(sel, el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; })));
+  // no part of the day view keeps its own scroll bar: what doesn't fit lengthens the page
+  const ownScroll = () => page.evaluate(() => [...document.querySelectorAll("#flow *")].filter(e => /auto|scroll/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1).map(e => e.id || e.className));
+  let [pl, pc, pr, ps] = await box3();
+  const mid = b => (b.l + b.r) / 2;
+  assert.ok(pc.r <= pl.l && Math.abs(pl.t - pc.t) < 2, `Look it up right of the card, level with its top: ${JSON.stringify([pl, pc])}`);
+  assert.ok(pr.t >= pc.b && Math.abs(pr.l - pc.l) < 2 && Math.abs(pr.r - pc.r) < 2, "On the exam under the card, as wide as it");
+  assert.ok(Math.abs(mid(pc) - 1600 / 2) < 12 && Math.abs(mid(ps) - mid(pc)) < 2, `the card in the middle of the window, the dots in the middle over it: ${JSON.stringify([pc, ps])}`);
+  assert.deepEqual(await ownScroll(), [], "nothing scrolls on its own");
+  const [bk, bn] = await page.evaluate(id => { const d = window.PLAN.find(x => x.groups && x.groups.some(g => g.items.some(it => it[0] === id))); return [d.groups.findIndex(g => g.items.some(it => it[0] === id)) + 1, d.groups.length]; }, HELP);
+  assert.equal(await page.locator("#fl-strip .fl-g.cur").count(), 1, "the block you are in is underlined in the strip");
+  if (bn > 1) assert.match(await page.textContent("#fl-blk"), new RegExp(`, block ${bk} of ${bn}$`), "and named under it");
+  const navKeys = await page.$$eval("#fl-nav [aria-keyshortcuts]", bs => bs.map(b => b.getAttribute("aria-keyshortcuts")).join(" "));
+  assert.ok(/ArrowLeft/.test(navKeys) && /ArrowRight/.test(navKeys) && /Enter/.test(navKeys), `the bar's buttons name their keys: ${navKeys}`);
   await page.screenshot({ path: path.join(SHOTS, "02b-step-card-wide.png") });
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.waitForTimeout(300);
-  [pl, pc, pr] = await box3();
-  assert.ok(pl.t >= pc.b && pr.t >= pc.b && pl.r <= pr.l, "under the card, side by side");
+  [pl, pc, pr, ps] = await box3();
+  assert.ok(pr.t >= pc.b && pl.t >= pr.b && Math.abs(mid(ps) - mid(pc)) < 2, "under the card: On the exam, then Look it up; the dots over the card's middle");
+  assert.deepEqual(await ownScroll(), [], "nothing scrolls on its own");
   await page.click('#side-l details[data-sec="terms"] > summary');      // fold it
   await page.click("#fl-nav [data-next]");
   if (await page.locator('#side-l details[data-sec="terms"]').count())
@@ -303,6 +332,10 @@ try {
   assert.equal(asked.length, 30);
   assert.ok(await page.evaluate(([ids, id]) => { const tp = window.QZ.topics(window.PLAN, window.STEP_TAGS)[id]; return ids.every(q => { const t = window.QUIZ.find(x => x.id === q).tags; return t.some(x => tp.own.has(x)) && t.every(x => tp.sofar.has(x)); }); }, [asked, QA.id]),
     "every question is on one of the day's topics, and none touches a topic taught later");
+  // the combo meter: right answers in a row and a bar towards the next streak badge
+  const meter = () => page.$eval("#qz-meta .qz-cb", el => ({ cls: el.className, txt: el.textContent, w: el.querySelector(".cb-m i").style.width }));
+  let m = await meter();
+  assert.ok(/0 in a row/.test(m.txt) && /3$/.test(m.txt) && m.w === "0%", "the combo meter is in the quiz header from the start, empty, aiming at 3: " + JSON.stringify(m));
   for (let i = 0; i < 30; i++) {
     await answer(page, true);
     if (i === 0) {
@@ -316,7 +349,12 @@ try {
       const top = await page.$eval("#quiz .fx-badges", el => el.getBoundingClientRect().top);
       assert.ok(top < 40, `the streak badge sits at the top of the screen (top ${top})`);
       assert.match(await page.textContent("#qz-meta"), /3 in a row/, "the run of right answers shows in the quiz header");
+      m = await meter();
+      assert.ok(/\bboom\b/.test(m.cls) && /\bh1\b/.test(m.cls) && m.w === "100%", "the meter fills and bursts at a streak mark: " + JSON.stringify(m));
     }
+    if (i === 3) { m = await meter(); assert.ok(m.w === "50%" && /5$/.test(m.txt) && /\bup\b/.test(m.cls), "after a mark the bar starts again towards the next one: " + JSON.stringify(m)); }
+    if (i === 9) assert.match((await meter()).cls, /\bh3\b/, "the meter heats up as the run grows");
+    if (i === 0) assert.ok(await page.locator("#qz-body .qz-map button.ok.just").count() === 1, "the square just answered pops");
     if (i === 9) { await page.waitForTimeout(100); await page.screenshot({ path: path.join(SHOTS, "04c-streak-badge.png") }); }
     if (i === 0) {
       assert.ok(await page.locator("#qz-body .qz-study .qz-refs li").count() >= 1, "feedback shows where to study");
@@ -352,6 +390,10 @@ try {
   assert.equal((await state(page)).rowBest, 30, "the longest run of right answers is kept");
   await page.click('#qz-body [data-qz="finish"]');
   await page.waitForFunction(h => location.hash === h, `#${QA.id}/done`, { timeout: 3000 });
+  // the top rung of the ladder: a big banner with an icon; the dimmed page round it is an effect, so not with effects off
+  await page.waitForSelector(".fx-banner.show.k-day .b-i");
+  assert.match(await page.textContent(".fx-banner"), new RegExp(`Day ${QA.day} complete`), "finishing a day gets the day's banner");
+  assert.equal(await page.locator(".fx-veil.show").count(), 0, "no veil with effects off");
   assert.match(await page.textContent("#card .c-t"), new RegExp(`Day ${QA.day} is done`));
   assert.match(await page.textContent("#fl-nav"), new RegExp(`Start Day ${QB.day}`));
   await page.waitForTimeout(300);
@@ -366,27 +408,40 @@ try {
   assert.match(await page.textContent("#next"), new RegExp(`Start Day ${QB.day}`));
 
   // ---------- the next day: fail, then retake shows new questions ----------
-  log(`Day ${QB.day}: miss 4 → fail at 26/30, notebook + review queue filled`);
+  log(`Day ${QB.day}: miss 4 → fail at 26/30, notebook + review queue filled; every answer has its effect, a miss breaks the run`);
   await tickDays(page, [QB.day]);
   await page.reload();
   assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-quiz"), "1", "day shows quiz pending");
   assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-done"), "0");
   assert.match(await page.textContent("#next"), new RegExp(`Take the Day ${QB.day} quiz`));
+  // every answer calls its effect (sound and stars inside; the switches decide what plays)
+  await page.evaluate(() => { window.__ans = []; for (const k of ["right", "wrong", "combo"]) { const f = window.FX[k]; window.FX[k] = (...a) => { window.__ans.push([k, a[0]]); return f(...a); }; } });
   await page.click(`#next [data-quiz-start="${QB.id}"]`);
   const first = (await state(page)).run.ids.slice();
   assert.equal(first.length, 30);
   assert.equal(new Set(first).size, 30);
+  const MISS = [0, 1, 2, 6];                               // the last one ends a run of three
   for (let i = 0; i < 30; i++) {
-    const { q } = await answer(page, i >= 4);
+    const ok = !MISS.includes(i);
+    const { q } = await answer(page, ok);
     await page.click('#qz-body [data-qz="check"]');
-    await page.waitForSelector(`#qz-body .qz-verdict.${i >= 4 ? "ok" : "bad"}`);
+    await page.waitForSelector(`#qz-body .qz-verdict.${ok ? "ok" : "bad"}`);
     if (i === 0) {
       assert.ok(await page.locator("#qz-body .qz-fb li.wrong").count() >= 1, "wrong pick is marked");
       assert.ok(await page.locator("#qz-body .qz-fb li.right").count() === q.a.length, "right answer is marked");
+      assert.match(await page.textContent("#qz-meta .qz-cb"), /0 in a row/, "a miss with no run leaves the meter at 0");
       await page.fill("#qz-body [data-note]", "mixed up stateful and stateless");
       await page.screenshot({ path: path.join(SHOTS, "07-feedback-wrong.png") });
     }
+    if (i === 6) assert.match(await page.textContent("#qz-meta .qz-cb.broke"), /Streak lost at 3/, "a miss after a run says the streak is lost");
     await page.click('#qz-body [data-qz="next"]');
+  }
+  {
+    const calls = await page.evaluate(() => window.__ans);
+    assert.equal(calls.filter(c => c[0] === "wrong").length, 4, "a wrong answer's effect on every miss");
+    assert.equal(calls.length, 30, "one effect per answer");
+    assert.deepEqual(calls.filter(c => c[0] === "combo").map(c => c[1]), [3, 3, 5, 10, 15, 20], "the streak marks burst");
+    assert.deepEqual(calls.filter(c => c[0] === "wrong").map(c => c[1]), [0, 0, 0, 3], "the wrong effect knows the run it ended");
   }
   await page.waitForSelector("#qz-body .qz-res.bad");
   assert.match(await page.textContent("#qz-body .qz-score"), /26/);
@@ -532,7 +587,10 @@ try {
   console.log(`  mock domains: ${doms.join("/")}`);
   assert.deepEqual(doms, [20, 17, 15, 13]);
   assert.ok(await page.locator("#qz-body .qz-verdict").count() === 0, "no feedback during the mock");
+  assert.equal(await page.locator("#quiz .qz-cb").count(), 0, "no combo meter in the mock: it stays exam-like");
+  await page.evaluate(() => { window.__ans = []; for (const k of ["right", "wrong", "combo"]) { const f = window.FX[k]; window.FX[k] = (...a) => { window.__ans.push(k); return f(...a); }; } });
   for (let i = 0; i < 10; i++) { await answer(page, i % 2 === 0); await page.click('#qz-body [data-qz="mnext"]'); }
+  assert.deepEqual(await page.evaluate(() => window.__ans), [], "no answer effects in the mock");
   await page.click('#qz-body [data-qz="flag"]');
   await page.click('#qz-body [data-qz="grid"]');
   assert.equal(await page.locator("#qz-body .mk-grid button.ans").count(), 10);
@@ -592,6 +650,8 @@ try {
   else { await tickDays(page, [D1.day, QA.day]); await page.reload(); }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   assert.ok(overflow <= 1, `no horizontal scroll on mobile (overflow ${overflow}px)`);
+  const [mDay, mGo] = await page.$$eval("#next .nx-day, #next .nx-go", els => els.map(e => { const b = e.getBoundingClientRect(); return { t: b.top, b: b.bottom }; }));
+  assert.ok(mGo.t >= mDay.b, "on a phone the next step comes under the day");
   await page.screenshot({ path: path.join(SHOTS, "15-mobile-dark.png") });
   await setState(page, s => { s.run = null; });
   await page.reload();
