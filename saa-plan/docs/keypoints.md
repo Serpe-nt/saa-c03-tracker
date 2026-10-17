@@ -20,7 +20,11 @@ Each plan step is shown alone on a card. Under the step text the card shows "Key
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
   c1d: {
-    why: "Some of your servers must be reachable from the internet and others must never be. Amazon VPC gives you …",   // 80–420 characters
+    head: "Public and private subnets in your own network",                  // the article's headline: 8–80 characters, plain text
+    why: "Some of your servers must be reachable from the internet and others must never be.",   // the problem: 80–420 characters
+    idea: "Amazon VPC gives you a private network in AWS, and its subnets decide …",               // the answer to it: 40–300 characters
+    do: ["VPC → <b>Create VPC</b> → …", "…"],                                     // a step you carry out: 1–8 actions, 10–240 characters each
+    done: "What you see when it worked …",                                        // with do: 20–260 characters
     k: [
       ["Public or private", "A subnet is public when its route table has a route to an internet gateway, and private when it has none. …"],
       ["NAT gateway", "Lets instances in a private subnet connect out, while external services cannot start a connection to them."]
@@ -31,7 +35,9 @@ Object.assign(window.KEYS, {
 });
 ```
 
-- `why` comes first on the card, above "Where" and above every detail: the problem the thing was made to solve, or the need it answers. Required on every entry.
+- **The card reads like an article** (the owner reads every card top to bottom before going on): the block line, the course name, the `head`line, where to do it with its Open button, the lesson names, then the body: **Why it exists** (`why`, then `idea`, in one box), **Do it** (`do`, then `done`), the model answer of a self-check, **What to know** (`k`), the **Exam trap**, and the step's notes at the end. Exam topics, practice, look-alikes, exam wording, AWS docs and terms are in the sidebar: reference, not part of the read.
+- `why` is the first explanation on the card, before every detail: the problem the thing was made to solve, the context, or the need it answers. Required on every entry. Where to do it sits above it, next to the title: it is where the step happens, not an explanation.
+- `head`, `idea`, `do`, `done` belong to a rewritten card (see "The article rewrite" below); an entry without `head` shows the step text from plan.js as its title, as before. `head`: the topic in plain words, or for a step you carry out its goal ("Let an EC2 instance read S3 without an access key"). The step text then moves under it as "In this lecture: …" (the lesson names after the course's "→"), or, when there is `do`, into the numbered actions, together with the step's note: so `do` must say everything the step text and its note said. `done`: what you can see when it worked, only where there is something to see.
 - `k`: each point is `[label, text]`. The label (2–40 characters, no closing full stop or colon) is what the eye scans for: a service, a choice, a rule. The text is 40–260 characters.
 - Key: a plan item id; the file is fixed by the id's prefix (see above; `data.test.mjs` checks it). An entry needs `k` or `trap`.
 - `docs`: only `https://aws.amazon.com/…` or `https://docs.aws.amazon.com/…`, and only pages that were fetched while writing the entry.
@@ -52,6 +58,20 @@ The owner asked for this in their own words: "When explaining a concept, tool, i
 - **Self-check steps:** the entry's `why` says why the things must be told apart (the need each one answers). The model answer in `CARDS` (extras.js) opens with a `<b>Why …:</b>` line, then gives one `<b>Name</b>` paragraph per thing (what it is for first, then how it works), then a `<b>Pick:</b>` line with the decision rule. `<br>` between paragraphs.
 - **Restructure, do not re-research.** The facts in the entries were checked against AWS pages (see "Verification status"). Keep each fact's meaning; splitting, reordering and simpler wording are the job. A new factual claim (most often in `why`) needs an AWS page that says it: look first in the pages the entry's `docs` already cite. A framing sentence (what would go wrong, a comparison with a data center) needs no page but must hold by plain reasoning.
 - `data.test.mjs` checks the shape, and that every entry has a `why` and every model answer opens with its Why line.
+
+### The article rewrite (from 2026-10-17)
+
+Every card gets `head` and `idea`, and steps you carry out get `do` and `done`, card by card, with the pilots `c2a`, `d4b2` and `d1a1` as the pattern:
+
+- **`why` is the problem, `idea` the answer.** Move the sentence that names the thing as the answer out of `why` into `idea`. Together they read as one: the problem first, then the idea.
+- **Labels say what the point says**, as a plain statement or a question ("What always stays yours", "Who may use the role"), never a teaser ("The line moves").
+- **Points in story order:** from the need to the mechanism to the exam detail. On `d4b2`: who may use the role, how EC2 gets it, the credentials it receives, how to guard them.
+- **Nothing unexplained.** No term or service on a card that the card doesn't explain or the glossary doesn't hold, and nothing new in the trap: the trap uses only what the points said.
+- **Concise:** at most 5 points as a rule (6 when a topic has no other card), no sentence that repeats another part of the card.
+- **Accurate:** restating needs no new source, but `do` and `done` are instructions the owner will follow in the console: each must hold for the step as the plan sets it up (the previous steps, the policies they create). Writing the pilots found two gaps that way: the role in `d4b2` also needs `AmazonSSMManagedInstanceCore` for Session Manager to connect, and the bucket policy from `d4b1` allows `s3:GetObject` only, so the test is `aws s3 cp …/hello.txt -`, not `aws s3 ls`. And the Security pillar has seven design principles; the old point listed six.
+- **Teach it like a teacher** (the owner's words: "Imagine yourself as a teacher that teaches me"). `why` opens the problem as a short scene, one or two sentences in which it bites ("A script on your EC2 instance has to read files from a bucket. The quick fix is to paste an access key …"), then says the need in one plain sentence. A scene is framing: it needs no source, but it must be something that really happens, and it must not slip in a fact the card doesn't back.
+- **One question per card** (`q`), on every card, setup and admin steps included (there the question is about safety, cost or exam technique). See "The card's one question" in `questions.md` for the rules.
+- Points can be reordered freely: "Test me", whose marks were kept by point position, is gone.
 
 ### The rest
 

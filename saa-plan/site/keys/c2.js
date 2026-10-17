@@ -2,15 +2,35 @@
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
   c2a: {
-    why: "When your systems run in someone else's buildings, it must be clear who secures what. Otherwise each side assumes the other did it. The shared responsibility model draws that line between AWS and you. Where the line runs depends on how much of the stack the service manages for you.",
+    head: "Who secures what: the shared responsibility model",
+    why: "You move your web shop to AWS. A month later customer files leak from a storage bucket that anyone could open. You thought AWS secures everything in its cloud, and AWS expected you to lock your own bucket. When your systems run in someone else's buildings, both sides must know exactly who secures what.",
+    idea: "The shared responsibility model draws that line. AWS is responsible for security of the cloud: the hardware, software, networking and facilities that run its services. You are responsible for security in the cloud, and how much that is depends on how much of the stack the service manages for you.",
     k: [
-      ["The line moves", "Where the line sits depends on the service. On EC2 you manage the guest operating system with its security patches, your applications and the security group. For abstracted services such as S3 and DynamoDB, AWS operates the operating system and platform."],
-      ["RDS and Lambda", "On RDS AWS does the operating system and database software patching. On Lambda AWS manages the underlying infrastructure, including server maintenance and patching. Your code and data, the encryption options and the IAM permissions stay yours."],
-      ["Three kinds of control", "Inherited from AWS: physical and environmental. Shared: patch management, configuration management, awareness and training, where each side handles its own layer. Customer specific: such as zone security."],
-      ["AWS Artifact", "Where you download AWS's security and compliance documents on demand, such as SOC and PCI reports. They cover AWS's side. Compliance is shared, and the controls for what you build on top remain yours to implement."],
-      ["Security pillar", "Turns 'security first' into design principles: a strong identity foundation with least privilege, traceability, security at all layers, automated controls, data protected in transit and at rest, people kept away from data."]
+      ["The line depends on the service", "On EC2 you manage the guest operating system with its security patches, your applications and the security group. For abstracted services such as S3 and DynamoDB, AWS operates the operating system and platform."],
+      ["Managed services take on more", "On RDS, AWS patches the operating system and the database software. On Lambda, AWS manages the underlying infrastructure, including server maintenance and patching."],
+      ["What always stays yours", "On every service, your data and its encryption options stay yours. So do the IAM permissions that decide who reaches it, and your own code, on Lambda as on EC2."],
+      ["Who owns each kind of control", "Physical and environmental controls you inherit from AWS. Patch management, configuration management, and awareness and training are shared: each side handles its own layer. Some are yours alone, such as keeping data in the security zones you choose."],
+      ["Proof of AWS's side", "Auditors want evidence that the part AWS runs is compliant. AWS Artifact gives you AWS's security and compliance reports, such as SOC and PCI, on demand. They cover only AWS's side."],
+      ["Security pillar", "Well-Architected's advice for designing securely, in seven principles: a strong identity foundation, traceability, security at all layers, automated security, data protected in transit and at rest, people kept away from data, and readiness for security events."]
     ],
-    trap: "'It is a managed service, so AWS secures the data in it' is false. A bucket made public, an over-broad IAM policy or an unpatched EC2 guest operating system is on the customer's side. Amazon Inspector only reports the vulnerability. You apply the patch.",
+    trap: "'It is a managed service, so AWS secures the data in it' is false. A bucket made public, an over-broad IAM policy or an unpatched EC2 guest operating system is on the customer's side.",
+    q: {
+      q: "A company moves its orders table to Amazon DynamoDB, so AWS now runs the servers and the database software. Which responsibility stays with the company?",
+      o: [
+        "Deciding with IAM permissions who may read the table, and choosing its encryption options",
+        "Patching the operating system of the servers that store the table",
+        "Upgrading the database software that runs the table to a newer version",
+        "Securing the network hardware inside the AWS data centers"
+      ],
+      a: [0],
+      x: [
+        "Right. On abstracted services such as DynamoDB you manage your data, including its encryption options, and use IAM to decide who may reach it.",
+        "For abstracted services such as S3 and DynamoDB, AWS operates the operating system and the platform.",
+        "The database software is part of the platform AWS operates for an abstracted service, so there is no engine for you to upgrade.",
+        "Network hardware and facilities are part of the security of the cloud, which is AWS's side."
+      ],
+      dom: 1, tags: ["Shared responsibility"], doc: "shared"
+    },
     docs: [
       ["Shared responsibility model", "https://aws.amazon.com/compliance/shared-responsibility-model/"],
       ["What is AWS Artifact?", "https://docs.aws.amazon.com/artifact/latest/ug/what-is-aws-artifact.html"],

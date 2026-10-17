@@ -2,11 +2,38 @@
 window.KEYS = window.KEYS || {};
 Object.assign(window.KEYS, {
   d1a1: {
-    why: "Everything you build in AWS lives in an account, and whoever holds its first login controls all of it. The email address and password you choose now are that login. A weak password or a mailbox other people can open puts the whole account at risk.",
-    k: [
-      ["Root user credentials", "The email address and password you enter here become the root user credentials. The root user is the one identity with complete access to every service and resource in the account. Use a unique password and a mailbox only you control."]
+    head: "Create your AWS account",
+    why: "You sign up with an old mailbox you rarely check and a password you also use on a shopping site. When that site leaks its passwords, a stranger can sign in to your AWS account and start servers on your card. Everything you build in AWS lives in an account, and whoever holds its first login controls all of it.",
+    idea: "The email address and password you choose now become that login, the root user: the one identity with complete access to every service and resource in the account.",
+    do: [
+      "Open <b>aws.amazon.com</b> → click <b>Create an AWS Account</b>.",
+      "Enter your normal email, if only you can open that mailbox, and a password you use nowhere else. Account name: anything, for example <code>stepan-lab</code>.",
+      "If you get AWS's new sign-up (a Google, GitHub, Apple or Amazon login, with \"projects\" and \"AWS Settings\"), follow its screens. You then have a personal login from the start, and the admin-user block later on Day 1 does not apply."
     ],
-    docs: [["AWS account root user", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html"]]
+    k: [
+      ["Guard the mailbox", "Forgot your password? on the sign-in page sends the reset directions to the account's email address. So whoever can open that mailbox can reset the root user's password."]
+    ],
+    q: {
+      q: "You have just created an AWS account with an email address and a password. What are those two now?",
+      o: [
+        "The root user's credentials: the one identity with complete access to every service and resource in the account",
+        "The sign-in of an IAM user with read-only access, until you give it more permissions",
+        "A login for the billing pages only, while AWS services need an IAM user to open",
+        "A temporary login that AWS deletes once you create your first IAM user"
+      ],
+      a: [0],
+      x: [
+        "Right. The email address and password you choose when you create the account become the root user's credentials, with complete access to everything in it.",
+        "The first login is not an IAM user, and it is not limited: it is the root user, with complete access.",
+        "The root user can do everything in the account, the services included. Day 1 creates an admin user so you don't need it every day.",
+        "AWS keeps the root user as long as the account exists. You stop using it day to day, and guard it with a strong password and MFA."
+      ],
+      dom: 1, tags: ["Root user & MFA"]
+    },
+    docs: [
+      ["AWS account root user", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html"],
+      ["Reset a lost or forgotten root user password", "https://docs.aws.amazon.com/IAM/latest/UserGuide/reset-root-password.html"]
+    ]
   },
 
   d1a2: {

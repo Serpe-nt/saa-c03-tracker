@@ -52,6 +52,16 @@ How many are needed: a quiz takes 30, and a retake should be able to show differ
 - Use current service names. Where the exam guide still uses an older name, write "new name (formerly old name)" once in the explanation.
 - One question = one decision. Before adding, grep the bank for the concept and run `node tools/similar.mjs` afterwards.
 
+## The card's one question
+
+Every card ends with one question of its own (`KEYS[id].q` in `site/keys/*.js`, written next to the card it belongs to). It replaced "Test me" at the owner's request.
+
+- **Asked only on its card.** It is not in the bank (`window.QUIZ`): no day quiz, mock, warm-up, drill or step practice draws it. An answer counts like a quiz answer (XP, topic accuracy, readiness; a miss goes to the notebook and comes back in review), under the id `card-<step id>`. Never rename a step id that has one.
+- **Unique.** Unlike every bank question and every other card's: `data.test.mjs` rejects a shared stem, and `node tools/similar.mjs 0.30` must list no pair with a `card-` question (rewrite the card's question, never the bank's).
+- **What it asks:** the one thing the card most wants you to take away, usually its idea or the decision rule in its points, in a situation of its own. Only what this card (or an earlier one) taught; nothing the exam trap or the points don't cover. On a setup or admin card: the safety, cost or exam-technique point of the step.
+- **Shape:** as a bank question, without `id`, `day` and `ref`: `{q, o, a, x, dom, tags, doc?}`. Four options (five with "(Choose two.)" and two answers), one explanation per option that teaches (the right one says why it is right, each wrong one why it is wrong, from the card's own facts), `dom` 1–4 (a setup card's question belongs to the domain its point is about: safety → 1, cost → 4), 1–2 `tags` from `QTAGS`, `doc` a `DOCS` key. Only `<code>` markup, no positional wording.
+- **Facts:** as for the bank (the checklist below). Most come straight from the card's own checked points; a fact that isn't on the card needs a fetched AWS page.
+
 ## Checks to run after any content edit
 
 ```

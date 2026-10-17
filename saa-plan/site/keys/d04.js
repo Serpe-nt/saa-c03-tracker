@@ -39,14 +39,41 @@ Object.assign(window.KEYS, {
     ]
   },
   d4b2: {
-    why: "An application on a server needs permission to call AWS, for example to read a bucket. Putting an access key on the server works, but that key is long-term and someone has to manage it. An IAM role gives the application temporary credentials that are renewed for it, so no key is stored on the instance.",
+    head: "Let an EC2 instance read S3 without an access key",
+    why: "A script on your EC2 instance has to read files from a bucket. The quick fix is to paste an access key into its config file. But that key is long-term: if it leaks, for example with the code into a public repository, it works for anyone until someone notices and deletes it.",
+    idea: "An IAM role gives the application temporary credentials that are renewed for it, so no key is stored on the instance at all. This is how applications on AWS get their permissions.",
+    do: [
+      "Upload a small text file, for example <code>hello.txt</code>, to the bucket from the previous step: S3 → your bucket → <b>Upload</b>.",
+      "IAM → <b>Roles</b> → <b>Create role</b>. Trusted entity: <b>AWS service</b>, use case <b>EC2</b>.",
+      "Attach your policy from the previous step and <code>AmazonSSMManagedInstanceCore</code>, which lets Session Manager connect to the instance, as on Day 4.",
+      "Launch an instance (t3.micro, Amazon Linux) in the default VPC, with no key pair. Advanced details → <b>IAM instance profile</b>: this role.",
+      "EC2 → select the instance → <b>Connect</b> → <b>Session Manager</b>. Run <code>aws s3 cp s3://&lt;your bucket&gt;/hello.txt -</code>"
+    ],
+    done: "The file's text appears, and no access key was ever stored on the instance. <code>aws s3 ls</code> on the bucket is denied: your policy allows reading a file (<code>s3:GetObject</code>), not listing them (<code>s3:ListBucket</code>).",
     k: [
-      ["Instance profile", "How EC2 receives a role. It is a container for exactly one role, and the console creates it for you. Launching an instance with a role also requires <code>iam:PassRole</code> permission for that role."],
-      ["Temporary credentials", "The application gets temporary credentials for the role from the instance metadata service. SDKs and the CLI do this by themselves. The credentials are renewed before they expire, so no key is stored on the instance."],
-      ["Require IMDSv2", "The defense against server-side request forgery (SSRF) attacks that try to read the role credentials through the application. IMDSv2 answers only requests that carry a session token obtained with a PUT request."],
-      ["Trust policy", "The trust policy of this role names the service <code>ec2.amazonaws.com</code>, so EC2 is the only principal that may assume it. Your own <code>aws sts assume-role</code> call against it is denied until the trust policy says otherwise."]
+      ["Who may use the role", "The trust policy of this role names the service <code>ec2.amazonaws.com</code>, so EC2 is the only principal that may assume it. Your own <code>aws sts assume-role</code> call against it is denied until the trust policy says otherwise."],
+      ["How EC2 gets the role", "Through an instance profile, a container for exactly one role that the console creates for you. Launching with a role needs <code>iam:PassRole</code> for it, so only approved users can hand a role to a service."],
+      ["Temporary credentials", "The application gets temporary credentials for the role from the instance metadata service. SDKs and the CLI do this by themselves. The credentials are renewed before they expire."],
+      ["Require IMDSv2", "It guards those credentials against server-side request forgery (SSRF), an attack that tricks the application into fetching them. IMDSv2 answers only requests that carry a session token obtained with a PUT request."]
     ],
     trap: "Storing an access key in Secrets Manager, in user data or in an environment variable still leaves a long-term key to manage. For code on EC2 the most secure answer with the least overhead is an IAM role attached through an instance profile.",
+    q: {
+      q: "Your instance runs with a role whose policy allows reading the bucket, and no access key was ever configured on it. Why does <code>aws s3 cp</code> on the instance still work?",
+      o: [
+        "The CLI gets temporary credentials for the role from the instance metadata service",
+        "Instances may call every AWS service in their own account until a policy denies it",
+        "The bucket trusts every instance that runs in the same Region as the bucket",
+        "Launching with a role copied your admin user's access key onto the instance"
+      ],
+      a: [0],
+      x: [
+        "Right. The application gets the role's temporary credentials from the instance metadata service. SDKs and the CLI do this by themselves, and the credentials are renewed before they expire.",
+        "Requests are denied unless a policy allows them. Without the role, the instance would have no credentials to sign a request with.",
+        "A bucket trusts nobody by default. Here access comes from the permissions policy of the role the instance runs with.",
+        "No key is stored on the instance: that is the point of a role. The credentials it gets are temporary and belong to the role, not to your user."
+      ],
+      dom: 1, tags: ["IAM roles & cross-account"], doc: "iam-roles-ec2"
+    },
     docs: [
       ["Use an IAM role to grant permissions to applications running on Amazon EC2 instances", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html"],
       ["Use instance profiles", "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html"],

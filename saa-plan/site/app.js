@@ -66,7 +66,8 @@ const CHAL = [
   { id: "fix", i: "🛠", k: "fix", n: 8, t: n => `Fix ${n} notebook questions`, can: () => Object.values(S.book).filter(b => !b.fixed).length >= 8 },
   { id: "warm", i: "☕", k: "w", n: 4, t: n => `Do the morning warm-up on ${n} days`, can: () => Object.keys(S.srs).length >= 5 },
   { id: "drill", i: "⚡", k: "dr", n: 3, t: n => `Run the “Which service?” drill ${n} times` },
-  { id: "recall", i: "🧠", k: "k", n: 20, t: n => `Mark ${n} key points “Got it” in Test me` }
+  // the id is the one Test me's challenge had, so a week that drew it keeps it; it now counts the cards' own questions
+  { id: "recall", i: "🧠", k: "cq", n: 15, t: n => `Answer ${n} card questions right`, can: () => CARDQS.filter(q => !(S.qs[q.id] || {}).right).length >= 15 }
 ];
 const CHAL_BY = Object.assign(Object.create(null), Object.fromEntries(CHAL.map(c => [c.id, c])));
 const CHAL_KEYS = [...new Set(CHAL.map(c => c.k))];
@@ -260,6 +261,15 @@ const TP = QZ.topics(PLAN, STEP_TAGS);   // what each day teaches; the day quizz
 // Questions by id and by plan step (the ones that name the step, plus the ones on a topic it teaches), and the steps that teach each topic.
 const QBY = Object.create(null), QREF = {}, TAG_STEPS = {}, ORDER = {};
 BANK.forEach(q => { QBY[q.id] = q; });
+// The one question on each card (KEYS[id].q), written for that card: asked only there, never drawn into a quiz (it is
+// not in BANK). An answer counts like a quiz answer (learn()): XP, topic accuracy, and a miss goes to the notebook and
+// comes back in review, which finds it through QBY.
+const CARDQ = Object.create(null);
+for (const id in KEYS) {
+  const c = KEYS[id].q;
+  if (c) CARDQ[id] = QBY["card-" + id] = { id: "card-" + id, day: "card", dom: c.dom, tags: c.tags || [], q: c.q, o: c.o, a: c.a, x: c.x, ref: [id], doc: c.doc, card: id };
+}
+const CARDQS = Object.values(CARDQ), WITH_CARDQ = BANK.concat(CARDQS);
 Object.keys(itemIndex).forEach((id, i) => {
   ORDER[id] = i;
   const qs = QZ.forStep(id, STEP_TAGS[id], BANK);
@@ -614,7 +624,8 @@ function renderNext(ti, st) {
 
 // ---------- day flow: one card at a time ----------
 const plain = {};
-const stepTitle = id => (id === "quiz" ? "End-of-day quiz" : plain[id] || (plain[id] = strip(itemIndex[id].it[1])));
+// a rewritten card names its topic in its own headline; the others go by the step text
+const stepTitle = id => (id === "quiz" ? "End-of-day quiz" : plain[id] || (plain[id] = strip((KEYS[id] || {}).head || itemIndex[id].it[1])));
 const flipLabel = id => S.conf[id] === "shaky" ? "Shaky: show answer" : "Show answer";
 function renderFlow(moved) {
   const d = dayOf(view.day), ids = stepIds(d), at = view.at, i = ids.indexOf(at);
@@ -644,7 +655,6 @@ function renderFlow(moved) {
   const typing = !moved && bodyEl.contains(document.activeElement) && document.activeElement.matches("textarea,input");
   if (!typing) {
     const answer = !moved && cardEl.querySelector(".card-a:not([hidden])");
-    if (recall.id && recall.id !== at) recall = { id: "", open: new Set(), marks: {} };   // "Test me" ends with its card
     const step = at !== "quiz" && at !== "done", side = step ? sideHTML(at) : { l: "", r: "" };
     cardEl.innerHTML = at === "quiz" ? quizCardHTML(d) : at === "done" ? doneCardHTML(d) : stepCardHTML(at);
     sideL.innerHTML = side.l; sideR.innerHTML = side.r;
@@ -702,7 +712,7 @@ function stepTags(id) {
 }
 function tagStats() {
   const m = {};
-  for (const q of BANK) {
+  for (const q of WITH_CARDQ) {
     const s = S.qs[q.id];
     if (s) for (const t of q.tags) { const a = m[t] || (m[t] = [0, 0]); a[0] += s.right; a[1] += s.seen; }
   }
@@ -815,19 +825,33 @@ function scoreFieldHTML(k) {
   lab.querySelector("input").setAttribute("value", S.scores[k] ?? "");
   return `<div class="scores-grid c-score">${lab.outerHTML}</div>`;
 }
-// The card holds what you read for the step: why it exists, where to do it, the model answer, what to know, the exam trap.
-// Everything to look up or practise with sits in the panels beside it (sideHTML).
+// The card reads like an article, top to bottom: the headline and where to do it, then why it exists (the problem,
+// then the idea that answers it), what to do, the model answer, what to know, the exam trap, and your notes at the end.
+// What you look up or practise with sits in the sidebar (sideHTML).
+const LESSONS = { watch: "In this lecture", play: "In this lab" };
 function stepCardHTML(id) {
   const { d, g, it } = itemIndex[id], [, txt, note] = it;
   const url = linkFor(g.link), n = g.items.length, kp = KEYS[id];
-  let h = `<div class="c-h"><span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span>` +
+  const head = kp && kp.head, steps = kp && kp.do;
+  // "<b>Course</b> → lessons": a rewritten card shows the course over its headline and the lessons under it
+  const parts = /^<b>([^<]{3,120})<\/b>\s*→\s*(.+)$/.exec(txt);
+  let h = `<header class="c-head"><div class="c-h"><span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span>` +
     (n > 1 ? `<span class="c-meta">${g.items.indexOf(it) + 1} of ${n}</span>` : "") +
     (g.min ? `<span class="c-meta">~${fmtH(g.min)}${n > 1 ? " for this block" : ""}</span>` : "") +
-    (done(id) ? `<span class="pill ok">✓ Completed</span>` : "") + `</div>` +
-    `<h2 class="c-t txt" tabindex="-1">${txt}</h2>` + (note ? `<p class="c-n txt">${note}</p>` : "");
-  // Purpose first: the problem or need behind the step comes before where to do it and before any detail.
-  if (kp && kp.why) h += box("why", "💡", g.t === "setup" || g.t === "prep" ? "Why this step" : "Why it exists", `<p class="txt">${kp.why}</p>`, "c-why");
-  if (g.where || url) h += `<div class="box b-where c-w"><span class="bi" aria-hidden="true">📍</span>${g.where ? `<span class="where">Where: ${g.where}</span>` : `<span class="where"></span>`}${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</div>`;
+    (done(id) ? `<span class="pill ok">✓ Completed</span>` : "") + `</div>`;
+  if (head && parts && !steps) h += `<p class="c-kick">${parts[1]}</p>`;
+  h += head ? `<h2 class="c-t c-hl" tabindex="-1">${esc(head)}</h2>` : `<h2 class="c-t txt" tabindex="-1">${txt}</h2>`;
+  // where to do it comes right after the title: it is where the step happens, read before anything else
+  if (g.where || url) h += `<div class="c-where"><span class="bi" aria-hidden="true">📍</span>${g.where ? `<span class="where">Where: ${g.where}</span>` : `<span class="where"></span>`}${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</div>`;
+  if (head && !steps) h += `<p class="c-les txt">${LESSONS[g.t] ? `${LESSONS[g.t]}: ` : ""}${parts ? parts[2] : txt}</p>`;
+  if (note && !steps) h += `<p class="c-n txt">${note}</p>`;
+  h += `</header>`;
+  // Purpose first: the problem or need behind the step, then the idea that answers it, before any detail.
+  if (kp && kp.why) h += box("why", "💡", g.t === "setup" || g.t === "prep" ? "Why this step" : "Why it exists",
+    `<p class="txt">${kp.why}</p>${kp.idea ? `<p class="txt c-idea">${kp.idea}</p>` : ""}`, "c-why");
+  // a step you carry out: its numbered actions (they replace the step text and its note) and how you know it worked
+  if (steps) h += box("do", "🛠", "Do it", `<ol class="c-do txt">${steps.map(s => `<li>${s}</li>`).join("")}</ol>` +
+    (kp.done ? `<p class="c-done txt"><b>Done when:</b> ${kp.done}</p>` : ""), "c-doit");
   if (SCORE_AT[id]) h += scoreFieldHTML(SCORE_AT[id]);
   if (d.decision === id) { const [cls, v] = verdictHTML(); h += `<div class="verdict ${cls}" data-verdict>${v}</div>`; }
   if (g.t === "check" && CARDS[id]) {
@@ -840,40 +864,26 @@ function stepCardHTML(id) {
     // a point is [label, text]; a bare string is the older form
     const pts = kp.k || [], labelled = pts.some(Array.isArray);
     if (pts.length) {
-      // "Test me": only the labels show; you say each point, reveal it and mark it (S.kconf). Otherwise a mark shows next to its label.
-      const testing = labelled && recall.id === id, marked = pts.filter((x, i) => recall.marks[i]).length;
-      const btn = !labelled ? "" : testing ? `<button type="button" class="sm k-btn" data-test-end>Done</button>`
-        : `<button type="button" class="sm k-btn" data-test="${id}" title="Hide the text, say each point, then check it">🧠 Test me</button>`;
-      const li = (x, i) => {
-        if (!Array.isArray(x)) return `<li>${x}</li>`;
-        if (!testing) {
-          const m = S.kconf[`${id}:${i}`];
-          return `<li><b class="k-l">${x[0]}${m === "shaky" ? ` <span class="pill warn k-m">shaky</span>` : m === "ok" ? ` <span class="k-m ok" title="Got it in Test me">✓</span>` : ""}</b><span>${x[1]}</span></li>`;
-        }
-        if (!recall.open.has(i)) return `<li class="k-hid"><b class="k-l">${x[0]}</b><button type="button" class="k-rev" data-reveal="${i}">Say it out loud, then show</button></li>`;
-        const m = recall.marks[i];
-        return `<li class="k-shown"><b class="k-l">${x[0]}</b><span>${x[1]}<span class="k-rate">${m ? `<span class="pill ${m === "ok" ? "ok" : "warn"}">${m === "ok" ? "✓ Got it" : "Shaky"}</span>`
-          : `<span class="muted">Did you have it?</span><button type="button" class="sm" data-kc="ok" data-ki="${i}">Got it</button><button type="button" class="sm" data-kc="shaky" data-ki="${i}">Shaky</button>`}</span></span></li>`;
-      };
-      const n = pts.filter(Array.isArray).length, got = pts.filter((x, i) => recall.marks[i] === "ok").length;
-      h += box("know", "📘", (kp.why ? "What to know" : "Key points") + btn, `<ul${labelled ? ' class="k-list"' : ""}>${pts.map(li).join("")}</ul>` +
-        (testing && marked === n ? `<p class="k-sum">${got} of ${n} got it.${got < n ? " The shaky ones are on your weak-spot map." : " Nice."}</p>` : ""), "c-key" + (testing ? " testing" : ""));
+      const li = x => (Array.isArray(x) ? `<li><b class="k-l">${x[0]}</b><span>${x[1]}</span></li>` : `<li>${x}</li>`);
+      h += box("know", "📘", kp.why ? "What to know" : "Key points", `<ul${labelled ? ' class="k-list"' : ""}>${pts.map(li).join("")}</ul>`, "c-key");
     }
     if (kp.trap) h += box("trap", "⚠️", "Exam trap", `<p>${kp.trap}</p>`, "c-trap");
   }
   // billable things: on the steps that create something, and on the block's last step (the cleanup)
   if (g.t === "build" && (BILL.steps[id] || g.items.indexOf(it) === g.items.length - 1)) h += costBoxHTML(d);
-  return h + dgHTML(id);
+  // after the reading, one question on what this card taught; then your notes close the article, like the comments under a post
+  return h + dgHTML(id) + cardQHTML(id) +
+    `<label class="box b-notes c-notes"><span class="box-h"><span class="bi" aria-hidden="true">📝</span>My notes on this step <span class="saved" data-saved="${id}">saved</span></span>` +
+    `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
 }
 // Two lists side by side when there is room (CSS decides); one alone needs no columns.
 const sideCols = (a, b) => (a && b ? `<div class="side-cols"><div class="side-col">${a}</div><div class="side-col">${b}</div></div>` : a + b);
-// The two panels around the card. l = "Look it up", the rail to the card's right: the AWS pages and the terms, for
-// while you read. r = "On the exam", under the card, for after it: the exam topics with your accuracy and a practice
-// round, look-alikes, how the exam words these topics, and your own notes.
+// The sidebar, like the one beside an article: reference, not part of the read. r = "On the exam": the exam topics with
+// your accuracy and a practice round, look-alikes, how the exam words these topics. l = "Look it up": AWS pages, terms.
 function sideHTML(id) {
   const { it } = itemIndex[id], [, txt, note] = it, kp = KEYS[id], qs = QREF[id] || [];
   const docs = stepDocs(id), tags = stepTags(id);
-  const terms = termsIn(strip(`${txt} ${note || ""} ${kp ? `${kp.why || ""} ${(kp.k || []).flat().join(" ")} ${kp.trap || ""}` : ""}`)).slice(0, 8);
+  const terms = termsIn(strip(`${txt} ${note || ""} ${kp ? `${kp.head || ""} ${kp.why || ""} ${kp.idea || ""} ${(kp.do || []).join(" ")} ${kp.done || ""} ${(kp.k || []).flat().join(" ")} ${kp.trap || ""}` : ""}`)).slice(0, 8);
   const cues = [];
   for (const t of tags) for (const c of CUES) if ((CUE_TAGS[c[0]] || []).includes(t) && !cues.includes(c) && cues.length < 4) cues.push(c);
 
@@ -903,9 +913,7 @@ function sideHTML(id) {
   if (las.length) r += box("look", "⚖️", "Look-alikes on these topics", `<ul class="c-la">${las.map(e => `<li><button type="button" class="link" data-look="${esc(e.id)}">${esc(e.title)}</button></li>`).join("")}</ul>`);
   r = sideCols(r, cues.length ? foldBox("cues", "🗣", "cues", "Exam wording on these topics", cues.length,
     `<ul class="cue-l">${cues.map(c => `<li><b>${esc(c[0])}</b><span>→ ${esc(c[1])}</span><span class="muted">${esc(c[2])}</span></li>`).join("")}</ul>`, true) : "");
-  r += `<label class="box b-notes c-notes"><span class="box-h"><span class="bi" aria-hidden="true">📝</span>My notes on this step <span class="saved" data-saved="${id}">saved</span></span>` +
-    `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
-  return { l: l && `<div class="side-t">Look it up</div>${l}`, r: `<div class="side-t">On the exam</div>${r}` };
+  return { l: l && `<div class="side-t">Look it up</div>${l}`, r: r && `<div class="side-t">On the exam</div>${r}` };
 }
 function quizCardHTML(d) {
   const r = S.quiz[d.id], tries = r ? r.tries.length : 0, ok = quizOk(d), live = liveQuiz(d);
@@ -1123,7 +1131,7 @@ function counters() {
   for (const id in S.qs) { a += S.qs[id].seen; r += S.qs[id].right; }
   return { a, r, x: xpTotal(), d: DAYS.filter(dayDone).length, s: Object.keys(S.ticks).filter(id => itemIndex[id]).length,
     f: Math.round(Object.values(S.log).reduce((x, y) => x + y, 0)), fix: Object.values(S.book).filter(b => b.fixed).length,
-    w: Object.values(S.warm).filter(v => v === "done").length, dr: S.drill.runs, k: Object.values(S.kconf).filter(v => v === "ok").length };
+    w: Object.values(S.warm).filter(v => v === "done").length, dr: S.drill.runs, cq: CARDQS.filter(q => (S.qs[q.id] || {}).right).length };
 }
 // Three a week, one from each group, drawn from the week's date so every device draws the same.
 function pickChal(key) {
@@ -1199,7 +1207,7 @@ const DOM_W = [30, 26, 24, 20];     // exam guide weights
 // Per domain: the questions met so far, and how many of them were right at the last answer.
 function readiness() {
   const r = DOMAINS.map(() => ({ met: 0, ok: 0, all: 0 }));
-  for (const q of BANK) { const d = r[q.dom - 1], s = S.qs[q.id]; d.all++; if (s && s.seen) { d.met++; if (s.last) d.ok++; } }
+  for (const q of WITH_CARDQ) { const d = r[q.dom - 1], s = S.qs[q.id]; if (!d) continue; d.all++; if (s && s.seen) { d.met++; if (s.last) d.ok++; } }
   return r.map(d => ({ ...d, acc: d.met ? Math.round(d.ok / d.met * 100) : 0 }));
 }
 // The weakest topic of the weakest domain (with enough answers), and the step that teaches it.
@@ -2269,17 +2277,15 @@ function exportNotebook() {
   download(md.join("\n"), `saa-wrong-answers-${today()}.md`, "text/markdown");
 }
 function weakHTML() {
-  const w = QZ.weakTags(BANK, S.qs), dom = QZ.domainAcc(BANK, S.qs);
+  const w = QZ.weakTags(WITH_CARDQ, S.qs), dom = QZ.domainAcc(WITH_CARDQ, S.qs);
   const shaky = Object.keys(S.conf).filter(id => S.conf[id] === "shaky" && itemIndex[id]);
-  const kshaky = Object.keys(S.kconf).filter(k => S.kconf[k] === "shaky").map(k => { const [id, i] = k.split(":"); const p = ((KEYS[id] || {}).k || [])[+i]; return itemIndex[id] && Array.isArray(p) ? [id, p[0]] : null; }).filter(Boolean);
-  if (!w.length && !shaky.length && !kshaky.length && !whyCounts().length) return `<p class="muted">Nothing yet. This fills in as you answer quiz questions and mark self-checks as shaky.</p>`;
+  if (!w.length && !shaky.length && !whyCounts().length) return `<p class="muted">Nothing yet. This fills in as you answer quiz questions and mark self-checks as shaky.</p>`;
   let h = `<h3 class="sub-h">Why you miss</h3>${whyPatternHTML()}`;
   if (dom.some(x => x[1])) h += `<h3 class="sub-h">By exam domain</h3><div class="dom-bars">${dom.map(([a, n], i) => n ? bar(`D${i + 1} ${DOMAINS[i]}`, pct(a, n), `${pct(a, n)}%`) : "").join("")}</div>`;
   if (w.length) h += `<h3 class="sub-h">By topic, weakest first</h3><p class="muted">Share of answers right, counting every attempt. Open a topic to see where to study it.</p>` +
     `<ul class="wk">${w.map(t => `<li><details><summary><span class="wk-t">${esc(t.tag)}</span><span class="tr"><span class="fi${t.acc < 0.7 ? " low" : ""}" style="width:${Math.round(t.acc * 100)}%"></span></span><span class="wk-n">${t.right}/${t.seen}</span></summary>` +
       `<ul class="qz-refs">${tagRefs(t.tag).map(id => refHTML(id)).join("")}</ul>${laLinks(laTag(t.tag))}</details></li>`).join("")}</ul>`;
   if (shaky.length) h += `<h3 class="sub-h">Self-checks you marked shaky</h3><ul class="qz-refs">${shaky.map(id => refHTML(id)).join("")}</ul>`;
-  if (kshaky.length) h += `<h3 class="sub-h">Key points you marked shaky in "Test me"</h3><ul class="qz-refs">${kshaky.map(([id, label]) => refHTML(id, `<span class="pill warn">${label}</span>`)).join("")}</ul>`;
   return h;
 }
 function badgesHTML() {
@@ -2301,9 +2307,9 @@ function srBuild() {
   const out = [];
   for (const id of Object.keys(itemIndex)) {
     const { d, it } = itemIndex[id], kp = KEYS[id], at = `Day ${d.day}`;
-    out.push({ kind: "Step", where: at, title: plainOf(it[1]), text: plainOf(`${it[1]} ${it[2] || ""}`), go: ["step", id] });
+    out.push({ kind: "Step", where: at, title: stepTitle(id), text: plainOf(`${kp && kp.head ? kp.head + " " : ""}${it[1]} ${it[2] || ""} ${kp && kp.do ? kp.do.join(" ") + " " + (kp.done || "") : ""}`), go: ["step", id] });
     if (!kp) continue;
-    if (kp.why) out.push({ kind: "Why it exists", where: at, title: stepTitle(id), text: plainOf(kp.why), go: ["step", id] });
+    if (kp.why) out.push({ kind: "Why it exists", where: at, title: stepTitle(id), text: plainOf(`${kp.why} ${kp.idea || ""}`), go: ["step", id] });
     (kp.k || []).forEach(x => { if (Array.isArray(x)) out.push({ kind: "Key point", where: at, title: plainOf(x[0]), text: plainOf(`${x[0]}: ${x[1]}`), go: ["step", id] }); });
     if (kp.trap) out.push({ kind: "Exam trap", where: at, title: stepTitle(id), text: plainOf(kp.trap), go: ["step", id] });
   }
@@ -2410,26 +2416,55 @@ document.addEventListener("keydown", e => {
 });
 document.getElementById("b-search").onclick = openSearch;
 
-// ---------- the focus view and "Test me" on a step ----------
+// ---------- the focus view, and the one question on a card ----------
 function toggleFocusView() { ui.focusView = !ui.focusView; saveUI(); applyDisplay(); if (view.day) renderFlow(false); }
-let recall = { id: "", open: new Set(), marks: {} };   // the card being tested, in memory; the marks themselves go to S.kconf
-function recallClick(b) {
-  const ds = b.dataset;
-  if ("test" in ds) recall = { id: ds.test, open: new Set(), marks: {} };
-  else if ("testEnd" in ds) recall = { id: "", open: new Set(), marks: {} };
-  else if ("reveal" in ds) recall.open.add(+ds.reveal);
-  else if ("kc" in ds && recall.id) {
-    const i = +ds.ki, pts = ((KEYS[recall.id] || {}).k || []).filter(Array.isArray).length;
-    recall.marks[i] = ds.kc;
-    S.kconf[`${recall.id}:${i}`] = ds.kc;
+// On screen only: the card it belongs to, the options' order (shuffled, as in the quizzes), your picks and, once
+// checked, your answer. The answer itself is recorded by learn(), like a quiz answer.
+let cardQ = { id: "", ord: [], sel: [], ans: null };
+function cardQHTML(id) {
+  const q = CARDQ[id];
+  if (!q) return "";
+  if (cardQ.id !== id) cardQ = { id, ord: QZ.order(q), sel: [], ans: null };
+  const s = S.qs[q.id];
+  let b = `<p class="cq-q txt">${q.q}</p>`;
+  if (cardQ.ans) {
+    const ok = QZ.isRight(q, cardQ.ans);
+    b += `<p class="cq-v ${ok ? "ok" : "bad"}" role="status">${ok ? "✓ Right." : "✗ Not this time. It is in your notebook now and comes back in review."}</p>` +
+      fbHTML(q, cardQ.ord, cardQ.ans) + `<div class="cq-a"><button type="button" class="sm" data-cq-again>Answer again</button></div>`;
+  } else {
+    b += `<div class="qz-opts cq-opts">${cardQ.ord.map((oi, k) => { const on = cardQ.sel.includes(oi); return `<button type="button" class="qz-o${on ? " on" : ""}" data-cq-o="${oi}" aria-pressed="${on}"><span class="qz-l">${LETTERS[k]}</span><span class="qz-t">${q.o[oi]}</span></button>`; }).join("")}</div>` +
+      `<div class="cq-a"><button type="button" data-cq-check${cardQ.sel.length === q.a.length ? "" : " disabled"}>Check answer</button>` +
+      (s && s.seen ? `<span class="muted">Last time: ${s.last ? "right" : "missed"}.</span>` : "") + `</div>`;
+  }
+  return box("q", "❓", "One question", b, "c-q");
+}
+function cardQClick(b) {
+  const q = CARDQ[cardQ.id], ds = b.dataset;
+  if (!q) return;
+  if ("cqCheck" in ds) {
+    if (cardQ.ans || cardQ.sel.length !== q.a.length) return;
+    cardQ.ans = cardQ.sel.slice();
+    const ok = QZ.isRight(q, cardQ.ans);
+    learn(q, ok);
+    const got = award();
     save();
-    if (ds.kc === "ok") { FX.sound("pop"); FX.sparkle(b); }
-    const marks = Object.values(recall.marks);
-    if (marks.length === pts && marks.every(m => m === "ok")) setTimeout(() => FX.small(cardEl.querySelector(".c-key")), 50);   // every point recalled
+    renderFlow(false);
+    const v = cardEl.querySelector(".cq-v");
+    if (ok) FX.right(1, v); else FX.wrong(0);
+    showGains(got, 500);
+    if (v) { v.scrollIntoView({ block: "nearest" }); cardEl.querySelector("[data-cq-again]").focus({ preventScroll: true }); }
+    return;
+  }
+  if ("cqAgain" in ds) cardQ = { id: cardQ.id, ord: QZ.order(q), sel: [], ans: null };
+  else if ("cqO" in ds && !cardQ.ans) {
+    const oi = +ds.cqO, i = cardQ.sel.indexOf(oi);
+    if (i >= 0) cardQ.sel.splice(i, 1);
+    else if (q.a.length === 1) cardQ.sel = [oi];
+    else if (cardQ.sel.length < q.a.length) cardQ.sel.push(oi);
   }
   renderFlow(false);
-  const next = cardEl.querySelector(ds.reveal !== undefined ? `[data-kc][data-ki="${ds.reveal}"]` : "[data-reveal],[data-test-end],[data-test]");
-  if (next) next.focus({ preventScroll: true });
+  const f = cardEl.querySelector(ds.cqO !== undefined ? `[data-cq-o="${ds.cqO}"]` : "[data-cq-o]");
+  if (f) f.focus({ preventScroll: true });
 }
 
 function cuesHTML() {
@@ -2603,8 +2638,8 @@ function renderCleanupRun() {
 flowEl.addEventListener("click", e => {
   if (e.target.closest("[data-focus-view]")) { toggleFocusView(); return; }
   if (e.target.closest("[data-search]")) { openSearch(); return; }
-  const tst = e.target.closest("[data-test],[data-test-end],[data-reveal],[data-kc]");
-  if (tst) { recallClick(tst); return; }
+  const cq = e.target.closest("[data-cq-o],[data-cq-check],[data-cq-again]");
+  if (cq) { if (!cq.disabled) cardQClick(cq); return; }
   const g = e.target.closest(".g");
   if (g) { e.preventDefault(); g.classList.toggle("show"); return; }
   if (e.target.closest("[data-home]")) { setView("", "", true); return; }
