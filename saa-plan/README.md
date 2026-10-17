@@ -34,7 +34,7 @@ Open http://localhost:8080
 
 ## How a day works
 
-- **Overview.** The first screen shows where you stand (steps, days, focus time, quiz accuracy, streak, level), the day to work on with one button (Start Day 1, Continue Day 3, Take the Day 3 quiz), and the days as tiles. Any tile opens its day.
+- **Overview, today first.** The top of the first screen is today: the day to work on (its goal, its progress, the time left), its next step, and one big button (Start Day 1, Continue Day 3, Take the Day 3 quiz), with the date and where you stand against the plan and the exam. Under it: what is still running in your account, today's goal, practice, your numbers (steps, days, focus time, quiz accuracy, streak, level), readiness and charts, and the days as tiles. Any tile opens its day.
 - **One step at a time.** A day opens as a single card with three buttons under it: Back, Mark complete, Next. Mark complete moves you to the next open step; Next skips a step without marking it, and the row of dots above the card shows what is still open. The arrow keys and Enter work too.
 - **Reading helpers.** A focus view hides the panels (button in the day header, or F). "Test me" on the key points hides their text: say each one, show it, mark it. Search (Ctrl+K or /) finds any step, key point, term, exam wording, look-alike table, diagram part, your notes and the notebook. Theme and text size are in ⚙ Settings.
 - **Course diagrams.** Every card of a lecture course and its labs ends with the course's architecture as a blueprint. The parts this step is about are outlined and the first one is open; click any part (or Tab to it and press Enter) for why it is there and what the exam asks about it. "⤢ Larger" opens it full width.

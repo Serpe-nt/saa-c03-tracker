@@ -78,14 +78,10 @@ button.ghost[aria-pressed="false"]{opacity:.6}
 .tb-tools{grid-column:2/5;border-top:1px solid rgba(234,243,255,.45);display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .tb-tools button{font-size:13px;padding:5px 10px}
 
-.status{color:var(--chalk);font-size:15px;margin:0 0 12px;display:flex;gap:6px 16px;flex-wrap:wrap;align-items:center}
-.status b{font-weight:600}
 .pill{font-size:13px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid transparent}
 .pill.ok{background:var(--done-soft);color:var(--done)}
 .pill.warn{background:var(--warn-soft);color:var(--warn)}
-.status .pill.ok{background:rgba(95,211,122,.16);border-color:rgba(95,211,122,.5);color:#a8f0b8}
-.status .pill.warn{background:rgba(255,174,92,.16);border-color:rgba(255,174,92,.55);color:#ffd29e}
-.status .pill.bad{background:rgba(255,128,128,.16);border-color:rgba(255,128,128,.55);color:#ffc2c2}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
 
 /* ---------- overview: numbers in title-block cells, overall bar ---------- */
 .stats{margin:0 0 14px}
@@ -117,21 +113,51 @@ button.st-lv:hover{background:rgba(234,243,255,.08)}
 /* ---------- paper sheets ---------- */
 .next,.panel,.dt,.card,dialog,.fx-banner{background:var(--card);color:var(--text);box-shadow:var(--shadow)}
 
-/* the day to work on, with the one button that starts or continues it */
-.next{border-radius:10px;padding:14px 18px 18px;margin:0 0 14px;border-top:4px solid var(--accent)}
-.nx-h{font-size:14px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.nx-k{font:700 18px var(--display);color:var(--text)}
-.hero{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;margin-top:10px}
-.hero-n{font:700 64px/.9 var(--display);text-align:center;padding-right:16px;border-right:1px solid var(--line);font-variant-numeric:tabular-nums}
-.hero-n small{display:block;font:500 13px var(--display);color:var(--muted);letter-spacing:.05em;margin-bottom:5px}
-.hero-t{font:700 28px/1.15 var(--display);margin:0}
-.hero .goal{margin:4px 0 0}
-.hero-p{display:grid;gap:6px;margin-top:14px;font-size:14px}
-.hero-nx{display:flex;gap:6px 10px;align-items:baseline;flex-wrap:wrap;margin-top:12px;font-size:15.5px;max-width:78ch}
-.hero-nx b{font-weight:600}
+/* Today first: the day to work on and, beside it, its next step with the one big button that starts or continues it.
+   The head has today's date and where the plan stands; one column on narrower screens. */
+.next{border-radius:10px;padding:16px 22px 22px;margin:0 0 16px;border-top:4px solid var(--accent)}
+.nx-h{font-size:14.5px;color:var(--muted);display:flex;gap:6px 12px;align-items:baseline;flex-wrap:wrap}
+.nx-k{font:700 24px/1 var(--display);color:var(--text)}
+.nx-d{font-size:15px}
+.nx-st{display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.nx-st b{font-weight:600;color:var(--text)}
+.nx-cal{margin:6px 0 0;font-size:14.5px;color:var(--muted)}
+.nx-body{display:grid;gap:18px 30px;margin-top:16px}
+/* side by side: the day's progress at the foot of its column, level with the button */
+@media (min-width:900px){
+  .nx-body{grid-template-columns:minmax(0,1.2fr) minmax(320px,1fr)}
+  .nx-day{display:flex;flex-direction:column}
+  .nx-day .hero-p{margin-top:auto;padding-top:20px}
+}
+.hero{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+.hero-n{font:700 88px/.82 var(--display);text-align:center;padding-right:18px;border-right:1px solid var(--line);font-variant-numeric:tabular-nums}
+.hero-n small{display:block;font:500 14px var(--display);color:var(--muted);letter-spacing:.05em;margin-bottom:8px}
+.hero-t{font:700 34px/1.1 var(--display);margin:0}
+.hero .goal{margin:8px 0 0;font-size:15.5px}
+.hero-p{display:grid;gap:8px;margin-top:20px;font-size:14.5px}
+/* one segment per card of the day, grouped like its blocks: done ones orange, the next one outlined */
+.segs{display:flex;gap:7px;align-items:center}
+.segs>span{display:flex;gap:2px;min-width:0}
+.segs i{flex:1 1 0;min-width:3px;height:12px;border-radius:2px;background:var(--line)}
+.segs i.on{background:var(--accent)}
+.segs i.nx{background:color-mix(in srgb,var(--accent) 22%,var(--card));box-shadow:inset 0 0 0 2px var(--accent)}
+.segs i.q{border-radius:6px}
+/* the next step: a tinted box in its block's colour, the big button at its foot */
+.next .nx-go{margin:0;display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:14px 18px 18px}
+.nx-gk{align-self:stretch;display:flex;justify-content:space-between;gap:8px;font:700 17px var(--display);color:color-mix(in srgb,var(--edge) 55%,var(--text))}
+.nx-gk .muted{font:400 13.5px var(--body)}
+.nx-step{margin:0;font-size:17.5px;line-height:1.45;max-width:62ch}
+.nx-step b{font-weight:600}
+.nx-where{margin:0;font-size:14px;color:var(--muted)}
 .nx-a{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.nx-go .nx-a{align-self:stretch;margin-top:auto;padding-top:8px}
 .big{font-size:17px;padding:11px 24px}
-.next.all-done{border-top-color:var(--done);text-align:center;font:600 22px var(--display);padding:20px}
+.nx-go .big{flex:1 1 100%;justify-content:center;font:700 23px/1.1 var(--display);letter-spacing:.01em;padding:16px 24px;border-radius:9px;box-shadow:0 3px 0 color-mix(in srgb,var(--accent) 55%,#000)}
+.nx-go .big:active{transform:translateY(2px);box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 55%,#000)}
+.next.all-done{border-top-color:var(--done)}
+.nx-fin{text-align:center;font:600 26px var(--display);margin:18px 0 0}
+/* the overview takes more of a wide window */
+@media (min-width:1300px){body:not(.in-flow) .wrap{max-width:1240px}}
 
 .panel{border-radius:10px;margin:0 0 12px}
 .panel>summary{padding:12px 16px;cursor:pointer;font:600 19px var(--display);list-style:none;display:flex;gap:8px;align-items:baseline}
@@ -167,11 +193,13 @@ button.st-lv:hover{background:rgba(234,243,255,.08)}
 .verdict.no{background:var(--bad-soft);color:var(--bad)}
 .verdict b{font-weight:700}
 
-/* ---------- overview: the 14 days as tiles ---------- */
-.week{display:flex;align-items:center;gap:12px;color:var(--chalk);font:600 18px var(--display);margin:26px 0 14px}
-.week::before,.week::after{content:"";flex:1;height:9px;border:solid rgba(234,243,255,.55);border-width:0 1px;background:linear-gradient(rgba(234,243,255,.55),rgba(234,243,255,.55)) center/100% 1px no-repeat}
-.week::before{flex:0 0 28px}
+/* ---------- overview: the days as tiles; a week's heading (and "Where you stand") as a dimension line ---------- */
+.week,.ov-h{display:flex;align-items:center;gap:12px;color:var(--chalk);font:600 18px var(--display);margin:26px 0 14px}
+.ov-h{font-size:20px;margin-top:30px}
+.week::before,.week::after,.ov-h::before,.ov-h::after{content:"";flex:1;height:9px;border:solid rgba(234,243,255,.55);border-width:0 1px;background:linear-gradient(rgba(234,243,255,.55),rgba(234,243,255,.55)) center/100% 1px no-repeat}
+.week::before,.ov-h::before{flex:0 0 28px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:12px}
+@media (min-width:1300px){.tiles{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}}
 .dt{position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto 1fr auto;column-gap:10px;padding:10px 12px 12px;border-radius:8px;text-decoration:none;border:2px solid transparent;transition:border-color .2s,transform .15s}
 .dt:hover{border-color:var(--muted);transform:translateY(-1px)}
 .dt[data-done="1"]{border-color:color-mix(in srgb,var(--done) 70%,transparent)}
@@ -432,10 +460,17 @@ dialog .fx-badges{top:14px}   /* a modal covers the timer strip */
   .st{padding:7px 10px}
   .st b{font-size:18px}
   .next{padding:12px 14px 16px}
+  .nx-k{font-size:21px}
+  .nx-st{margin-left:0;flex-basis:100%}
   .hero{gap:12px}
-  .hero-n{font-size:46px;padding-right:12px}
-  .hero-t{font-size:22px}
+  .hero-n{font-size:54px;padding-right:12px}
+  .hero-t{font-size:24px}
+  .hero-p{margin-top:14px}
+  .next .nx-go{padding:12px 14px 14px}
+  .nx-step{font-size:16.5px}
+  .nx-where{display:none}   /* the card says where; here the button comes first */
   .nx-a .big{flex:1 1 100%;justify-content:center}
+  .nx-go .big{font-size:21px;padding:14px 18px}
   .tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .dt-n{font-size:28px}
   .dt-t{font-size:15.5px}
@@ -475,6 +510,7 @@ button:disabled:hover{border-color:var(--line)}
 .nx-warm{display:flex;gap:8px 12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--quiz-soft);border-radius:8px;padding:9px 12px;margin:-2px 0 12px;font-size:15px;text-align:left;font-family:var(--body);font-weight:400}
 .nx-wb{display:flex;gap:6px}
 .nx-wb button{font-size:13px;padding:5px 10px}
+.nx-wb .nx-wgo{border-color:var(--quiz);color:var(--quiz);font-weight:600}
 .nx-a.center{justify-content:center}
 
 /* practice panel */
