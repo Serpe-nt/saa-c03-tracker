@@ -625,8 +625,7 @@ Object.assign(window.KEYS, {
         "The Official Practice Exam is one of the things the subscription is needed for.",
         "Domain Practice is one of the things the subscription is needed for.",
         "The subscription opens the plan's paid trainings: 27 of its 36 need it."
-      ],
-      dom: 4, tags: ["Cost management tools"]
+      ]
     },
     docs: [["AWS Training FAQs (what the Individual subscription includes)", "https://aws.amazon.com/training/faqs/"]]
   },

@@ -61,8 +61,7 @@ Object.assign(window.KEYS, {
         "The lowest score is not the measure. Its lighter weight puts fewer points at risk.",
         "The weights differ, so the same gap in score puts different numbers of points at risk.",
         "Equal time spreads the last two days thin. The heavier risk is where an hour wins most."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     }
   },
 
@@ -124,8 +123,7 @@ Object.assign(window.KEYS, {
         "Looking things up trains recall with help, not deciding within two minutes.",
         "A week later you remember the explanations, not why you chose each answer, so the faulty reasoning is gone.",
         "Without answering, nothing trains the decision the exam asks for."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     }
   }
 });

@@ -29,7 +29,7 @@ Object.assign(window.KEYS, {
         "Nothing ties the subscription to the exam. It keeps renewing until you cancel it in Skill Builder.",
         "There is no automatic switch. Until you cancel, each month's charge is billed to your AWS account."
       ],
-      dom: 4, tags: ["Cost management tools"], doc: "budgets"
+      doc: "budgets"
     },
     docs: [["AWS Training FAQs (how the Individual subscription is billed)", "https://aws.amazon.com/training/faqs/"]]
   },
@@ -231,7 +231,7 @@ Object.assign(window.KEYS, {
         "Security groups cannot deny. They only allow, so a deny for one range needs a network ACL.",
         "Rereading everything spreads the effort thin. One exact rule for the fact you missed is what fixes it."
       ],
-      dom: 1, tags: ["Security groups & NACLs"], doc: "vpc"
+      doc: "vpc"
     }
   },
   d8e7: {

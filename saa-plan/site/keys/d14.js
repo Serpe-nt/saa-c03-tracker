@@ -27,8 +27,7 @@ Object.assign(window.KEYS, {
         "New material on the morning adds little and costs calm you need for 130 minutes.",
         "A full practice exam would spend the energy the real one needs two hours later.",
         "An online exam can be launched only up to 30 minutes early, so 08:30 is too soon."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     },
     docs: [["AWS Certification policies: during testing", "https://aws.amazon.com/certification/policies/during-testing/"]]
   },
@@ -63,8 +62,7 @@ Object.assign(window.KEYS, {
         "Length says nothing about which option meets the stated requirement.",
         "A newer service is not a better answer unless the requirement calls for what it does.",
         "Your own job has other constraints. The stem's stated requirements are the only ones that count."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     },
     docs: [
       ["SAA-C03 exam guide", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html"],
@@ -99,8 +97,7 @@ Object.assign(window.KEYS, {
         "The Credly email is for claiming the badge. The voucher is in your AWS Certification Account.",
         "The benefit is a 50% discount, not a free exam.",
         "The voucher is 50%, and you find it in your AWS Certification Account."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     },
     docs: [
       ["AWS Certification policies: after testing", "https://aws.amazon.com/certification/policies/after-testing/"],

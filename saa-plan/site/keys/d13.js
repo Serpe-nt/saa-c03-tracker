@@ -57,8 +57,7 @@ Object.assign(window.KEYS, {
         "18 includes 5 answers you only remembered. A higher score on a set you have seen before partly reflects memory.",
         "Only 18 were right, and 5 of those you cannot explain.",
         "Day 8's score is the starting point. Today's known answers are the ones you can defend now."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     }
   },
 
@@ -119,8 +118,7 @@ Object.assign(window.KEYS, {
         "Studying in depth the night before is exactly the new material the rule keeps out.",
         "A whole course is hours of new material the evening before the exam.",
         "A build costs time and money, and tonight is for consolidating."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     }
   },
 
@@ -154,8 +152,7 @@ Object.assign(window.KEYS, {
         "Digital and photocopied IDs are not accepted.",
         "An expired ID is not accepted, even by a few days.",
         "A company badge is not government-issued, so it is not a primary ID."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     },
     docs: [
       ["AWS Certification policies: during testing", "https://aws.amazon.com/certification/policies/during-testing/"],
@@ -180,21 +177,21 @@ Object.assign(window.KEYS, {
       ["Why look again tomorrow", "Cost Explorer refreshes cost data at least once every 24 hours, so today's view may not show the last charges yet."]
     ],
     q: {
-      q: "After the exam you stop your last EC2 instance instead of terminating it, and leave its Elastic IP address attached. What keeps costing money?",
+      q: "In your final cleanup you want to get rid of the customer managed KMS key you created for practice. What happens when you delete it?",
       o: [
-        "Its EBS volumes and the Elastic IP address associated with it",
-        "Nothing, since a stopped instance is free",
-        "Only the instance hours, at a lower rate while it is stopped",
-        "Only the AMI it was launched from"
+        "You schedule its deletion with a waiting period of 7 to 30 days, and the key can't be used while the deletion is pending",
+        "It is deleted at once, and the data it encrypted stays readable with the AWS managed key",
+        "It can only be disabled, because customer managed keys are never deleted",
+        "It is deleted at once, as soon as no resource uses it any more"
       ],
       a: [0],
       x: [
-        "Right. A stopped instance still pays for its EBS volumes and for Elastic IP addresses associated with it. Terminate it and release the address.",
-        "Stopping ends the instance hours, not the charges for its volumes and its address.",
-        "A stopped instance is not billed for instance hours at all. Its volumes and address are.",
-        "The volumes and the Elastic IP keep charging, whatever happens to the AMI."
+        "Right. A customer managed KMS key can't be deleted at once: you schedule its deletion with a waiting period of 7 to 30 days, and it is unusable while it is pending deletion.",
+        "The deletion is never immediate. And once a key is deleted, the data encrypted under it can no longer be decrypted: no other key reads it.",
+        "A customer managed key can be deleted: you schedule the deletion, and the key goes when the waiting period ends.",
+        "The deletion is never immediate, whether or not anything still uses the key: there is always a waiting period of 7 to 30 days."
       ],
-      dom: 4, tags: ["EBS & instance store", "Cost management tools"], doc: "ebs"
+      dom: 1, tags: ["KMS & encryption"], doc: "kms"
     },
     docs: [
       ["How EC2 instance stop and start works", "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-stop-start-works.html"],
@@ -229,7 +226,7 @@ Object.assign(window.KEYS, {
         "Cancelling before the renewal date stops that renewal.",
         "The subscription is only billed to your AWS account. Cancelling it leaves the account as it is."
       ],
-      dom: 4, tags: ["Cost management tools"], doc: "budgets"
+      doc: "budgets"
     },
     docs: [["AWS Training FAQs (how to cancel the Individual subscription)", "https://aws.amazon.com/training/faqs/"]]
   }

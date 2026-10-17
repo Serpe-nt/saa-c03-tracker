@@ -305,19 +305,19 @@ Object.assign(window.KEYS, {
     idea: "A service control policy (SCP) sets that outer limit for the accounts of an organization. It only limits and never grants, and it doesn't restrict the management account.",
     trap: "An Allow in an SCP gives nobody access: the principal still needs an IAM Allow, so the result is the overlap of both. SCPs also skip the management account, which is why an administrator there can still do what the SCP denies.",
     q: {
-      q: "An SCP that denies every Region outside the EU is attached to the organization's root. An administrator still starts instances in us-east-1, and nothing blocks him. Where is he most likely signed in?",
+      q: "The only SCP on an OU allows <code>s3:*</code> and nothing else. In a member account of that OU, a new IAM user has no policies attached. What can the user do in Amazon S3?",
       o: [
-        "In the organization's management account, which SCPs don't restrict",
-        "In a member account, where AdministratorAccess outranks the SCP",
-        "In a member account, because SCPs don't apply to EC2",
-        "In any account, because an SCP needs a matching Allow before its Deny works"
+        "Nothing, because an SCP sets the most an account may allow and grants no access itself",
+        "Everything in S3, because the SCP allows s3:*",
+        "Only read objects, until an administrator attaches a policy",
+        "Everything in S3, but only after signing in to the management account"
       ],
       a: [0],
       x: [
-        "Right. SCPs limit the users and roles of member accounts. The management account is not restricted by them.",
-        "In a member account the SCP caps every principal, administrators included. An IAM Allow can't outweigh it.",
-        "SCPs can deny the actions of any service, EC2 included.",
-        "A Deny in an SCP works by itself. It is an Allow that needs a matching IAM Allow to mean anything."
+        "Right. An SCP only limits and never grants: the user still needs an IAM Allow, and the result is the overlap of both.",
+        "An Allow in an SCP gives nobody access. With no IAM policy, the user has no Allow for the SCP to overlap with.",
+        "No policy allows reading either, and requests are denied unless a policy allows them.",
+        "The management account isn't restricted by SCPs, but that doesn't give this user anything: an SCP grants nothing in any account."
       ],
       dom: 1, tags: ["Organizations & SCPs"], doc: "scp"
     },

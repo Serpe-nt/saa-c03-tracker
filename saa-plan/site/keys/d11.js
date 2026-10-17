@@ -264,8 +264,7 @@ Object.assign(window.KEYS, {
         "There is no penalty for guessing. A blank is simply scored as incorrect.",
         "Unscored questions are not marked, so you cannot tell which ones they are. Treat every question as scored.",
         "One hard question is worth no more than each of the eight blanks. Answer those first."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     },
     docs: [
       ["SAA-C03 exam guide", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html"],
@@ -300,8 +299,7 @@ Object.assign(window.KEYS, {
         "Scoring is compensatory: only the overall score decides, with no minimum in any domain.",
         "720 is a scaled score from 100 to 1,000, not a percentage of the questions.",
         "The domains are weighted 30, 26, 24 and 20%, so a weak Domain 1 costs more than a weak Domain 4."
-      ],
-      dom: 1, tags: ["Well-Architected"]
+      ]
     },
     docs: [["SAA-C03 exam guide", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html"]]
   },
@@ -336,8 +334,7 @@ Object.assign(window.KEYS, {
         "The limit is 24 hours before the appointment, not the calendar day. Fifteen hours before is too late.",
         "A no-show forfeits the fee. Nothing is moved for you.",
         "The two free reschedules count only up to 24 hours before. Within those 24 hours the fee is lost."
-      ],
-      dom: 4, tags: ["Cost management tools"]
+      ]
     },
     docs: [
       ["AWS Certification policies: before testing", "https://aws.amazon.com/certification/policies/before-testing/"],

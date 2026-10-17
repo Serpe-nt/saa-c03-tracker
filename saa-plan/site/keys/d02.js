@@ -175,9 +175,10 @@ Object.assign(window.KEYS, {
       "EC2 → <b>Instances</b> → your instance → terminate it.",
       "VPC → <b>NAT gateways</b> → select it → <b>Actions</b> → <b>Delete NAT gateway</b> → type <code>delete</code>. Wait until it shows as deleted.",
       "EC2 → <b>Elastic IPs</b> → select the address → <b>Actions</b> → <b>Release Elastic IP addresses</b> → <b>Release</b>. It can be released only once nothing uses it.",
-      "VPC → <b>Your VPCs</b> → select your VPC → <b>Actions</b> → <b>Delete VPC</b> → type <code>delete</code>. Its subnets, route tables, internet gateway and security groups go with it."
+      "VPC → <b>Your VPCs</b> → select your VPC → <b>Actions</b> → <b>Delete VPC</b> → type <code>delete</code>. Its subnets, route tables, internet gateway and security groups go with it.",
+      "IAM → <b>Roles</b> → tick the role from the launch, for example <code>lab-ssm</code> → <b>Delete</b> → type its name → <b>Delete</b>. The console removes its instance profile with it."
     ],
-    done: "Your VPCs no longer lists your VPC, and Elastic IPs is empty. The deleted NAT gateway stays visible for about an hour, then disappears by itself.",
+    done: "Your VPCs no longer lists your VPC, Elastic IPs is empty, and Roles no longer lists the role. The deleted NAT gateway stays visible for about an hour, then disappears by itself.",
     k: [
       ["NAT gateway billing", "A NAT gateway is billed for every hour it is provisioned, and a partial hour counts as a full one. On top comes a charge for each GB it processes, besides normal data transfer."],
       ["Why release is its own step", "Deleting the NAT gateway only disassociates its Elastic IP. The address stays allocated to your account, and keeps being charged, until you release it."],

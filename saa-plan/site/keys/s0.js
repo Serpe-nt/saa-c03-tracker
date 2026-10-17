@@ -22,8 +22,7 @@ Object.assign(window.KEYS, {
         "The Official Practice Exam needs the Individual subscription.",
         "Domain Practice needs the Individual subscription.",
         "The exam is booked and paid for separately, through your AWS Certification account. The Individual subscription doesn't include it."
-      ],
-      dom: 4, tags: ["Cost management tools"]
+      ]
     },
     docs: [["AWS Training FAQs", "https://aws.amazon.com/training/faqs/"]]
   },
@@ -48,8 +47,7 @@ Object.assign(window.KEYS, {
         "That is true for the builds you do in your own account, which is why each build ends with a cleanup. A lab's sandbox is not your account.",
         "No part of a lab runs in your account, so neither part is billed to it.",
         "Credits pay for usage in your own account. A lab's resources live in the sandbox, not there."
-      ],
-      dom: 4, tags: ["Cost management tools"]
+      ]
     },
     docs: [["AWS Training FAQs", "https://aws.amazon.com/training/faqs/"]]
   }

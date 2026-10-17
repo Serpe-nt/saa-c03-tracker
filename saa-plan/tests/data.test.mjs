@@ -120,8 +120,10 @@ test("each card's own question (KEYS[id].q) is valid, and unlike every bank ques
     const bad = m => problems.push(`${id}.q: ${m}`);
     if (typeof q.q !== "string" || q.q.length < 30) { bad("stem"); continue; }
     if (!Array.isArray(q.o) || !Array.isArray(q.a) || !Array.isArray(q.x)) { bad("o, a and x must be arrays"); continue; }
-    if (![1, 2, 3, 4].includes(q.dom)) bad("dom");
-    if (!Array.isArray(q.tags) || q.tags.length < 1 || q.tags.length > 2 || q.tags.some(t => !TAGS.has(t))) bad("tags: 1–2 from QTAGS");
+    // a question on exam technique or the plan itself leaves out both: it is about no exam topic and no domain
+    if (("dom" in q) !== ("tags" in q)) bad("dom and tags go together: both, or neither for exam technique");
+    if ("dom" in q && ![1, 2, 3, 4].includes(q.dom)) bad("dom");
+    if ("tags" in q && (!Array.isArray(q.tags) || q.tags.length < 1 || q.tags.length > 2 || q.tags.some(t => !TAGS.has(t)))) bad("tags: 1–2 from QTAGS");
     const two = /\(Choose two\.\)\s*$/.test(q.q);
     if (q.o.length !== (two ? 5 : 4)) bad("option count");
     if (q.a.length !== (two ? 2 : 1)) bad("answer count");
@@ -138,6 +140,11 @@ test("each card's own question (KEYS[id].q) is valid, and unlike every bank ques
     if (stems.has(k)) bad(`same stem as ${stems.get(k)}`); else stems.set(k, `card ${id}`);
   }
   assert.deepEqual(problems, []);
+});
+
+test("every step is a rewritten card: a headline, why it exists, and its own question", () => {
+  const missing = Object.keys(items).filter(id => { const e = W.KEYS[id]; return !e || !e.head || !e.why || !e.q; });
+  assert.deepEqual([...missing], []);
 });
 
 test("no correct answer relies on a retired or closed service", () => {

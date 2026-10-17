@@ -14,19 +14,19 @@ Object.assign(window.KEYS, {
     ],
     trap: "The stem often describes a web application and then adds one requirement only an NLB meets. Examples: fixed IP addresses for an allowlist, UDP, or TLS that must not be decrypted on the load balancer. Path, host and header routing, redirects and Lambda targets are ALB-only.",
     q: {
-      q: "In a three-tier app, the web servers call the application servers through a load balancer. The application tier must never be reachable from the internet. What should balance it?",
+      q: "A partner's firewall lets through only two fixed IP addresses, and your app must also route requests by URL path: <code>/api</code> to one target group, <code>/shop</code> to another. What do you put in front of the app?",
       o: [
-        "An internal Application Load Balancer, whose nodes have only private IP addresses",
-        "An internet-facing Application Load Balancer with a security group that allows only the web servers",
-        "A Gateway Load Balancer in front of the application servers",
-        "An internet-facing Network Load Balancer with Elastic IP addresses"
+        "A Network Load Balancer with Elastic IP addresses, with the Application Load Balancer registered as its target",
+        "An Application Load Balancer with two Elastic IP addresses assigned to it",
+        "A Network Load Balancer alone, with listener rules that match the URL path",
+        "A Gateway Load Balancer that forwards the traffic to the Application Load Balancer"
       ],
       a: [0],
       x: [
-        "Right. A load balancer is created internet-facing or internal. An internal one has only private addresses, so the tier can't be reached from the internet at all.",
-        "A security group narrows who gets through, but an internet-facing load balancer still has public addresses. An internal one has none.",
-        "A Gateway Load Balancer sends traffic through security appliances. It isn't the way to balance an application tier.",
-        "Elastic IP addresses make the load balancer reachable at fixed public addresses, the opposite of what the tier needs."
+        "Right. When both are required, an NLB with static (Elastic) IP addresses goes in front, and the ALB is registered as its target through an ALB-type target group.",
+        "Fixed IP addresses for an allowlist are one of the requirements only an NLB meets. An ALB has none to give the partner.",
+        "Path routing is ALB-only. An NLB passes connections through and doesn't route on the URL.",
+        "A Gateway Load Balancer is for sending traffic through security appliances. It is not the answer to an allowlist or to path routing."
       ],
       dom: 3, tags: ["Load balancing"], doc: "elb"
     },

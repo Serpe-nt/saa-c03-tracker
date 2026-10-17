@@ -24,7 +24,7 @@ Object.assign(window.KEYS, {
         "Dates and prices are not what a design decision turns on.",
         "Command syntax is recall too. The exam is about choosing the right architecture."
       ],
-      dom: 2, tags: ["Well-Architected"], doc: "wa"
+      doc: "wa"
     },
     docs: [
       ["Exam guide: AWS Certified Solutions Architect - Associate (SAA-C03)", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html"]
@@ -89,8 +89,7 @@ Object.assign(window.KEYS, {
         "No domain is that small. Cost-optimized design is 20%.",
         "The 15 unscored questions are single questions that are not identified, not a domain. Every domain counts toward the score.",
         "Design Resilient Architectures is 26%. Cost-optimized design is 20%."
-      ],
-      dom: 4, tags: ["Cost management tools"]
+      ]
     },
     docs: [
       ["Exam guide: AWS Certified Solutions Architect - Associate (SAA-C03)", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html"],
@@ -164,8 +163,7 @@ Object.assign(window.KEYS, {
         "A whole subject has no single rule to drill, so it gives nothing to practise.",
         "A service name is not a decision. Which choice inside the VPC is the weak one?",
         "An intention is not a topic. Name the decision you got wrong."
-      ],
-      dom: 1, tags: ["Security groups & NACLs"]
+      ]
     },
     docs: [
       ["Exam guide: AWS Certified Solutions Architect - Associate (SAA-C03)", "https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html"]
@@ -239,8 +237,7 @@ Object.assign(window.KEYS, {
         "Within the last 24 hours you can no longer reschedule, and the refund is for cancelling more than 24 hours ahead.",
         "The refund rule rewards cancelling in time. Not showing up uses none of it.",
         "The refund comes from cancelling more than 24 hours before the start, not afterwards."
-      ],
-      dom: 4, tags: ["Cost management tools"]
+      ]
     },
     docs: [
       ["AWS Certification policies: before testing", "https://aws.amazon.com/certification/policies/before-testing/"],

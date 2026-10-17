@@ -263,7 +263,8 @@ const QBY = Object.create(null), QREF = {}, TAG_STEPS = {}, ORDER = {};
 BANK.forEach(q => { QBY[q.id] = q; });
 // The one question on each card (KEYS[id].q), written for that card: asked only there, never drawn into a quiz (it is
 // not in BANK). An answer counts like a quiz answer (learn()): XP, topic accuracy, and a miss goes to the notebook and
-// comes back in review, which finds it through QBY.
+// comes back in review, which finds it through QBY. A question on exam technique or the plan itself has no topic and
+// no domain, so it gives XP and lands in the notebook without counting against an exam topic.
 const CARDQ = Object.create(null);
 for (const id in KEYS) {
   const c = KEYS[id].q;
@@ -843,7 +844,9 @@ function stepCardHTML(id) {
   h += head ? `<h2 class="c-t c-hl" tabindex="-1">${esc(head)}</h2>` : `<h2 class="c-t txt" tabindex="-1">${txt}</h2>`;
   // where to do it comes right after the title: it is where the step happens, read before anything else
   if (g.where || url) h += `<div class="c-where"><span class="bi" aria-hidden="true">📍</span>${g.where ? `<span class="where">Where: ${g.where}</span>` : `<span class="where"></span>`}${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</div>`;
-  if (head && !steps) h += `<p class="c-les txt">${LESSONS[g.t] ? `${LESSONS[g.t]}: ` : ""}${parts ? parts[2] : txt}</p>`;
+  // a reading block ("Read: …") is a Watch group too, but you read it
+  const lessons = /^Read\b/.test(g.label || "") ? "To read" : LESSONS[g.t];
+  if (head && !steps) h += `<p class="c-les txt">${lessons ? `${lessons}: ` : ""}${parts ? parts[2] : txt}</p>`;
   if (note && !steps) h += `<p class="c-n txt">${note}</p>`;
   h += `</header>`;
   // Purpose first: the problem or need behind the step, then the idea that answers it, before any detail.
@@ -2277,7 +2280,7 @@ function exportNotebook() {
   download(md.join("\n"), `saa-wrong-answers-${today()}.md`, "text/markdown");
 }
 function weakHTML() {
-  const w = QZ.weakTags(WITH_CARDQ, S.qs), dom = QZ.domainAcc(WITH_CARDQ, S.qs);
+  const w = QZ.weakTags(WITH_CARDQ, S.qs), dom = QZ.domainAcc(WITH_CARDQ.filter(q => q.dom), S.qs);   // an exam-technique card question has no domain
   const shaky = Object.keys(S.conf).filter(id => S.conf[id] === "shaky" && itemIndex[id]);
   if (!w.length && !shaky.length && !whyCounts().length) return `<p class="muted">Nothing yet. This fills in as you answer quiz questions and mark self-checks as shaky.</p>`;
   let h = `<h3 class="sub-h">Why you miss</h3>${whyPatternHTML()}`;
