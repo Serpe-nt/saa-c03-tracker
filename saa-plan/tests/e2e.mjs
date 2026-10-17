@@ -180,31 +180,45 @@ try {
   assert.equal(await hash(page), `#${QA.id}/${QA.ids[0]}`);
 
   // ---------- helper material on the card ----------
-  log("a step card carries key points, AWS docs, exam topics and its own notes");
+  log("a step card carries key points; its panels carry AWS docs, terms, exam topics, practice and its own notes");
   await openCard(page, HELPDAY, HELP);
   assert.ok(await page.locator("#card .c-key li").count() >= 2, "key points");
   if (await page.evaluate(id => !!window.KEYS[id].why, HELP)) {
     assert.ok(await page.evaluate(() => { const w = document.querySelector("#card .c-why"), k = document.querySelector("#card .c-key"), where = document.querySelector("#card .c-w"); return !!w && w.compareDocumentPosition(k) & 4 && (!where || w.compareDocumentPosition(where) & 4); }), "why it exists comes before where to do it and before the details");
     assert.ok(await page.locator("#card .c-key .k-list .k-l").count() >= 2, "labelled points");
   }
-  assert.ok(await page.locator("#card .c-tags li").count() >= 1, "exam topics");
-  const links = await page.$$eval("#card .c-docs a", as => as.map(a => [a.href, a.target, a.rel]));
+  assert.ok(await page.locator("#side-r .c-tags li").count() >= 1, "exam topics in the exam panel");
+  const links = await page.$$eval("#side-l .c-docs a", as => as.map(a => [a.href, a.target, a.rel]));
   assert.ok(links.length >= 1 && links.every(([h, t, r]) => /^https:\/\/(docs\.)?aws\.amazon\.com\//.test(h) && t === "_blank" && r.includes("noopener")), "AWS docs open in a new tab");
-  await page.fill(`#card [data-inote="${HELP}"]`, "look at this again");
+  await page.fill(`#side-r [data-inote="${HELP}"]`, "look at this again");
   await page.waitForTimeout(600);
   assert.equal((await state(page)).inotes[HELP], "look at this again");
-  await page.click('#card details[data-sec="terms"] > summary');
+  assert.ok(await page.evaluate(() => document.querySelector('#side-l details[data-sec="terms"]').open), "terms start open in their panel");
   await page.screenshot({ path: path.join(SHOTS, "02-step-card.png"), fullPage: true });
+
+  log("wide screens: Look it up left of the card, On the exam right of it; narrower screens: under it");
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.waitForTimeout(300);
+  const box3 = () => Promise.all(["#side-l", "#card", "#side-r"].map(sel => page.$eval(sel, el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; })));
+  let [pl, pc, pr] = await box3();
+  assert.ok(pl.r <= pc.l && pc.r <= pr.l && Math.abs(pl.t - pc.t) < 2 && Math.abs(pr.t - pc.t) < 2, `beside the card, level with its top: ${JSON.stringify([pl, pc, pr])}`);
+  await page.screenshot({ path: path.join(SHOTS, "02b-step-card-wide.png") });
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.waitForTimeout(300);
+  [pl, pc, pr] = await box3();
+  assert.ok(pl.t >= pc.b && pr.t >= pc.b && pl.r <= pr.l, "under the card, side by side");
+  await page.click('#side-l details[data-sec="terms"] > summary');      // fold it
   await page.click("#fl-nav [data-next]");
-  if (await page.locator('#card details[data-sec="terms"]').count())
-    assert.ok(await page.evaluate(() => document.querySelector('#card details[data-sec="terms"]').open), "an opened helper list stays open on the next card");
+  if (await page.locator('#side-l details[data-sec="terms"]').count())
+    assert.ok(!(await page.evaluate(() => document.querySelector('#side-l details[data-sec="terms"]').open)), "a folded helper list stays folded on the next card");
 
   log("step practice: three questions on this step");
   // a tampered GIF pointer in this browser's preferences must not break the results
   await page.evaluate(() => { const u = JSON.parse(localStorage.getItem("saa-plan-v2-ui") || "{}"); u.gif = { ace: -1, pass: -1, fail: "x" }; localStorage.setItem("saa-plan-v2-ui", JSON.stringify(u)); });
   await page.reload();
   await openCard(page, HELPDAY, HELP);
-  await page.click(`#card [data-step-quiz="${HELP}"]`);
+  await page.click(`#side-r [data-step-quiz="${HELP}"]`);
   let s = await state(page);
   assert.equal(s.run.kind, "step");
   assert.equal(s.run.ids.length, 3);
@@ -238,7 +252,7 @@ try {
   assert.equal(g1 && g1.o, "ace", "every answer right: a GIF from the ace list");
   await page.click('#qz-body [data-qz="finish"]');
   assert.equal((await state(page)).run, null);
-  assert.match(await page.textContent("#card .c-prac"), /answered 3/);
+  assert.match(await page.textContent("#side-r .c-prac"), /answered 3/);
 
   // ---------- self-check card ----------
   log("self-check card: reveal the model answer, mark shaky");
@@ -762,11 +776,63 @@ try {
   await page.click("#sheet [data-sh-close]");
   assert.ok(await page.locator("#next .hero-t").count() === 1, "page still renders after the import");
   await openCard(page, "d1", "d1a2");
-  assert.equal(await page.inputValue('#card [data-inote="d1a2"]'), "<img src=x id=pwn4>", "a step note is shown as text");
+  assert.equal(await page.inputValue('#side-r [data-inote="d1a2"]'), "<img src=x id=pwn4>", "a step note is shown as text");
   await page.click('#fl-tools [data-sheet="daynotes"]');
   assert.match(await page.textContent("#sh-body .in-note"), /pwn4/);
   assert.equal(await page.locator("#pwn4, #pwn5").count(), 0, "notes are never rendered as markup");
   await page.click("#sheet [data-sh-close]");
+  await ctx.close();
+
+  // ---------- reading: display settings, focus view, "Test me", search (browser-only, its own context) ----------
+  log("display settings, focus view, Test me on key points, search over everything");
+  ({ ctx, page } = await newPage({ viewport: { width: 1600, height: 1000 } }));
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.goto(BASE);
+  await setState(page, s => { s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false }; s.inotes = { [Object.keys(window.STEP_TAGS)[0]]: "zebra <img src=x id=pwnS> crossing" }; });
+  await page.reload();
+  await page.click("#b-set");
+  await page.selectOption("#s-theme", "dark");
+  await page.selectOption("#s-size", "l");
+  await page.click('#settings button[value="save"]');
+  await page.waitForFunction(() => !document.getElementById("settings").open && document.documentElement.dataset.theme, null, { timeout: 3000 }).catch(() => {});   // the dialog's close event comes a moment after the click
+  assert.deepEqual(await page.evaluate(() => [document.documentElement.dataset.theme, document.documentElement.dataset.size]), ["dark", "l"], "theme and text size apply");
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--card").trim()), "#10233b", "dark colours although the system is light");
+  await page.reload();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), "dark", "and stay after a reload");
+  await openCard(page, HELPDAY, HELP);
+  assert.ok(await page.locator("#side-l").isVisible() && await page.locator("#side-r").isVisible());
+  await page.click("#fl-tools [data-focus-view]");
+  assert.ok(await page.locator("#side-l").isHidden() && await page.locator("#side-r").isHidden(), "focus view hides the panels");
+  await page.screenshot({ path: path.join(SHOTS, "21-focus-view-dark-large.png") });
+  await page.keyboard.press("f");
+  assert.ok(await page.locator("#side-r").isVisible(), "F brings them back");
+  // Test me: labels only, reveal, mark
+  const npts = await page.locator("#card .c-key .k-list li").count();
+  await page.click("#card [data-test]");
+  assert.equal(await page.locator("#card .k-list li.k-hid").count(), npts, "every point is hidden behind its label");
+  await page.click('#card [data-reveal="0"]');
+  await page.click('#card [data-kc="shaky"][data-ki="0"]');
+  assert.equal((await state(page)).kconf[`${HELP}:0`], "shaky", "the mark is kept");
+  for (let i = 1; i < npts; i++) { await page.click(`#card [data-reveal="${i}"]`); await page.click(`#card [data-kc="ok"][data-ki="${i}"]`); }
+  assert.match(await page.textContent("#card .k-sum"), new RegExp(`${npts - 1} of ${npts} got it`));
+  await page.click("#card [data-test-end]");
+  assert.equal(await page.locator("#card .k-list .k-m.pill").count(), 1, "outside Test me the shaky point carries its mark");
+  // search: Ctrl+K, a key point, then a note with markup in it
+  const label = await page.evaluate(id => window.KEYS[id].k.find(Array.isArray)[0].replace(/<[^>]+>/g, ""), HELP);
+  await page.keyboard.press("Control+k");
+  await page.waitForSelector("#search[open]");
+  await page.fill("#sr-q", label);
+  await page.waitForSelector("#sr-list .sr-it");
+  assert.match(await page.textContent("#sr-list .sr-it.on"), /Key point|Step|Why/, "the best match comes first");
+  await page.fill("#sr-q", "zebra crossing");
+  await page.waitForSelector("#sr-list .sr-it");
+  assert.match(await page.textContent("#sr-list .sr-it.on .sr-k"), /My note/);
+  assert.equal(await page.locator("#pwnS").count(), 0, "a note is shown as text in the results");
+  assert.ok(await page.locator("#sr-list mark").count() >= 2, "the words are marked");
+  await page.screenshot({ path: path.join(SHOTS, "22-search.png") });
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => !document.getElementById("search").open);
+  assert.ok((await hash(page)).endsWith("/" + await page.evaluate(() => Object.keys(window.STEP_TAGS)[0])), "Enter opens the step");
   await ctx.close();
 
   // ---------- focus timer: the break pop-up and the reminders, on a fake clock and off the server ----------
@@ -881,6 +947,498 @@ try {
   await page.click('#brk [data-brk="rest"]');
   await tab2.waitForSelector("#brk:not([open])", { state: "attached", timeout: 4000 });
   assert.equal((await state(tab2)).timer.mode, "rest", "the other tab follows: the break is on");
+  await ctx.close();
+
+  log("the timer strip: a focus block starts by itself when a day starts or a step is completed, but not over a running block or a break");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.clock.install();
+  await page.goto(BASE);
+  await setState(page, s => { s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false }; delete s.timer; });
+  await page.reload();
+  const tmBox = await page.locator("#timer").boundingBox();
+  assert.ok(tmBox.y <= 1 && tmBox.width >= 1100, "the strip runs along the top of the page");
+  assert.equal(await page.textContent("#timer .tm-time"), "50:00");
+  await page.click("[data-start-day]");
+  await page.waitForFunction(() => !document.getElementById("flow").hidden);
+  tmS = (await state(page)).timer;
+  let tNow = await page.evaluate(() => Date.now());
+  assert.ok(tmS.mode === "focus" && tmS.running && Math.abs(tmS.endAt - tNow - 50 * 60000) < 3000, "Start Day starts a 50-minute block");
+  assert.match(await page.textContent(".fx-toast"), /Focus on/);
+  await page.clock.runFor(10 * 60000);
+  const fill = await page.evaluate(() => parseFloat(document.querySelector("#timer .tm-fill").style.width));
+  assert.ok(fill > 18 && fill < 22, `the strip fills as the block runs: ${fill}%`);
+  await page.screenshot({ path: path.join(SHOTS, "23-timer-strip.png"), clip: { x: 0, y: 0, width: 1200, height: 120 } });
+  const end0 = (await state(page)).timer.endAt;
+  await complete(page);
+  assert.equal((await state(page)).timer.endAt, end0, "a block that runs already goes on as it was");
+  await page.click('#timer [data-tm="toggle"]');                          // pause; completing a step resumes it
+  assert.match(await page.textContent("#timer .tm-mode"), /Focus, paused/);
+  await complete(page);
+  tmS = (await state(page)).timer;
+  assert.ok(tmS.running && tmS.mode === "focus" && tmS.from < 41 * 60 && tmS.from > 39 * 60, "a paused block picks up where it was");
+  await page.click('#timer [data-tm="menu"]');
+  assert.ok(await page.locator("#tm-pop").isVisible() && await page.getAttribute('#timer [data-tm="menu"]', "aria-expanded") === "true", "the time opens the timer's menu");
+  await page.screenshot({ path: path.join(SHOTS, "24-timer-menu.png"), clip: { x: 0, y: 0, width: 1200, height: 260 } });
+  await page.click('#tm-pop [data-tm="switch"]');                        // ☕ Break now, then start it
+  assert.ok(await page.locator("#tm-pop").isHidden(), "the menu closes after a choice");
+  await page.click('#timer [data-tm="toggle"]');
+  await page.clock.runFor(2000);
+  await complete(page);
+  tmS = (await state(page)).timer;
+  assert.ok(tmS.mode === "rest" && tmS.running, "on a break, completing a step doesn't start focus");
+  await page.click('#timer [data-tm="toggle"]');                          // a paused break is still a break
+  await complete(page);
+  assert.equal((await state(page)).timer.mode, "rest");
+
+  log("away: the PC sleeps during a focus block → on return a pop-up asks whether that time counts");
+  await page.click('#timer [data-tm="menu"]');
+  await page.click('#tm-pop [data-tm="switch"]');                        // 🎯 Focus now, then start it
+  await page.click('#timer [data-tm="toggle"]');
+  await page.clock.runFor(2000);
+  const end1 = (await state(page)).timer.endAt;
+  await page.clock.fastForward(8 * 60000);                               // a jump of the clock: the PC slept
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /Welcome back[\s\S]*8 minutes[\s\S]*PC slept/);
+  assert.match(await page.textContent("#timer .tm-mode"), /Away/);
+  await page.screenshot({ path: path.join(SHOTS, "25-away.png") });
+  await page.keyboard.press("Escape");                                    // Esc: the time counts
+  await page.waitForFunction(k => !document.getElementById("brk").open && !JSON.parse(localStorage.getItem(k)).timer.away, KEY, { timeout: 3000 }).catch(() => {});
+  tmS = (await state(page)).timer;
+  assert.ok(!tmS.away && tmS.endAt === end1 && tmS.running, "Esc counts the time away as focus: " + JSON.stringify({ ...tmS, end1 }));
+  await ctx.close();
+
+  log("away: Edge's idle detection (no mouse or keyboard for 5 minutes) holds the block's end; Don't count it picks it up where you left; notifications reach the other monitor");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await ctx.addInitScript(() => {
+    // stand-ins for the browser's idle detection and notifications, which a headless test can't drive
+    window.__notes = [];
+    window.Notification = class { constructor(t) { window.__notes.push(t); } close() {} static permission = "default"; static requestPermission() { this.permission = "granted"; return Promise.resolve("granted"); } };
+    window.IdleDetector = class extends EventTarget { constructor() { super(); this.userState = "active"; this.screenState = "unlocked"; window.__idle = this; } static requestPermission() { return Promise.resolve("granted"); } async start(o) { this.threshold = o.threshold; } };
+  });
+  await page.clock.install();
+  await page.goto(BASE);
+  await setState(page, s => {
+    s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false };
+    s.timer = { mode: "focus", running: true, endAt: Date.now() + 3 * 60000, left: 3000, from: 3000, min: false };
+  });
+  await page.reload();
+  await page.click('#timer [data-tm="menu"]');
+  await page.click('#tm-pop [data-tm="perm"]');
+  await page.waitForFunction(() => document.querySelector('#tm-pop [data-tm="perm"]').hidden);
+  assert.match(await page.textContent("#tm-pop .tm-info"), /On: Windows notifications and away detection/);
+  assert.equal(await page.evaluate(() => window.__idle.threshold), 5 * 60000, "away means 5 minutes without input, when the screen goes off");
+  const idle = st => page.evaluate(st => { window.__idle.userState = st; window.__idle.dispatchEvent(new Event("change")); }, st);
+  await idle("idle");
+  await page.clock.runFor(4 * 60000);                                     // the block's end passes while away
+  assert.equal(await page.locator("#brk[open]").count(), 0, "no pop-up while away, and the block doesn't end");
+  assert.match(await page.textContent("#timer .tm-mode"), /Away/);
+  await idle("active");
+  await page.clock.runFor(1500);
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /away for 9 minutes/);
+  await page.clock.runFor(450);
+  await page.click('#brk [data-brk="skip-away"]');
+  assert.match(await page.textContent("#timer .tm-time"), /^07:5/, "Don't count it: the block goes on from where you left it");
+  await page.evaluate(() => { document.hasFocus = () => false; });       // you're on the other monitor
+  await page.clock.runFor(8 * 60000 + 2000);
+  await page.waitForSelector("#brk[open]");
+  assert.match(await page.textContent("#brk"), /Focus block done/);
+  assert.deepEqual(await page.evaluate(() => window.__notes), ["Focus block done 🎯"], "a Windows notification, once, when the page isn't the one in use");
+  await ctx.close();
+
+  log("course diagrams on the course's and the labs' cards: the step's parts first, a click or Enter explains a part, a larger view");
+  ({ ctx, page } = await newPage({ viewport: { width: 1600, height: 1000 } }));
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.goto(BASE);
+  await setState(page, s => { s.settings = { start: new Date().toISOString().slice(0, 10), fx: false, sound: false }; });
+  await page.reload();
+  const firstStep = await page.evaluate(() => window.PLAN.find(d => d.id).groups[0].items[0][0]);
+  await openCard(page, dayOfStep(firstStep), firstStep);
+  assert.equal(await page.locator("#card .b-map").count(), 0, "no diagram outside the lecture courses");
+  await openCard(page, dayOfStep("c3b"), "c3b");
+  await page.waitForSelector("#card .b-map .dg");
+  const dgNow = () => page.evaluate(() => ({ sel: document.querySelector("#card .dg-part").dataset.sel, rel: document.querySelector("#card .dg-box").dataset.rel.split(" ").filter(Boolean), on: [...document.querySelectorAll("#card .dg .on")].map(e => e.dataset.part), name: (document.querySelector("#card .dg-part .dg-pn") || {}).textContent }));
+  let g = await dgNow();
+  assert.ok(g.rel.length && g.sel === g.rel[0] && g.on.join() === g.sel, "the first part this step is about is open and marked: " + JSON.stringify(g));
+  await page.click('#card .dg [data-part="db-a"]');
+  g = await dgNow();
+  assert.ok(g.sel === "db-a" && g.on.join() === "db-a" && g.name === await page.evaluate(() => window.DIAGRAMS.c3.parts["db-a"].name), "a click explains the part: " + JSON.stringify(g));
+  await page.locator("#card .b-map").screenshot({ path: path.join(SHOTS, "26-diagram.png") });
+  await page.focus('#card .dg [data-part="alb"]');
+  await page.keyboard.press("Enter");
+  g = await dgNow();
+  assert.equal(g.sel, "alb", "Enter on a part opens it");
+  assert.ok(!((await state(page)).ticks || {}).c3b && (await hash(page)).endsWith("/c3b"), "Enter on a part doesn't complete the step");
+  await page.click("#card [data-dg-big]");
+  await page.waitForSelector('#sheet[open][data-kind="dg"] .dg');
+  await page.click('#sheet .dg [data-part="efs"]');
+  assert.equal(await page.textContent("#sheet .dg-part .dg-pn"), await page.evaluate(() => window.DIAGRAMS.c3.parts.efs.name));
+  await page.screenshot({ path: path.join(SHOTS, "27-diagram-large.png") });
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.getElementById("sheet").open && document.querySelector("#card .dg-part").dataset.sel === "efs", null, { timeout: 3000 });
+  await openCard(page, dayOfStep("l3a"), "l3a");
+  assert.equal(await page.getAttribute("#card .dg-box", "data-dg"), "c3", "a lab's card shows its course's diagram");
+  await openCard(page, dayOfStep("c9a"), "c9a");
+  assert.equal(await page.locator("#card .b-map").count(), 0, "a course without a diagram shows none");
+
+  log("look-alikes: from the overview, a card's panel, a missed question (over the quiz) and search");
+  await openCard(page, dayOfStep("c3b"), "c3b");
+  await page.click("#side-r [data-look]");
+  await page.waitForSelector('#sheet[open][data-kind="look"] .la.on');
+  assert.ok(await page.locator("#sheet .la.on").isVisible(), "the linked table is on screen and marked");
+  await page.keyboard.press("Escape");
+  await goHome(page);
+  await openPanel(page, "practice");
+  await page.click("#pr-grid [data-look]");
+  await page.waitForSelector('#sheet[open][data-kind="look"]');
+  assert.equal(await page.locator("#sheet .la").count(), await page.evaluate(() => window.LOOKALIKES.length), "every table is on the sheet");
+  assert.equal(await page.locator("#sheet .la-t").first().locator("tbody tr").count(), await page.evaluate(() => window.LOOKALIKES[0].rows.length));
+  await page.keyboard.press("Escape");
+  // a question whose right answer names SQS and a wrong one SNS, missed in step practice
+  const lq = await page.evaluate(() => {
+    const w = (t, x) => new RegExp(`(?<![A-Za-z0-9])${x}(?![A-Za-z0-9])`, "i").test(t.replace(/<[^>]+>/g, ""));
+    for (const q of window.QUIZ) {
+      if (q.a.length !== 1 || !w(q.o[q.a[0]], "SQS") || w(q.o[q.a[0]], "SNS")) continue;
+      const bad = q.o.findIndex((o, i) => i !== q.a[0] && w(o, "SNS") && !w(o, "SQS"));
+      if (bad >= 0) return { id: q.id, bad, n: q.o.length };
+    }
+    return null;
+  });
+  assert.ok(lq, "the pools hold a question that sets SQS against SNS");
+  await setState(page, `s => { s.run = { kind: "step", day: "", item: "c3b", ids: ["${lq.id}"], ord: { "${lq.id}": [${[...Array(lq.n).keys()]}] }, ans: {}, flag: {}, i: 0, t0: Date.now(), end: 0, done: false, view: "" }; }`);
+  await page.reload();
+  await openCard(page, dayOfStep("c3b"), "c3b");
+  await page.click('#side-r [data-step-quiz="c3b"]');
+  await page.waitForSelector("#qz-body .qz-o");
+  await page.click(`#qz-body [data-o="${lq.bad}"]`);
+  await page.click('#qz-body [data-qz="check"]');
+  await page.waitForSelector('#qz-body .qz-la [data-look="queue-topic-bus"]');
+  // one click says why it was missed; a second click on the same reason takes it back
+  await page.click('#qz-body [data-why="mix"]');
+  assert.equal((await state(page)).book[lq.id].why, "mix");
+  assert.equal(await page.getAttribute('#qz-body [data-why="mix"]', "aria-pressed"), "true");
+  await page.click('#qz-body [data-why="read"]');
+  await page.click('#qz-body [data-why="read"]');
+  assert.equal((await state(page)).book[lq.id].why, "", "a second click clears it");
+  await page.click('#qz-body [data-why="mix"]');
+  await page.click('#qz-body .qz-la [data-look="queue-topic-bus"]');
+  await page.waitForSelector("#sheet[open] #la-queue-topic-bus.on");
+  await page.screenshot({ path: path.join(SHOTS, "28-lookalikes.png") });
+  const picks0 = await page.locator("#qz-body .qz-o.on").count();
+  await page.keyboard.press("1");
+  assert.equal(await page.locator("#qz-body .qz-o.on").count(), picks0, "the quiz keys wait while the sheet is up");
+  await page.keyboard.press("Escape");
+  assert.ok(await page.locator("#quiz[open]").count() && !(await page.locator("#sheet[open]").count()), "closing the sheet goes back to the quiz");
+  await page.click("#quiz .qz-x");
+  await goHome(page);
+  await openPanel(page, "practice");
+  await page.click('#pr-grid [data-sheet="weak"]');
+  await page.waitForSelector("#sheet[open] .why-bars");
+  assert.match(await page.textContent("#sheet .why-bars"), /Mixed up two services\s*1/, "the weak spots show why you miss");
+  assert.match(await page.textContent("#sheet .why-tip"), /look-alikes/);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+k");
+  await page.fill("#sr-q", "transit gateway hub");
+  await page.waitForSelector("#sr-list .sr-it");
+  const di = await page.evaluate(() => [...document.querySelectorAll("#sr-list .sr-it")].findIndex(li => li.querySelector(".sr-k").textContent === "Diagram" && /Transit Gateway/.test(li.querySelector(".sr-t").textContent)));
+  assert.ok(di >= 0, "a diagram's part is found by search");
+  await page.click(`#sr-list [data-sr="${di}"]`);
+  await page.waitForFunction(() => { const p = document.querySelector("#card .dg-part"); return p && p.dataset.sel === "tgw"; }, null, { timeout: 3000 });
+  assert.equal(await page.getAttribute("#card .dg-box", "data-dg"), "c6", "it opens the course's card with that part");
+  await page.keyboard.press("Control+k");
+  await page.fill("#sr-q", "egress-only");
+  await page.waitForSelector("#sr-list .sr-it");
+  const li = await page.evaluate(() => [...document.querySelectorAll("#sr-list .sr-it")].findIndex(li => li.querySelector(".sr-k").textContent === "Look-alikes"));
+  assert.ok(li >= 0, "a look-alike table is found by search");
+  await page.click(`#sr-list [data-sr="${li}"]`);
+  await page.waitForSelector('#sheet[open][data-kind="look"] .la.on');
+  await ctx.close();
+
+  log("daily XP goal (set in Settings) and the week's challenges: reaching them drops badges at the top, once");
+  ({ ctx, page } = await newPage({ viewport: { width: 1400, height: 1000 } }));
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.goto(BASE);
+  const wk = await page.evaluate(() => { const m = new Date(); m.setDate(m.getDate() - (m.getDay() + 6) % 7); return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-${String(m.getDate()).padStart(2, "0")}`; });
+  const tday = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+  await setState(page, `s => {
+    s.settings = { start: "${tday}", fx: false, sound: false };
+    s.ticks = {}; ${JSON.stringify(D1.ids.slice(0, -1))}.forEach(id => { s.ticks[id] = true; });
+    s.xpDay = { "${tday}": { x: 0, at: 1, hit: false } };   // ${(D1.ids.length - 1) * 5} XP today so far
+    s.week = { key: "${wk}", at: 1, ids: ["ans", "steps", "drill"], base: { a: 0, s: ${D1.ids.length - 1} - 39, dr: 0 } };
+    s.chal = {}; s.ach = {};
+  }`);
+  await page.reload();
+  await page.waitForSelector("#today:not([hidden]) .td-goal");
+  assert.match(await page.textContent("#today .ring-v"), new RegExp(`^${(D1.ids.length - 1) * 5}of 200 XP`));
+  assert.match(await page.textContent("#today .td-ch"), /Complete 40 steps\s*39 \/ 40/);
+  await page.click("#today [data-goal-set]");
+  await page.waitForSelector("#settings[open]");
+  await page.selectOption("#s-goal", "100");
+  await page.click('#settings button[value="save"]');
+  await page.waitForFunction(() => /of 100 XP/.test(document.querySelector("#today .ring-v").textContent));
+  await openCard(page, D1.id, D1.ids[D1.ids.length - 1]);
+  await complete(page);
+  await page.waitForFunction(() => /Daily goal reached/.test(document.querySelector(".fx-badges")?.textContent || "") && /Weekly challenge done/.test(document.querySelector(".fx-badges")?.textContent || ""), null, { timeout: 5000 });
+  await page.screenshot({ path: path.join(SHOTS, "29-goal-badges.png"), clip: { x: 0, y: 0, width: 1400, height: 200 } });
+  let st = await state(page);
+  assert.ok(st.xpDay[tday].hit && st.chal[`${wk}:steps`] === tday && st.settings.goal === 100, "the goal and the challenge are recorded once");
+  await goHome(page);
+  assert.ok(await page.locator("#today .td-goal.hit").count(), "the ring shows the goal reached");
+  assert.match(await page.textContent("#today .td-ch li.done"), /Complete 40 steps\s*✓ Done/);
+  await page.locator("#today").screenshot({ path: path.join(SHOTS, "30-today.png") });
+  const nBadges = await page.evaluate(() => document.querySelectorAll(".fx-badges .fx-bd, .fx-badges > *").length);
+  await page.reload();
+  await page.waitForTimeout(1500);
+  assert.ok(!/Daily goal reached|Weekly challenge done/.test(await page.evaluate(() => document.querySelector(".fx-badges")?.textContent || "")), "not announced again after a reload " + nBadges);
+
+  log("readiness by exam domain, study this next, and the day-by-day charts with their hover layer and table view");
+  await setState(page, `s => {
+    s.qs = {}; s.daily = {}; s.xpDay = {};
+    const by = [1, 2, 3, 4].map(d => window.QUIZ.filter(q => q.dom === d).slice(0, 20));
+    by.forEach((qs, i) => qs.forEach((q, k) => { const ok = i === 1 ? k < 8 : k < 18; s.qs[q.id] = { seen: 1, right: ok ? 1 : 0, last: ok ? 1 : 0, at: "${tday}", xp: ok ? 1 : 0 }; }));
+    const d = n => { const x = new Date(); x.setDate(x.getDate() - n); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0"); };
+    s.daily = { [d(3)]: { t1: { a: 30, r: 24, f: 120 } }, [d(2)]: { t1: { a: 20, r: 19, f: 95 } }, [d(1)]: { t1: { a: 10, r: 6, f: 50 }, t2: { a: 10, r: 9, f: 0 } } };
+    s.xpDay = { [d(3)]: { x: 100, at: 1, hit: false }, [d(2)]: { x: 400, at: 1, hit: true }, [d(1)]: { x: 520, at: 1, hit: false } };
+  }`);
+  await page.reload();
+  await page.waitForSelector("#ready .rd-list li");
+  const rd = await page.evaluate(() => [...document.querySelectorAll("#ready .rd-list li")].map(li => [li.className, li.querySelector(".rd-v").textContent]));
+  assert.deepEqual(rd.map(x => x[1]), ["90%", "40%", "90%", "90%"], JSON.stringify(rd));
+  assert.deepEqual(rd.map(x => x[0]), ["ok", "bad", "ok", "ok"]);
+  assert.match(await page.textContent("#ready .rd-all"), /^77%/, "weighted like the exam: (90·30 + 40·26 + 90·24 + 90·20) / 100");
+  assert.match(await page.textContent("#ready .rd-next"), /D2 Resilient/, "study next comes from the weakest domain");
+  await page.locator("#progress").screenshot({ path: path.join(SHOTS, "31-readiness-trends.png") });
+  const ch = page.locator('#trends .tr[data-chart="acc"]');
+  assert.equal(await ch.locator("circle.dot").count(), 3, "a point for each day with answers");
+  assert.equal(await page.locator('#trends .tr[data-chart="focus"] path.mk').count(), 3);
+  const hi = await page.evaluate(() => { const r = document.querySelectorAll('#trends .tr[data-chart="acc"] .hit'); return r.length - 2; });
+  await ch.locator(`.hit[data-i="${hi}"]`).hover();
+  assert.match(await ch.locator(".tt").textContent(), /^75%15 of 20 right/, "the tooltip adds up both devices of a day");
+  await ch.focus();
+  await page.keyboard.press("End");
+  assert.match(await ch.locator(".tt").textContent(), /^–no answers/, "End goes to today");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  assert.match(await ch.locator(".tt").textContent(), /^95%19 of 20 right/, "the arrow keys read the days");
+  const xpT = page.locator('#trends .tr[data-chart="xp"]');
+  await xpT.locator(`.hit[data-i="${hi - 1}"]`).hover();
+  assert.match(await xpT.locator(".tt").textContent(), /^120 XP/, "a day's XP is the next day's starting total minus its own");
+  await page.click("#trends [data-trend-table]");
+  assert.equal(await page.locator("#trends .tr-tab tbody tr").count(), 14, "the table view has a row per day");
+  await page.click('#trends [data-trend="30"]');
+  assert.equal(await page.locator("#trends .tr-tab tbody tr").count(), 30);
+  await page.click("#trends [data-trend-table]");
+  assert.equal(await page.locator('#trends .tr[data-chart="acc"] .hit').count(), 30);
+  await page.click('#ready .rd-next [data-step-quiz]');
+  await page.waitForSelector("#quiz[open] #qz-body .qz-o");
+  assert.equal((await state(page)).run.kind, "step", "Try 3 questions starts step practice");
+  await ctx.close();
+
+  log("hostile values in the goal, challenge, per-day and miss-reason fields are cleaned");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.goto(BASE);
+  await setState(page, `s => {
+    s.settings = { start: "${tday}", fx: false, sound: false, goal: 12345 };
+    s.xpDay = { "bad": { x: 1 }, "2026-10-10": { x: "9", at: 1, hit: "<b>" } };
+    s.daily = { "2026-10-10": { "BAD!": { a: 1 }, "ok1": { a: 5, r: 9, f: 1e9 } }, "nope": {} };
+    s.week = { key: "2026-10-12", at: 5, ids: ["nope", "ans", "__proto__"], base: { a: "x", r: 3 } };
+    s.chal = { "x": "2026-10-10", "2026-10-12:ans": "2026-10-13", "2026-10-12:zzz": "2026-10-13", "2026-10-12:fix": "<img>" };
+    s.book = { "${await page.evaluate(() => window.QUIZ[0].id)}": { at: "2026-10-10", misses: 1, note: "", fixed: false, why: "<img src=x>" } };
+  }`);
+  await page.reload();
+  await page.waitForSelector("#today:not([hidden])");
+  st = await state(page);
+  assert.deepEqual(st.xpDay["2026-10-10"], { x: 0, at: 1, hit: true });
+  assert.ok(!("bad" in st.xpDay) && !("nope" in st.daily));
+  assert.deepEqual(st.daily["2026-10-10"], { ok1: { a: 5, r: 5, f: 1440 } });
+  assert.deepEqual(Object.keys(st.chal), ["2026-10-12:ans"]);
+  assert.equal(st.settings.goal, 200);
+  assert.equal(Object.values(st.book)[0].why, "");
+  if (st.week.key === "2026-10-12") assert.deepEqual([st.week.ids, st.week.base], [["ans"], { r: 3 }]);
+  await ctx.close();
+
+  log("the mock exam screen: highlight words, strike options out, review filters, the clock turns red and warns");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.goto(BASE);
+  const mkIds = await page.evaluate(() => window.QUIZ.filter(q => q.id.startsWith("m1") && q.a.length === 1).slice(0, 4).map(q => q.id));
+  await setState(page, `s => {
+    s.settings = { start: "${tday}", fx: false, sound: false };
+    s.run = { kind: "mock", day: "", ids: ${JSON.stringify(mkIds)}, ord: {}, ans: {}, flag: {}, i: 0, t0: Date.now(), end: Date.now() + 10 * 60000 + 2500, done: false, view: "" };
+  }`);
+  await page.reload();
+  await openPanel(page, "practice");
+  await page.click("#pr-grid [data-mock]");
+  await page.waitForSelector("#qz-body .mk-q .w");
+  const words = page.locator("#qz-body .mk-q .w"), run = async () => (await state(page)).run, q0 = mkIds[0];
+  await words.nth(2).click();
+  assert.deepEqual((await run()).hl[q0], [2], "a click highlights a word");
+  const wa = await words.nth(5).boundingBox(), wb = await words.nth(8).boundingBox();
+  await page.mouse.move(wa.x + 2, wa.y + wa.height / 2); await page.mouse.down();
+  await page.mouse.move(wb.x + wb.width - 2, wb.y + wb.height / 2, { steps: 4 }); await page.mouse.up();
+  assert.deepEqual((await run()).hl[q0], [2, 5, 6, 7, 8], "a drag highlights the words between");
+  await words.nth(2).click();
+  assert.deepEqual((await run()).hl[q0], [5, 6, 7, 8], "a second click takes it back");
+  const ord0 = (await run()).ord[q0];
+  await page.click(`#qz-body .mk-x[data-x="${ord0[1]}"]`);
+  await page.keyboard.press("Shift+Digit3");
+  assert.deepEqual((await run()).x[q0].slice().sort(), [ord0[1], ord0[2]].sort(), "⊘ and Shift + number strike options out");
+  assert.equal(await page.locator("#qz-body .mk-row.x").count(), 2);
+  await page.click(`#qz-body [data-o="${ord0[1]}"]`);
+  let rr = await run();
+  assert.ok(rr.ans[q0][0] === ord0[1] && !rr.x[q0].includes(ord0[1]), "picking a struck option brings it back");
+  await page.click(`#qz-body .mk-x[data-x="${ord0[1]}"]`);
+  rr = await run();
+  assert.ok(!rr.ans[q0] && rr.x[q0].includes(ord0[1]), "striking the picked option unpicks it");
+  await page.click(`#qz-body [data-o="${ord0[0]}"]`);
+  await page.click('#qz-body [data-qz="flag"]');
+  assert.match(await page.textContent("#qz-meta .mk-time"), /^⏱ 0:10:0/);
+  await page.waitForSelector(".fx-toast.show", { timeout: 6000 });
+  assert.match(await page.textContent(".fx-toast"), /10 minutes left/, "a word when 10 minutes are left");
+  assert.ok(await page.locator("#qz-meta .mk-time.low").count(), "the clock turns red");
+  await page.screenshot({ path: path.join(SHOTS, "32-mock-screen.png") });
+  await page.reload();
+  await openPanel(page, "practice");
+  await page.click("#pr-grid [data-mock]");
+  await page.waitForSelector("#qz-body .mk-q .w.hl");
+  assert.equal(await page.locator("#qz-body .mk-q .w.hl").count(), 4, "highlights stay after a reload");
+  assert.equal(await page.locator("#qz-body .mk-row.x").count(), 2, "and so do the strike-outs");
+  await page.click('#qz-body [data-qz="grid"]');
+  await page.click('#qz-body [data-grid-f="flag"]');
+  assert.equal(await page.locator("#qz-body .mk-grid [data-go]").count(), 1, "the review screen shows the flagged ones");
+  await page.click('#qz-body [data-grid-f="open"]');
+  assert.equal(await page.locator("#qz-body .mk-grid [data-go]").count(), mkIds.length - 1, "and the unanswered ones");
+  await ctx.close();
+
+  log("drill modes: reverse, three lives, and the daily five (the same five all day; the first try counts)");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.goto(BASE);
+  await setState(page, `s => { s.settings = { start: "${tday}", fx: false, sound: false }; }`);
+  await page.reload();
+  // pick the right option, or a wrong one, by reading the item from window.DRILL
+  const drillPick = async right => {
+    await page.evaluate(right => {
+      const req = document.querySelector("#qz-body .dr-req"), rev = req.classList.contains("dr-svc"), txt = rev ? req.lastChild.textContent : req.textContent;
+      const it = window.DRILL.find(d => (rev ? d[1] : d[0]) === txt), ans = rev ? it[0] : it[1];
+      const opts = [...document.querySelectorAll("#qz-body [data-dr] .qz-t")].map(x => x.textContent);
+      document.querySelectorAll("#qz-body [data-dr]")[right ? opts.indexOf(ans) : opts.findIndex(o => o !== ans)].click();
+    }, right);
+    await page.waitForTimeout(right ? 500 : 1350);
+  };
+  await openPanel(page, "practice");
+  await page.click('#pr-grid [data-drill-mode="rev"]');
+  await page.waitForSelector("#qz-body .dr-svc");
+  const revOk = await page.evaluate(() => { const txt = document.querySelector("#qz-body .dr-req").lastChild.textContent, it = window.DRILL.find(d => d[1] === txt); return [...document.querySelectorAll("#qz-body [data-dr] .qz-t")].filter(x => x.textContent === it[0]).length; });
+  assert.equal(revOk, 1, "reverse: the service's own requirement is one of the four");
+  await drillPick(true);
+  assert.match(await page.textContent("#qz-meta"), /Score 1/);
+  await page.click("#quiz .qz-x");
+  await page.click('#pr-grid [data-drill-mode="lives"]');
+  await page.waitForSelector("#qz-body .dr-req");
+  assert.equal(await page.locator("#qz-meta .dr-lives .on").count(), 3);
+  await drillPick(true); await drillPick(true); await drillPick(false);
+  assert.equal(await page.locator("#qz-meta .dr-lives .on").count(), 2, "a miss costs a life");
+  await drillPick(false); await drillPick(false);
+  await page.waitForSelector("#qz-body .qz-res");
+  assert.match(await page.textContent("#qz-head, #quiz .qz-h"), /Out of lives/);
+  assert.equal((await state(page)).drill.lives, 2, "the best in three lives");
+  await page.click('#qz-body [data-qz="close"]');
+  await page.click('#pr-grid [data-drill-mode="day"]');
+  await page.waitForSelector("#qz-body .dr-req");
+  const first5 = await page.textContent("#qz-body .dr-req");
+  for (let i = 0; i < 5; i++) await drillPick(true);
+  await page.waitForSelector("#qz-body .qz-res");
+  assert.match(await page.textContent("#qz-body .qz-res"), /5 right of 5[\s\S]*Today's result/);
+  assert.equal((await state(page)).drill.day[tday], 5);
+  await page.screenshot({ path: path.join(SHOTS, "33-daily-five.png") });
+  await page.click('#qz-body [data-qz="close"]');
+  await page.click('#pr-grid [data-drill-mode="day"]');
+  await page.waitForSelector("#qz-body .dr-req");
+  assert.equal(await page.textContent("#qz-body .dr-req"), first5, "the same five all day");
+  for (let i = 0; i < 5; i++) await drillPick(false);
+  await page.waitForSelector("#qz-body .qz-res");
+  assert.match(await page.textContent("#qz-body .qz-res"), /stays 5 of 5/);
+  assert.equal((await state(page)).drill.day[tday], 5, "only the first try counts");
+  assert.equal((await state(page)).drill.runs, 3, "every finished drill counts as a run (the reverse one was closed early)");
+  await ctx.close();
+
+  log("cost guard: Build steps put what they create on a still-running list; quick-add, Undo, Deleted, the cleanup check, and the evening reminder (fake clock)");
+  ({ ctx, page } = await newPage());
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  const eve = new Date(); eve.setHours(19, 30, 0, 0);
+  await page.clock.install({ time: eve });
+  await page.goto(BASE);
+  await setState(page, `s => { s.settings = { start: "${tday}", fx: false, sound: false }; s.cost = { items: [], snooze: 0, night: "" }; }`);
+  await page.reload();
+  const items = async () => (await state(page)).cost.items;
+  const BD = dayOfStep("d2b1");
+  await openCard(page, BD, "d2b1");
+  await complete(page);
+  let ci = await items();
+  assert.deepEqual(ci.map(x => [x.id, x.gone]), [["d2b1:nat", 0], ["d2b1:eip", 0]], "completing the step lists the NAT gateway and its Elastic IP");
+  await page.click('#timer [data-tm="toggle"]');                         // pause the focus block that started: the clock jumps below
+  await page.waitForSelector("#card .b-cost");
+  assert.match(await page.textContent("#card .b-cost"), /NAT gateway[\s\S]*Elastic IP/, "the next Build card shows them");
+  await page.selectOption("#card .b-cost [data-cost-k]", "elb");
+  await page.fill("#card .b-cost [data-cost-l]", "web <b>x</b>");
+  await page.click("#card .b-cost [data-cost-add]");
+  ci = await items();
+  assert.ok(ci.length === 3 && ci[2].k === "elb" && ci[2].label === "web <b>x</b>" && ci[2].day === BD, "added by hand, with the day");
+  assert.equal(await page.locator("#card .b-cost b b").count(), 0, "a name is shown as text");
+  await page.screenshot({ path: path.join(SHOTS, "34-cost-card.png") });
+  await openCard(page, BD, "d2b1");
+  await page.click("#fl-nav [data-undo]");
+  assert.deepEqual((await items()).map(x => x.id).filter(id => id.startsWith("d2b1")), [], "Undo takes the step's items off again");
+  await complete(page);
+  await goHome(page);
+  await page.waitForSelector("#running:not([hidden]) .cost-l");
+  assert.equal(await page.locator("#running .cost-l li").count(), 3);
+  await page.click('#running [data-cost-gone="d2b1:eip"]');
+  assert.ok((await items()).find(x => x.id === "d2b1:eip").gone > 0, "Deleted marks it");
+  assert.equal(await page.locator("#running .cost-l li").count(), 2, "and it leaves the list");
+  await page.locator("#running").screenshot({ path: path.join(SHOTS, "35-still-running.png") });
+  await openCard(page, BD, "d2b2");
+  await page.click('#fl-tools [data-cleanup]');
+  await page.waitForSelector("#cleanup[open] #cl-run:not([hidden]) .cost-l");
+  assert.equal(await page.locator("#cl-run .cost-l li").count(), 2, "the cleanup check starts with what is still running");
+  await page.click('#cleanup button[value="close"]');
+  await goHome(page);
+  // the evening: 20:00 brings the reminder; "In 30 minutes" waits 30 minutes; "Keep running tonight" ends it for the night
+  if ((await state(page)).timer.running) await page.click('#timer [data-tm="toggle"]');   // Mark complete resumed the block; the clock jumps below
+  await page.clock.fastForward(31 * 60000);
+  await page.clock.runFor(16000);
+  await page.waitForSelector("#costnag[open]");
+  const nagT = await page.textContent("#costnag");
+  assert.ok(/NAT gateway since/.test(nagT) && /Load balancer “web <b>x<\/b>” since/.test(nagT), nagT);
+  await page.screenshot({ path: path.join(SHOTS, "36-cost-nag.png") });
+  await page.click('#costnag [data-cn="later"]');
+  await page.clock.runFor(20 * 60000);
+  assert.equal(await page.locator("#costnag[open]").count(), 0, "not before 30 minutes");
+  await page.clock.runFor(11 * 60000);
+  await page.waitForSelector("#costnag[open]");
+  await page.click('#costnag [data-cn="night"]');
+  await page.clock.runFor(60 * 60000);
+  assert.equal(await page.locator("#costnag[open]").count(), 0, "kept running tonight: no more reminders");
+  // the next evening it asks again; marking everything deleted in the pop-up says all clean
+  const next = new Date(eve); next.setDate(next.getDate() + 1); next.setHours(20, 1, 0, 0);
+  await page.clock.fastForward(next.getTime() - await page.evaluate(() => Date.now()));
+  await page.clock.runFor(16000);
+  await page.waitForSelector("#costnag[open]");
+  for (const id of (await items()).filter(x => !x.gone).map(x => x.id)) await page.click(`#costnag [data-cost-gone="${id}"]`);
+  assert.match(await page.textContent("#costnag"), /All clean/);
+  await page.click('#costnag [data-cn="done"]');
+  assert.ok(await page.locator("#running").isHidden(), "nothing running: the list is gone from the overview");
+  // hostile entries are dropped
+  await setState(page, `s => { s.xpDay = {}; /* stamping today saves the cleaned copy */ s.cost = { items: [{ id: "x y", k: "ec2" }, { id: "ok1", k: "nope" }, { id: "ok2", k: "rds", label: 5, day: "zz", at: "1", gone: 0 }, { id: "ok2", k: "ec2" }], snooze: 1e15, night: "<b>" }; }`);
+  await page.reload();
+  st = await state(page);
+  assert.deepEqual(st.cost.items, [{ id: "ok2", k: "rds", label: "", day: "", at: 0, gone: 0 }]);
+  const pNow = await page.evaluate(() => Date.now());   // the page's clock is the fake one
+  assert.ok(st.cost.snooze <= pNow + 864e5 && st.cost.night === "", "a snooze is at most a day ahead");
   await ctx.close();
 
   if (errors.length) throw new Error("console errors:\n" + errors.join("\n"));

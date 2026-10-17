@@ -248,3 +248,109 @@ test("results GIFs: at least five per outcome, GIPHY ids, a description each, no
     }
   }
 });
+
+// ---------- course diagrams and look-alikes (docs/diagrams.md) ----------
+const MARKUP = /<(?!\/?(b|code)>)[^>]*>/;
+const ID = /^[a-z0-9-]+$/;
+test("every diagram file in site/diagrams is loaded by the page, and diagram.js after them", () => {
+  const files = fs.readdirSync(path.join(SITE, "diagrams")).filter(f => f.endsWith(".js")).map(f => "diagrams/" + f);
+  for (const f of files) assert.ok(scripts.includes(f), `${f} is not in index.html`);
+  assert.ok(scripts.includes("lookalikes.js"), "lookalikes.js is not in index.html");
+  for (const f of files) assert.ok(scripts.indexOf(f) < scripts.indexOf("app.js"));
+});
+test("diagrams: shape, ids, inside the canvas, no overlapping nodes, labels fit, parts written like key points", () => {
+  for (const [key, dg] of Object.entries(W.DIAGRAMS || {})) {
+    const at = `DIAGRAMS.${key}`;
+    assert.match(key, /^c[1-8]$/, `${at}: key is a lecture course (c1–c8)`);
+    assert.ok(typeof dg.title === "string" && dg.title.length <= 80, `${at}: title`);
+    assert.ok(typeof dg.why === "string" && dg.why.length >= 80 && dg.why.length <= 420 && !MARKUP.test(dg.why), `${at}: why is 80–420 characters`);
+    assert.ok(dg.w > 0 && dg.w <= 24 && dg.h > 0 && dg.h <= 16, `${at}: canvas at most 24 × 16`);
+    const boxes = [...(dg.areas || []), ...(dg.nodes || [])], ids = new Set();
+    for (const b of boxes) {
+      assert.ok(ID.test(b.id) && !ids.has(b.id), `${at}: id "${b.id}" well-formed and unique`);
+      ids.add(b.id);
+      assert.ok(b.x >= 0 && b.y >= 0 && b.w > 0 && b.h > 0 && b.x + b.w <= dg.w + 1e-9 && b.y + b.h <= dg.h + 1e-9, `${at}: ${b.id} inside the canvas`);
+      assert.ok(typeof b.label === "string" && b.label.length >= 1, `${at}: ${b.id} has a label`);
+    }
+    for (const a of dg.areas || []) {
+      assert.ok(a.label.length <= 40, `${at}: area ${a.id} label ≤ 40`);
+      if (a.kind) assert.ok(["public", "private", "onprem", "edge"].includes(a.kind), `${at}: area ${a.id} kind`);
+    }
+    const U = W.DG.U, nodes = dg.nodes || [];
+    for (const n of nodes) {
+      assert.ok(n.label.length <= 28, `${at}: node ${n.id} label ≤ 28`);
+      const ls = W.DG.lines(n.label, n.w * U - 12, 12.5);
+      assert.ok(ls.length * 15 <= n.h * U - 4 && ls.every(l => l.length * 12.5 * 0.55 <= n.w * U - 8), `${at}: node ${n.id} label fits its box (${ls.join(" / ")})`);
+    }
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i], b = nodes[j];
+      const apart = a.x + a.w <= b.x + 0.05 || b.x + b.w <= a.x + 0.05 || a.y + a.h <= b.y + 0.05 || b.y + b.h <= a.y + 0.05;
+      assert.ok(apart, `${at}: nodes ${a.id} and ${b.id} overlap`);
+    }
+    for (const l of dg.links || []) {
+      assert.ok(Array.isArray(l) && ids.has(l[0]) && ids.has(l[1]) && l[0] !== l[1], `${at}: link ${JSON.stringify(l)} joins two existing boxes`);
+      if (l[2] !== undefined) assert.ok(typeof l[2] === "string" && l[2].length <= 18, `${at}: link label ≤ 18`);
+    }
+    const parts = Object.entries(dg.parts || {});
+    assert.ok(parts.length >= 6, `${at}: at least 6 clickable parts`);
+    for (const [id, p] of parts) {
+      const pa = `${at}.parts.${id}`;
+      assert.ok(ids.has(id), `${pa}: no area or node with that id`);
+      assert.ok(typeof p.name === "string" && p.name.length <= 40, `${pa}: name ≤ 40`);
+      assert.ok(typeof p.why === "string" && p.why.length >= 60 && p.why.length <= 320, `${pa}: why is 60–320 characters (${(p.why || "").length})`);
+      assert.ok(Array.isArray(p.k || []) && (p.k || []).length <= 3 && (p.k || []).every(x => Array.isArray(x) && x.length === 2 && x[1].length <= 220), `${pa}: up to 3 [label, text] points`);
+      if (p.trap !== undefined) assert.ok(typeof p.trap === "string" && p.trap.length <= 260, `${pa}: trap ≤ 260`);
+      assert.ok(Array.isArray(p.tags) && p.tags.length >= 1 && p.tags.every(t => TAGS.has(t)), `${pa}: tags from QTAGS`);
+      for (const s of [p.name, p.why, p.trap || "", ...(p.k || []).flat()]) assert.ok(!MARKUP.test(s), `${pa}: only <b> and <code> markup`);
+    }
+  }
+});
+test("look-alikes: shape, rows that line up with the columns, tags, links", () => {
+  const ids = new Set();
+  for (const e of W.LOOKALIKES || []) {
+    const at = `LOOKALIKES ${e.id}`;
+    assert.ok(ID.test(e.id) && !ids.has(e.id), `${at}: id well-formed and unique`);
+    ids.add(e.id);
+    assert.ok(typeof e.title === "string" && e.title.length <= 60, `${at}: title ≤ 60`);
+    assert.ok(typeof e.why === "string" && e.why.length >= 60 && e.why.length <= 360, `${at}: why 60–360`);
+    assert.ok(Array.isArray(e.cols) && e.cols.length >= 2 && e.cols.length <= 4 && e.cols.every(c => typeof c === "string" && c.length <= 24), `${at}: 2–4 columns`);
+    assert.ok(Array.isArray(e.match) && e.match.length === e.cols.length && e.match.every(m => Array.isArray(m) && m.length && m.every(w => typeof w === "string" && w.length >= 2)), `${at}: match words for every column`);
+    assert.ok(Array.isArray(e.rows) && e.rows.length >= 3 && e.rows.length <= 6, `${at}: 3–6 rows`);
+    for (const r of e.rows) assert.ok(Array.isArray(r) && r.length === e.cols.length + 1 && r.every(c => typeof c === "string" && c.length <= 220 && !MARKUP.test(c)), `${at}: row "${r[0]}" has a label and one cell per column (≤ 220, only <b>/<code>)`);
+    assert.equal(e.rows[0][0], "What it's for", `${at}: first row`);
+    assert.equal(e.rows[e.rows.length - 1][0], "Exam cue", `${at}: last row`);
+    assert.ok(Array.isArray(e.tags) && e.tags.length >= 1 && e.tags.every(t => TAGS.has(t)), `${at}: tags from QTAGS`);
+    assert.ok(Array.isArray(e.docs || []) && (e.docs || []).length <= 3 && (e.docs || []).every(d => /^https:\/\/(docs\.)?aws\.amazon\.com\//.test(d[1])), `${at}: up to 3 AWS docs`);
+  }
+});
+
+// The same rule as laFor() in app.js: a right option names one column's service and a wrong option another,
+// each match word whole (no letter or digit touching it). Guards the match words: a table nothing links to is never seen.
+test("look-alikes: missed questions link to every table", () => {
+  const rx = w => new RegExp(`(?<![A-Za-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9])`, "i");
+  const plain = t => String(t).replace(/<[^>]+>/g, " ");
+  const linked = new Set();
+  for (const e of W.LOOKALIKES || []) {
+    const cols = t => e.match.map((ws, i) => (ws.some(w => rx(w).test(plain(t))) ? i : -1)).filter(i => i >= 0);
+    let n = 0;
+    for (const q of W.QUIZ) {
+      const rc = q.a.map(i => cols(q.o[i])), wc = q.o.map((o, i) => (q.a.includes(i) ? [] : cols(o)));
+      if (rc.some(r => wc.some(w => r.some(i => w.some(j => i !== j))))) { n++; linked.add(q.id); }
+    }
+    assert.ok(n >= 3, `LOOKALIKES ${e.id}: only ${n} questions link to it`);
+  }
+  assert.ok(linked.size >= 150, `only ${linked.size} questions link to a look-alike table`);
+});
+
+test("billable things: kinds with a name and how they bill, steps that are Build steps", () => {
+  const B = W.BILLABLE;
+  assert.ok(B && B.kinds && B.steps, "window.BILLABLE");
+  for (const [k, v] of Object.entries(B.kinds)) assert.ok(/^[a-z0-9]{2,8}$/.test(k) && typeof v[0] === "string" && v[0].length <= 24 && typeof v[1] === "string" && v[1].length <= 160 && !/[<>$€£]|\d+\s*(?:cents?|USD)/.test(v[1]), `kind ${k}: name, how it bills, no markup and no prices`);
+  assert.ok(B.kinds.other, "a kind for anything else");
+  const build = new Map();
+  for (const d of W.PLAN) if (d.id) for (const g of d.groups) for (const it of g.items) build.set(it[0], g.t);
+  for (const [id, ks] of Object.entries(B.steps)) {
+    assert.equal(build.get(id), "build", `${id} is a Build step`);
+    assert.ok(Array.isArray(ks) && ks.length && ks.every(k => B.kinds[k] && k !== "other"), `${id}: known kinds`);
+  }
+});

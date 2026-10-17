@@ -504,6 +504,24 @@ window.STEP_TAGS = {
   r1d: ["Purpose-built databases","Streaming","Analytics"]
 };
 
+// Billable things in ③ your own account. A Build step in `steps` puts what it creates on the overview's
+// "still running" list when it is ticked; anything else can be added by hand from a Build card or the list.
+// kinds: [name, how it bills] (no prices: they change, and the console shows them).
+window.BILLABLE = {
+  kinds: {
+    ec2: ["EC2 instance", "Billed while it runs, and so is its public IPv4 address if it has one. A stopped instance still pays for its EBS volume."],
+    nat: ["NAT gateway", "Billed per hour while it exists, even when idle, plus per GB it processes."],
+    eip: ["Elastic IP", "Public IPv4 addresses are billed while allocated."],
+    elb: ["Load balancer", "Billed per hour while it exists."],
+    rds: ["RDS database", "Billed per hour while it runs. A stopped database still pays for its storage, and starts again by itself after seven days."],
+    vpce: ["Interface endpoint", "Billed per hour in each Availability Zone, plus per GB."],
+    s3: ["S3 bucket", "Storage is billed per GB-month; an empty bucket costs nothing to keep."],
+    tf: ["Terraform stack", "Everything it created: run terraform destroy."],
+    other: ["Something else", ""]
+  },
+  steps: { d2b1: ["nat", "eip"], d2b2: ["ec2"], d4b1: ["s3"], d4b2: ["ec2"], d8b1: ["tf"] }
+};
+
 window.CLEANUP = [
   ["EC2 → <b>Instances</b>: nothing running", ""],
   ["VPC → <b>NAT gateways</b>: none in <i>Available</i> state", "Billed per hour even when idle."],

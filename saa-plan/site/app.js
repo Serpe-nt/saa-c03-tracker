@@ -2,6 +2,7 @@
 "use strict";
 
 const PLAN = window.PLAN, LINKS = window.LINKS, GLOSS = window.GLOSSARY, CLEANUP = window.CLEANUP;
+const BILL = window.BILLABLE || { kinds: {}, steps: {} };
 const QZ = window.QZ, BANK = window.QUIZ || [], DOCS = window.DOCS || {};
 const CARDS = window.CARDS || {}, DRILL = window.DRILL || [], CUES = window.CUES || [];
 const KEYS = window.KEYS || {}, CUE_TAGS = window.CUE_TAGS || {}, SCORE_AT = window.SCORE_AT || {}, STEP_TAGS = window.STEP_TAGS || {};
@@ -21,18 +22,27 @@ const DEF = {
   run: null,   // quiz or mock exam in progress; survives a reload
   mocks: [],   // finished mock exams
   conf: {},    // self-check id → "ok" | "shaky"
+  kconf: {},   // "<step id>:<point index>" → "ok" | "shaky": key points recalled with "Test me"
   log: {},     // day id → minutes logged by the focus timer
   warm: {},    // date → "done" | "skip"
   slips: [],   // schedule shifts: [{ from: day, n: days }]
   slipSkip: "",
-  drill: { best: 0, runs: 0 },
+  drill: { best: 0, runs: 0, rev: 0, lives: 0, day: {} },   // bests: 60 seconds, reverse, three lives; day: date → daily five result
   ach: {},     // badge id → date earned
   rowBest: 0,  // most quiz answers right in a row, ever
-  settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true, gif: true },
+  xpDay: {},   // date → { x: total XP when the day was first seen, at: when that was stamped, hit: daily goal reached }
+  week: { key: "", at: 0, ids: [], base: {} },   // this week's challenges: Monday's date, when stamped, their ids, the counters at the start
+  chal: {},    // "<Monday>:<challenge id>" → date completed (+CHAL_XP each)
+  daily: {},   // date → device id → { a: answers, r: right, f: focus minutes }: the trends on the overview
+  // billable things in your own AWS account: [{ id, k: kind, label, day, at: created, gone: deleted (0 = still running) }];
+  // snooze: no evening reminder before this time; night: the date you said to keep them running
+  cost: { items: [], snooze: 0, night: "" },
+  settings: { start: "2026-10-12", portal: "", exam: "", fx: true, sound: true, gif: true, goal: 200 },
   // Focus (mode "focus") counts down: endAt, left, from. The break (mode "rest") has no set length and counts up:
   // at = when it last started running, up = seconds banked before a pause.
   // ts = when the timer last changed (merges keep the later one), day = the day a focus block credits, ask = the "done" prompt waits.
-  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, at: 0, up: 0, ts: 0, day: "", ask: false, min: matchMedia("(max-width:640px)").matches },
+  // away = when you left during a running focus block (no input for 5 minutes, the screen locked, or the PC slept); 0 = here.
+  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, at: 0, up: 0, ts: 0, day: "", ask: false, away: 0, min: matchMedia("(max-width:640px)").matches },
   savedAt: 0
 };
 const FOCUS = 50 * 60;      // a focus block, in seconds
@@ -42,6 +52,31 @@ const DOMAINS = ["Secure", "Resilient", "High-performing", "Cost"];
 const QUIZ_MIN = 30;
 const NOTE_MAX = 2000;
 const LETTERS = "ABCDE";
+
+// Weekly challenges (see "daily goal, weekly challenges"): each measures a counter from the week's start.
+// can: whether the plan still leaves room for it, checked when the week's three are drawn.
+const CHAL_XP = 50;
+const CHAL = [
+  { id: "ans", i: "📝", k: "a", n: 150, t: n => `Answer ${n} quiz questions` },
+  { id: "right", i: "✅", k: "r", n: 120, t: n => `Get ${n} answers right` },
+  { id: "xp", i: "⭐", k: "x", n: 2000, t: n => `Earn ${n.toLocaleString("en-GB")} XP` },
+  { id: "days", i: "📅", k: "d", n: 4, t: n => `Complete ${n} days of the plan`, can: () => DAYS.filter(d => !dayDone(d)).length >= 4 },
+  { id: "steps", i: "👣", k: "s", n: 40, t: n => `Complete ${n} steps`, can: () => Object.keys(itemIndex).filter(id => !S.ticks[id]).length >= 40 },
+  { id: "focus", i: "⏱", k: "f", n: 15 * 60, t: n => `Log ${n / 60} hours of focus`, fmt: m => fmtH(m) },
+  { id: "fix", i: "🛠", k: "fix", n: 8, t: n => `Fix ${n} notebook questions`, can: () => Object.values(S.book).filter(b => !b.fixed).length >= 8 },
+  { id: "warm", i: "☕", k: "w", n: 4, t: n => `Do the morning warm-up on ${n} days`, can: () => Object.keys(S.srs).length >= 5 },
+  { id: "drill", i: "⚡", k: "dr", n: 3, t: n => `Run the “Which service?” drill ${n} times` },
+  { id: "recall", i: "🧠", k: "k", n: 20, t: n => `Mark ${n} key points “Got it” in Test me` }
+];
+const CHAL_BY = Object.assign(Object.create(null), Object.fromEntries(CHAL.map(c => [c.id, c])));
+const CHAL_KEYS = [...new Set(CHAL.map(c => c.k))];
+const GOALS = [100, 150, 200, 300, 400, 600];   // daily XP goals to choose from in Settings
+// One-click reasons for a miss (S.book[id].why), and what helps with each.
+const WHY = [["know", "🤷", "Didn't know it"], ["mix", "🔀", "Mixed up two services"], ["read", "👓", "Misread the question"],
+  ["word", "🔑", "Missed a key word"], ["rush", "⏩", "Rushed or changed my answer"]];
+const WHY_BY = Object.assign(Object.create(null), Object.fromEntries(WHY.map(w => [w[0], w])));
+// Keep the newest 120 dates of a date-keyed map.
+const pruneDates = m => { const ks = Object.keys(m).sort(); for (const k of ks.slice(0, Math.max(0, ks.length - 120))) delete m[k]; };
 
 // ---------- state ----------
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -104,17 +139,48 @@ function clean(s) {
   keep(s.srs, v => isObj(v) && isDay(v.due));
   for (const k in s.srs) s.srs[k] = { step: num0(s.srs[k].step), due: s.srs[k].due };
   keep(s.book, isObj);
-  for (const k in s.book) { const b = s.book[k]; s.book[k] = { at: str0(b.at), misses: num0(b.misses, 1), note: str0(b.note).slice(0, 300), fixed: !!b.fixed }; }
+  for (const k in s.book) { const b = s.book[k]; s.book[k] = { at: str0(b.at), misses: num0(b.misses, 1), note: str0(b.note).slice(0, 300), fixed: !!b.fixed, why: WHY_BY[b.why] ? b.why : "" }; }
   s.mocks = s.mocks.filter(isObj).map(m => ({ at: str0(m.at), score: num0(m.score), n: num0(m.n), pct: num0(m.pct), mins: num0(m.mins),
     dom: Array.isArray(m.dom) ? m.dom.slice(0, 4).map(x => (Array.isArray(x) ? [num0(x[0]), num0(x[1])] : [0, 0])) : [] }));
   keep(s.conf, v => v === "ok" || v === "shaky");
+  keep(s.kconf, v => v === "ok" || v === "shaky");
+  for (const k of Object.keys(s.kconf)) if (!/^[\w-]{1,40}:\d{1,2}$/.test(k)) delete s.kconf[k];
   keep(s.log, v => typeof v === "number" && isFinite(v) && v >= 0);
   for (const k in s.log) s.log[k] = Math.min(s.log[k], 24 * 60);
   keep(s.warm, v => v === "done" || v === "skip");
   s.slips = s.slips.filter(x => isObj(x) && Number.isInteger(x.from) && Number.isInteger(x.n) && x.n > 0 && x.n < 100).map(x => ({ from: x.from, n: x.n }));
-  s.drill = { best: num0(s.drill.best), runs: num0(s.drill.runs) };
+  s.drill = { best: int0(s.drill.best, 0, 1e4), runs: int0(s.drill.runs, 0, 1e6), rev: int0(s.drill.rev, 0, 1e4), lives: int0(s.drill.lives, 0, 1e4), day: isObj(s.drill.day) ? s.drill.day : {} };
+  for (const k of Object.keys(s.drill.day)) if (!isDay(k) || !Number.isInteger(s.drill.day[k]) || s.drill.day[k] < 0 || s.drill.day[k] > 5) delete s.drill.day[k];
+  pruneDates(s.drill.day);
   keep(s.ach, isDay);
   s.rowBest = int0(s.rowBest, 0, 1000);
+  keep(s.xpDay, isObj);
+  for (const k of Object.keys(s.xpDay)) { const e = s.xpDay[k]; if (!isDay(k)) delete s.xpDay[k]; else s.xpDay[k] = { x: int0(e.x, 0, 1e9), at: num0(e.at), hit: !!e.hit }; }
+  const w = s.week;
+  s.week = isDay(w.key) ? { key: w.key, at: num0(w.at), ids: (Array.isArray(w.ids) ? w.ids : []).filter(id => CHAL_BY[id]).slice(0, 3), base: {} } : { key: "", at: 0, ids: [], base: {} };
+  if (isObj(w.base)) for (const k of CHAL_KEYS) if (typeof w.base[k] === "number" && isFinite(w.base[k])) s.week.base[k] = w.base[k];
+  for (const k of Object.keys(s.chal)) { const m = /^(\d{4}-\d{2}-\d{2}):([a-z]+)$/.exec(k); if (!m || !isDay(m[1]) || !CHAL_BY[m[2]] || !isDay(s.chal[k])) delete s.chal[k]; }
+  for (const k of Object.keys(s.daily)) {
+    const day = s.daily[k];
+    if (!isDay(k) || !isObj(day)) { delete s.daily[k]; continue; }
+    for (const dev of Object.keys(day)) {
+      const e = day[dev];
+      if (!/^[a-z0-9]{1,12}$/.test(dev) || !isObj(e)) { delete day[dev]; continue; }
+      const a = int0(e.a, 0, 1e5);
+      day[dev] = { a, r: int0(e.r, 0, a), f: Math.min(24 * 60, Math.max(0, num0(e.f))) };
+    }
+  }
+  pruneDates(s.xpDay); pruneDates(s.daily);
+  const c = s.cost, weekAgo = Date.now() - 7 * 864e5;
+  s.cost = { items: [], snooze: Math.min(num0(c.snooze), Date.now() + 864e5), night: isDay(c.night) ? c.night : "" };
+  for (const x of Array.isArray(c.items) ? c.items : []) {
+    if (!isObj(x) || typeof x.id !== "string" || !/^[\w:-]{1,40}$/.test(x.id) || !BILL.kinds[x.k] || s.cost.items.some(y => y.id === x.id)) continue;
+    const gone = num0(x.gone);
+    if (gone && gone < weekAgo) continue;   // deleted more than a week ago: off the list
+    s.cost.items.push({ id: x.id, k: x.k, label: str0(x.label).slice(0, 60), day: PLAN.some(d => d.id === x.day) ? x.day : "", at: num0(x.at), gone });
+    if (s.cost.items.length >= 60) break;
+  }
+  s.settings.goal = GOALS.includes(s.settings.goal) ? s.settings.goal : DEF.settings.goal;
   if (!ISO.test(s.settings.start)) s.settings.start = DEF.settings.start;
   if (s.settings.exam && !ISO.test(s.settings.exam)) s.settings.exam = "";
   if (!/^https?:\/\//i.test(s.settings.portal)) s.settings.portal = "";
@@ -126,8 +192,10 @@ function clean(s) {
   t.endAt = num0(t.endAt); t.from = Math.min(FOCUS, Math.max(0, num0(t.from))); t.at = num0(t.at);
   t.up = Math.min(86400, Math.max(0, num0(t.up)));
   t.ts = num0(t.ts);
+  t.away = Math.min(num0(t.away), Date.now());
   if (!PLAN.some(d => d.id === t.day)) t.day = "";
   if (t.ask && (t.mode !== "rest" || t.running)) t.ask = false;   // the prompt only waits on a break not yet started
+  if (!(t.mode === "focus" && t.running) || t.away < 0) t.away = 0;
   // Running needs a clock that makes sense: a focus block ends within 50 minutes from now, a break began in the last day.
   const now = Date.now();
   if (t.running && !(t.mode === "rest" ? t.at > now - 864e5 && t.at < now + 6e4 : t.endAt > 0 && t.endAt < now + FOCUS * 1000 + 6e4)) t.running = false;
@@ -146,7 +214,10 @@ function cleanRun(r) {
     row: int0(r.row, 0, r.ids.length), rowMax: int0(r.rowMax, 0, r.ids.length), best0: int0(r.best0, 0, 1000), xp0: num0(r.xp0, -1), rec: !!r.rec,   // rec: "New record" said in this run
     xp1: num0(r.xp1, -1), gif: typeof r.gif === "string" && /^[A-Za-z0-9]{1,32}$/.test(r.gif) ? r.gif : ""   // XP and the GIF at the finish
   };
+  out.x = {}; out.hl = {};   // mock exam: options struck out, words highlighted (indexes), per question
   for (const id of r.ids) {
+    if (isObj(r.x) && ints(r.x[id])) out.x[id] = r.x[id].slice(0, 6);
+    if (isObj(r.hl) && ints(r.hl[id])) out.hl[id] = r.hl[id].filter(i => i >= 0 && i < 2000).slice(0, 400);
     if (isObj(r.ord) && ints(r.ord[id])) out.ord[id] = r.ord[id];
     if (isObj(r.ans) && ints(r.ans[id])) out.ans[id] = r.ans[id];
     if (isObj(r.flag) && r.flag[id]) out.flag[id] = 1;
@@ -313,6 +384,7 @@ function termsIn(text) {
 
 // ---------- views: the overview, or one day shown one step at a time ----------
 const homeEl = document.getElementById("home"), flowEl = document.getElementById("flow"), cardEl = document.getElementById("card");
+const bodyEl = document.getElementById("fl-body"), sideL = document.getElementById("side-l"), sideR = document.getElementById("side-r");
 let view = { day: "", at: "" };   // day "" = overview. at = a step id, "quiz", or "done" (the day's summary).
 let shown = "", movedAt = 0;      // the card on screen and when it appeared
 // A day opens on its first open step, then on its quiz, then on its summary.
@@ -347,6 +419,15 @@ const jumpTo = id => setView(itemIndex[id].d.id, id, true);
 const UI_KEY = KEY + "-ui";
 let ui = {};
 try { const u = JSON.parse(localStorage.getItem(UI_KEY)); if (isObj(u)) ui = u; } catch (e) {}
+const saveUI = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {} };
+// Theme, text size and the focus view are this browser's choice (Settings, the Focus view button), never synced.
+function applyDisplay() {
+  const r = document.documentElement;
+  if (ui.theme === "light" || ui.theme === "dark") r.dataset.theme = ui.theme; else delete r.dataset.theme;
+  if (ui.size === "l" || ui.size === "xl") r.dataset.size = ui.size; else delete r.dataset.size;
+  document.body.classList.toggle("focus-view", !!ui.focusView);
+}
+applyDisplay();
 
 // ---------- overview: day tiles and quick links ----------
 function renderMap(ti) {
@@ -429,9 +510,14 @@ function refresh() {
   if (daysToExam >= 0) st.push(`<span>${daysToExam ? `Exam in <b>${plural(daysToExam, "day")}</b>` : "<b>Exam today</b>"}</span>`);
   document.getElementById("status").innerHTML = st.join("");
 
+  if (stamp()) save();
   renderSlip();
   renderNext(ti);
   renderStats(dn, total);
+  renderToday();
+  renderRunning();
+  renderReady();
+  renderTrends();
   renderMap(ti);
   renderScores();
   renderPractice();
@@ -507,7 +593,7 @@ function renderNext(ti) {
       `<a class="btn" href="#${d.id}/quiz">Open Day ${d.day}</a>`;
   } else {
     step = `<span class="tag t-${n.g.t}">${n.g.label || TAGS[n.g.t]}</span><span>${n.it[1]}</span>`;
-    act = `<a class="btn primary big" href="#${d.id}">${k ? "Continue" : "Start"} Day ${d.day}</a>`;
+    act = `<a class="btn primary big" href="#${d.id}" data-start-day>${k ? "Continue" : "Start"} Day ${d.day}</a>`;
   }
   el.innerHTML = pre +
     `<div class="nx-h"><span class="nx-k">${d.day === ti ? "Today" : "Next up"}</span><span>${fmtD(dayDate(d.day))}</span>${when}</div>` +
@@ -526,7 +612,9 @@ function renderFlow(moved) {
   const d = dayOf(view.day), ids = stepIds(d), at = view.at, i = ids.indexOf(at);
   document.getElementById("fl-day").innerHTML = `<span class="fl-dn">Day ${d.day}</span><span class="fl-tt">${d.title}</span>` +
     `<span class="fl-dd">${fmtD(dayDate(d.day))}</span>${d.day === todayIdx() ? `<span class="today-badge">Today</span>` : ""}`;
-  const tools = [`<button type="button" class="ghost" data-sheet="daynotes">📝 Day notes</button>`];
+  const tools = [`<button type="button" class="ghost" data-focus-view aria-pressed="${!!ui.focusView}" title="Hide the panels beside the card (F)">${ui.focusView ? "⤡ Show panels" : "⤢ Focus view"}</button>`,
+    `<button type="button" class="ghost" data-search title="Search (Ctrl+K)">🔍</button>`,
+    `<button type="button" class="ghost" data-sheet="daynotes">📝 Day notes</button>`];
   if (d.groups.some(g => g.t === "build")) tools.push(`<button type="button" class="ghost" data-cleanup="${d.id}">🧹 Cleanup check</button>`);
   for (const t of d.tools || []) tools.push(t === "notebook" ? `<button type="button" class="ghost" data-sheet="notebook">📓 Notebook</button>` : `<button type="button" class="ghost" data-sheet="weak">📈 Weak spots</button>`);
   document.getElementById("fl-tools").innerHTML = tools.join("");
@@ -540,14 +628,20 @@ function renderFlow(moved) {
     (hasQuiz(d) ? `<span class="fl-g">${dot("quiz")}</span>` : "");
   document.getElementById("fl-count").textContent = at === "done" ? "Day complete" : `Step ${i + 1} of ${ids.length}`;
 
-  // Typing in a field on this card: leave the card alone, only the frame around it changes.
-  const typing = !moved && cardEl.contains(document.activeElement) && document.activeElement.matches("textarea,input");
+  // Typing in a field on the card or its panels: leave them alone, only the frame around them changes.
+  const typing = !moved && bodyEl.contains(document.activeElement) && document.activeElement.matches("textarea,input");
   if (!typing) {
     const answer = !moved && cardEl.querySelector(".card-a:not([hidden])");
+    if (recall.id && recall.id !== at) recall = { id: "", open: new Set(), marks: {} };   // "Test me" ends with its card
+    const step = at !== "quiz" && at !== "done", side = step ? sideHTML(at) : { l: "", r: "" };
     cardEl.innerHTML = at === "quiz" ? quizCardHTML(d) : at === "done" ? doneCardHTML(d) : stepCardHTML(at);
+    sideL.innerHTML = side.l; sideR.innerHTML = side.r;
+    sideL.hidden = !side.l; sideR.hidden = !side.r;
+    bodyEl.classList.toggle("no-l", !side.l); bodyEl.classList.toggle("no-r", !side.r);
     applyGlossary(cardEl);
+    dgMark(cardEl);
     if (answer) flip(at, true);
-    if (moved) { cardEl.classList.remove("in"); void cardEl.offsetWidth; cardEl.classList.add("in"); }
+    if (moved) for (const el of [cardEl, sideL, sideR]) { el.classList.remove("in"); void el.offsetWidth; el.classList.add("in"); }
   }
 
   // Back, the card's main action, Next
@@ -556,7 +650,7 @@ function renderFlow(moved) {
   let mid, isDone = false;
   if (at === "done") {
     const nx = DAYS.find(x => x.day > d.day && !dayDone(x));
-    mid = nx ? `<a class="btn primary big" href="#${nx.id}" data-main>Start Day ${nx.day}</a>` : `<button type="button" class="primary big" data-home data-main>Back to the overview</button>`;
+    mid = nx ? `<a class="btn primary big" href="#${nx.id}" data-main data-start-day>Start Day ${nx.day}</a>` : `<button type="button" class="primary big" data-home data-main>Back to the overview</button>`;
   } else if (at === "quiz") {
     const r = S.quiz[d.id], live = liveQuiz(d);
     isDone = quizOk(d) && !live;
@@ -600,9 +694,106 @@ function tagStats() {
   }
   return m;
 }
-// A helper list on the card that folds; whether it is open is remembered across cards.
-const fold = (sec, title, n, body, openByDefault) =>
-  `<details class="c-fold" data-sec="${sec}"${(sec in ui ? ui[sec] : openByDefault) ? " open" : ""}><summary>${title} <span class="muted">${n}</span></summary>${body}</details>`;
+// A section of the card or a panel: a tinted box with an icon; its edge colour says what kind of thing it holds.
+const box = (kind, icon, title, body, cls = "") =>
+  `<section class="box b-${kind}${cls ? " " + cls : ""}"><h3 class="box-h"><span class="bi" aria-hidden="true">${icon}</span>${title}</h3>${body}</section>`;
+// A box that folds; whether it is open is remembered across cards, in this browser.
+const foldBox = (kind, icon, sec, title, n, body, openByDefault) =>
+  `<details class="box b-${kind} c-fold" data-sec="${sec}"${(sec in ui ? ui[sec] : openByDefault) ? " open" : ""}><summary class="box-h"><span class="bi" aria-hidden="true">${icon}</span>${title} <span class="muted">${n}</span></summary>${body}</details>`;
+// ---------- course diagrams: one per lecture course, on the cards of the course (cN) and of its labs (lN) ----------
+const DGS = window.DIAGRAMS || {};
+const dgKey = id => { const m = /^[cl](\d+)[a-z]$/.exec(id); return m && DGS["c" + m[1]] && window.DG ? "c" + m[1] : ""; };
+let dgSel = { id: "", part: "" };   // the part whose detail is open on the card on screen
+// The parts this step is about: their tags meet the step's topics.
+const dgRel = (id, dg) => { const tags = stepTags(id); return Object.keys(dg.parts || {}).filter(p => (dg.parts[p].tags || []).some(t => tags.includes(t))); };
+function dgPartHTML(dg, pid) {
+  const p = (dg.parts || {})[pid];
+  if (!p) return `<p class="muted dg-hint">Click a part of the picture to see why it is there and what the exam asks about it.</p>`;
+  return `<h4 class="dg-pn">${esc(p.name)}</h4><p class="dg-pw txt">${p.why}</p>` +
+    ((p.k || []).length ? `<ul class="k-list">${p.k.map(([l, t]) => `<li><b class="k-l">${esc(l)}</b><span>${t}</span></li>`).join("")}</ul>` : "") +
+    (p.trap ? `<p class="dg-trap"><b>⚠️ Exam trap:</b> ${p.trap}</p>` : "");
+}
+// The picture with the step's parts as buttons and the open part explained under it (or beside it, in the larger view).
+function dgViewHTML(key, id, sel, big) {
+  const dg = DGS[key], rel = id ? dgRel(id, dg) : [];
+  const chips = rel.length ? `<p class="dg-rel"><span class="muted">This step:</span>${rel.map(p => `<button type="button" class="sm" data-dg-part="${esc(p)}">${esc(dg.parts[p].name)}</button>`).join("")}</p>` : "";
+  return `<div class="dg-box" data-dg="${key}" data-rel="${esc(rel.join(" "))}">${chips}<div class="dg-pic"><div class="dg-wrap">${DG.svg(dg, key + (big ? "-big" : ""))}</div>` +
+    (big ? "" : `<button type="button" class="sm dg-big" data-dg-big="${esc(id)}" title="Open the diagram larger">⤢ Larger</button>`) +
+    `</div><div class="dg-part" aria-live="polite" data-sel="${esc(sel)}">${dgPartHTML(dg, sel)}</div></div>`;
+}
+function dgHTML(id) {
+  const key = dgKey(id);
+  if (!key) return "";
+  const dg = DGS[key];
+  if (dgSel.id !== id) dgSel = { id, part: dgRel(id, dg)[0] || "" };
+  return foldBox("map", "🗺", "dg", "Course diagram", "", `<p class="dg-t"><b>${esc(dg.title)}</b></p><p class="dg-why txt">${dg.why}</p>${dgViewHTML(key, id, dgSel.part, false)}`, true);
+}
+// Mark the open part and the step's parts on the picture (after it is on screen).
+function dgMark(root) {
+  (root || document).querySelectorAll(".dg-box").forEach(b => {
+    const sel = b.querySelector(".dg-part").dataset.sel, rel = b.dataset.rel.split(" ");
+    b.querySelectorAll(".dg [data-part]").forEach(el => { el.classList.toggle("on", el.dataset.part === sel); el.classList.toggle("rel", rel.includes(el.dataset.part)); el.setAttribute("aria-pressed", el.dataset.part === sel); });
+    b.querySelectorAll("[data-dg-part]").forEach(el => el.setAttribute("aria-pressed", el.dataset.dgPart === sel));
+  });
+}
+function dgPick(b, pid) {
+  const part = b.querySelector(".dg-part");
+  part.dataset.sel = pid;
+  part.innerHTML = dgPartHTML(DGS[b.dataset.dg], pid);
+  applyGlossary(part);
+  if (cardEl.contains(b) || shDlg.dataset.kind === "dg") dgSel.part = pid;   // the card keeps the choice, also from the larger view
+  dgMark(b.parentNode);
+}
+function openDiagram(id) {
+  const key = dgKey(id);
+  if (!key) return;
+  shDlg.dataset.dg = id;
+  openSheet("dg");
+}
+function dgSheet() {
+  const id = shDlg.dataset.dg || "", key = dgKey(id);
+  if (!key) return ["🗺 Course diagram", ""];
+  return [`🗺 ${DGS[key].title}`, `<p class="muted dg-why txt">${DGS[key].why}</p>${dgViewHTML(key, id, dgSel.id === id ? dgSel.part : "", true)}`];
+}
+
+// ---------- look-alikes: services the exam sets against each other, side by side ----------
+const LA = window.LOOKALIKES || [], LA_BY = Object.create(null);
+LA.forEach(e => { LA_BY[e.id] = e; });
+const laRx = new Map();
+// a match word counts whole, with no letter or digit touching it (so "SSE-KMS" names KMS)
+const laWord = w => laRx.get(w) || laRx.set(w, new RegExp(`(?<![A-Za-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9])`, "i")).get(w);
+const laCols = (text, e) => e.match.map((ws, i) => (ws.some(w => laWord(w).test(text)) ? i : -1)).filter(i => i >= 0);
+// The tables a missed question links to: a right option names one service of the table and a wrong option another.
+// The options you picked count first; when they name none, any wrong option does.
+function laFor(q, picked) {
+  const wrongAll = q.o.map((_, i) => i).filter(i => !q.a.includes(i)), mine = (picked || []).filter(i => wrongAll.includes(i));
+  const hit = wrong => LA.filter(e => {
+    const rc = q.a.map(i => laCols(plainOf(q.o[i]), e)), wc = wrong.map(i => laCols(plainOf(q.o[i]), e));
+    return rc.some(r => wc.some(w => r.some(i => w.some(j => i !== j))));
+  });
+  const a = mine.length ? hit(mine) : [];
+  return a.length ? a : hit(wrongAll);
+}
+const laLinks = list => list.length ? `<div class="qz-la"><span>⚖️ Compare side by side:</span>${list.map(e => `<button type="button" class="link" data-look="${esc(e.id)}">${esc(e.title)}</button>`).join("")}</div>` : "";
+const laTag = tag => LA.filter(e => (e.tags || []).includes(tag));
+let laOn = "";   // the table a link opened: shown first and marked
+function lookHTML() {
+  const miss = Object.create(null);
+  for (const { q, b } of bookEntries()) if (!b.fixed) for (const e of laFor(q)) miss[e.id] = (miss[e.id] || 0) + 1;
+  return `<p class="muted">Services the exam sets against each other, row by row. A question you miss whose right and wrong answers name two services of one table links here; the number is your open notebook questions that do.</p>` +
+    `<div class="la-nav">${LA.map(e => `<button type="button" class="sm${e.id === laOn ? " on" : ""}" data-la-go="${esc(e.id)}">${esc(e.title)}${miss[e.id] ? ` <span class="pill warn">${miss[e.id]}</span>` : ""}</button>`).join("")}</div>` +
+    LA.map(e => `<section class="la${e.id === laOn ? " on" : ""}" id="la-${esc(e.id)}"><h3 class="sub-h">${esc(e.title)}</h3><p class="la-why">${e.why}</p>` +
+      `<table class="la-t"><thead><tr><th></th>${e.cols.map(c => `<th scope="col">${esc(c)}</th>`).join("")}</tr></thead><tbody>` +
+      e.rows.map((r, i) => `<tr${i === e.rows.length - 1 ? ' class="la-cue"' : ""}><th scope="row">${esc(r[0])}</th>${r.slice(1).map((c, k) => `<td data-col="${esc(e.cols[k])}">${c}</td>`).join("")}</tr>`).join("") +
+      `</tbody></table>${(e.docs || []).length ? `<p class="la-docs">AWS pages: ${e.docs.map(([t, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join(" · ")}</p>` : ""}</section>`).join("");
+}
+function openLook(id) {
+  laOn = LA_BY[id] ? id : "";
+  openSheet("look");
+  const el = laOn && document.getElementById("la-" + laOn);
+  if (el) el.scrollIntoView({ block: "start" });
+}
+
 function scoreFieldHTML(k) {
   const src = document.querySelector(`#scores [data-score="${k}"]`);
   if (!src) return "";
@@ -610,64 +801,93 @@ function scoreFieldHTML(k) {
   lab.querySelector("input").setAttribute("value", S.scores[k] ?? "");
   return `<div class="scores-grid c-score">${lab.outerHTML}</div>`;
 }
+// The card holds what you read for the step: why it exists, where to do it, the model answer, what to know, the exam trap.
+// Everything to look up or practise with sits in the panels beside it (sideHTML).
 function stepCardHTML(id) {
   const { d, g, it } = itemIndex[id], [, txt, note] = it;
-  const url = linkFor(g.link), n = g.items.length, kp = KEYS[id], qs = QREF[id] || [];
+  const url = linkFor(g.link), n = g.items.length, kp = KEYS[id];
   let h = `<div class="c-h"><span class="tag t-${g.t}">${g.label || TAGS[g.t]}</span>` +
     (n > 1 ? `<span class="c-meta">${g.items.indexOf(it) + 1} of ${n}</span>` : "") +
     (g.min ? `<span class="c-meta">~${fmtH(g.min)}${n > 1 ? " for this block" : ""}</span>` : "") +
     (done(id) ? `<span class="pill ok">✓ Completed</span>` : "") + `</div>` +
     `<h2 class="c-t txt" tabindex="-1">${txt}</h2>` + (note ? `<p class="c-n txt">${note}</p>` : "");
   // Purpose first: the problem or need behind the step comes before where to do it and before any detail.
-  if (kp && kp.why) h += `<section class="c-why"><h3>${g.t === "setup" || g.t === "prep" ? "Why this step" : "Why it exists"}</h3><p class="txt">${kp.why}</p></section>`;
-  if (g.where || url) h += `<div class="c-w">${g.where ? `<span class="where">Where: ${g.where}</span>` : ""}${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</div>`;
+  if (kp && kp.why) h += box("why", "💡", g.t === "setup" || g.t === "prep" ? "Why this step" : "Why it exists", `<p class="txt">${kp.why}</p>`, "c-why");
+  if (g.where || url) h += `<div class="box b-where c-w"><span class="bi" aria-hidden="true">📍</span>${g.where ? `<span class="where">Where: ${g.where}</span>` : `<span class="where"></span>`}${url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</div>`;
   if (SCORE_AT[id]) h += scoreFieldHTML(SCORE_AT[id]);
   if (d.decision === id) { const [cls, v] = verdictHTML(); h += `<div class="verdict ${cls}" data-verdict>${v}</div>`; }
   if (g.t === "check" && CARDS[id]) {
-    h += `<div class="c-check"><p class="muted">Explain it out loud first, then open the model answer and compare.</p>` +
+    h += box("check", "🧠", "Self-check", `<p class="muted">Explain it out loud first, then open the model answer and compare.</p>` +
       `<button type="button" class="flip${S.conf[id] === "shaky" ? " shaky" : ""}" data-flip="${id}" aria-expanded="false" aria-controls="ca-${id}">${flipLabel(id)}</button>` +
       `<div class="card-a" id="ca-${id}" hidden><div class="card-t">${CARDS[id]}</div><div class="card-b"><span class="muted">How close were you?</span>` +
-      `<button type="button" data-conf="ok" data-cid="${id}">Got it</button><button type="button" data-conf="shaky" data-cid="${id}">Shaky</button></div></div></div>`;
+      `<button type="button" data-conf="ok" data-cid="${id}">Got it</button><button type="button" data-conf="shaky" data-cid="${id}">Shaky</button></div></div>`, "c-check");
   }
-
   if (kp) {
     // a point is [label, text]; a bare string is the older form
     const pts = kp.k || [], labelled = pts.some(Array.isArray);
-    if (pts.length || kp.trap) h += `<section class="c-sec c-key"><h3>${kp.why ? "What to know" : "Key points"}</h3>` +
-      (pts.length ? `<ul${labelled ? ' class="k-list"' : ""}>${pts.map(x => (Array.isArray(x) ? `<li><b class="k-l">${x[0]}</b><span>${x[1]}</span></li>` : `<li>${x}</li>`)).join("")}</ul>` : "") +
-      (kp.trap ? `<p class="c-trap"><b>Exam trap.</b> ${kp.trap}</p>` : "") + `</section>`;
+    if (pts.length) {
+      // "Test me": only the labels show; you say each point, reveal it and mark it (S.kconf). Otherwise a mark shows next to its label.
+      const testing = labelled && recall.id === id, marked = pts.filter((x, i) => recall.marks[i]).length;
+      const btn = !labelled ? "" : testing ? `<button type="button" class="sm k-btn" data-test-end>Done</button>`
+        : `<button type="button" class="sm k-btn" data-test="${id}" title="Hide the text, say each point, then check it">🧠 Test me</button>`;
+      const li = (x, i) => {
+        if (!Array.isArray(x)) return `<li>${x}</li>`;
+        if (!testing) {
+          const m = S.kconf[`${id}:${i}`];
+          return `<li><b class="k-l">${x[0]}${m === "shaky" ? ` <span class="pill warn k-m">shaky</span>` : m === "ok" ? ` <span class="k-m ok" title="Got it in Test me">✓</span>` : ""}</b><span>${x[1]}</span></li>`;
+        }
+        if (!recall.open.has(i)) return `<li class="k-hid"><b class="k-l">${x[0]}</b><button type="button" class="k-rev" data-reveal="${i}">Say it out loud, then show</button></li>`;
+        const m = recall.marks[i];
+        return `<li class="k-shown"><b class="k-l">${x[0]}</b><span>${x[1]}<span class="k-rate">${m ? `<span class="pill ${m === "ok" ? "ok" : "warn"}">${m === "ok" ? "✓ Got it" : "Shaky"}</span>`
+          : `<span class="muted">Did you have it?</span><button type="button" class="sm" data-kc="ok" data-ki="${i}">Got it</button><button type="button" class="sm" data-kc="shaky" data-ki="${i}">Shaky</button>`}</span></span></li>`;
+      };
+      const n = pts.filter(Array.isArray).length, got = pts.filter((x, i) => recall.marks[i] === "ok").length;
+      h += box("know", "📘", (kp.why ? "What to know" : "Key points") + btn, `<ul${labelled ? ' class="k-list"' : ""}>${pts.map(li).join("")}</ul>` +
+        (testing && marked === n ? `<p class="k-sum">${got} of ${n} got it.${got < n ? " The shaky ones are on your weak-spot map." : " Nice."}</p>` : ""), "c-key" + (testing ? " testing" : ""));
+    }
+    if (kp.trap) h += box("trap", "⚠️", "Exam trap", `<p>${kp.trap}</p>`, "c-trap");
   }
-
+  // billable things: on the steps that create something, and on the block's last step (the cleanup)
+  if (g.t === "build" && (BILL.steps[id] || g.items.indexOf(it) === g.items.length - 1)) h += costBoxHTML(d);
+  return h + dgHTML(id);
+}
+// The two panels beside the card. l = "Look it up": the AWS pages and the terms. r = "On the exam": the exam topics
+// with your accuracy and a practice round, how the exam words these topics, and your own notes.
+function sideHTML(id) {
+  const { it } = itemIndex[id], [, txt, note] = it, kp = KEYS[id], qs = QREF[id] || [];
   const docs = stepDocs(id), tags = stepTags(id);
-  if (docs.length || tags.length) {
-    const acc = tagStats();
-    h += `<section class="c-sec c-two">` +
-      (docs.length ? `<div><h3>AWS docs</h3><ul class="c-docs">${docs.map(([l, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(l)} ↗</a></li>`).join("")}</ul></div>` : "") +
-      (tags.length ? `<div><h3>Exam topics</h3><ul class="c-tags">${tags.map(t => {
-        const a = acc[t];
-        return `<li><span>${esc(t)}</span><span class="tr"><span class="fi${a && a[0] / a[1] < 0.7 ? " low" : ""}" style="width:${a ? pct(a[0], a[1]) : 0}%"></span></span><span class="wk-n">${a ? `${a[0]}/${a[1]}` : "new"}</span></li>`;
-      }).join("")}</ul><p class="muted c-hint">Your quiz answers on each topic so far, right of all.</p></div>` : "") + `</section>`;
-  }
-
   const terms = termsIn(strip(`${txt} ${note || ""} ${kp ? `${kp.why || ""} ${(kp.k || []).flat().join(" ")} ${kp.trap || ""}` : ""}`)).slice(0, 8);
   const cues = [];
   for (const t of tags) for (const c of CUES) if ((CUE_TAGS[c[0]] || []).includes(t) && !cues.includes(c) && cues.length < 4) cues.push(c);
-  if (terms.length) h += fold("terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, false);
-  if (cues.length) h += fold("cues", "Exam wording on these topics", cues.length,
-    `<table class="cues"><thead><tr><th>When you read</th><th>It usually points to</th><th>Example</th></tr></thead><tbody>` +
-    cues.map(c => `<tr><td><b>${esc(c[0])}</b></td><td>${esc(c[1])}</td><td class="muted">${esc(c[2])}</td></tr>`).join("") + `</tbody></table>`, false);
 
-  h += `<label class="notes-l c-notes">My notes on this step <span class="saved" data-saved="${id}">saved</span>` +
-    `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
+  let l = "";
+  if (docs.length) l += box("docs", "📄", "AWS docs", `<ul class="c-docs">${docs.map(([t, u]) => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a></li>`).join("")}</ul>`);
+  if (terms.length) l += foldBox("terms", "📖", "terms", "Terms in this step", terms.length, `<dl class="c-terms">${terms.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`, true);
 
-  if (qs.length) {
-    const seen = qs.filter(q => S.qs[q.id]), right = seen.filter(q => S.qs[q.id].last).length;
-    const live = S.run && !S.run.done && S.run.kind === "step" && S.run.item === id;
-    h += `<div class="c-prac"><span>${plural(qs.length, "quiz question")} ${qs.length === 1 ? "covers" : "cover"} this step.` +
-      (seen.length ? ` You have answered ${seen.length}, ${right} right at the last try.` : "") + `</span>` +
-      `<button type="button" data-step-quiz="${id}">${live ? "Resume practice" : `Try ${Math.min(QZ.STEP, qs.length)} now`}</button></div>`;
+  let r = "";
+  if (tags.length || qs.length) {
+    const acc = tagStats();
+    let b = "";
+    if (tags.length) b += `<ul class="c-tags">${tags.map(t => {
+      const a = acc[t];
+      return `<li><span>${esc(t)}</span><span class="tr"><span class="fi${a && a[0] / a[1] < 0.7 ? " low" : ""}" style="width:${a ? pct(a[0], a[1]) : 0}%"></span></span><span class="wk-n">${a ? `${a[0]}/${a[1]}` : "new"}</span></li>`;
+    }).join("")}</ul><p class="muted c-hint">Your quiz answers on each topic so far, right of all.</p>`;
+    if (qs.length) {
+      const seen = qs.filter(q => S.qs[q.id]), right = seen.filter(q => S.qs[q.id].last).length;
+      const live = S.run && !S.run.done && S.run.kind === "step" && S.run.item === id;
+      b += `<div class="c-prac"><span>${plural(qs.length, "quiz question")} ${qs.length === 1 ? "covers" : "cover"} this step.` +
+        (seen.length ? ` You have answered ${seen.length}, ${right} right at the last try.` : "") + `</span>` +
+        `<button type="button" data-step-quiz="${id}">${live ? "Resume practice" : `Try ${Math.min(QZ.STEP, qs.length)} now`}</button></div>`;
+    }
+    r += box("exam", "📊", "Exam topics", b);
   }
-  return h;
+  if (cues.length) r += foldBox("cues", "🗣", "cues", "Exam wording on these topics", cues.length,
+    `<ul class="cue-l">${cues.map(c => `<li><b>${esc(c[0])}</b><span>→ ${esc(c[1])}</span><span class="muted">${esc(c[2])}</span></li>`).join("")}</ul>`, true);
+  const las = LA.filter(e => (e.tags || []).some(t => tags.includes(t))).slice(0, 4);
+  if (las.length) r += box("look", "⚖️", "Look-alikes on these topics", `<ul class="c-la">${las.map(e => `<li><button type="button" class="link" data-look="${esc(e.id)}">${esc(e.title)}</button></li>`).join("")}</ul>`);
+  r += `<label class="box b-notes c-notes"><span class="box-h"><span class="bi" aria-hidden="true">📝</span>My notes on this step <span class="saved" data-saved="${id}">saved</span></span>` +
+    `<textarea data-inote="${id}" maxlength="${NOTE_MAX}" placeholder="What surprised you, what to look at again…">${esc(S.inotes[id] || "")}</textarea></label>`;
+  return { l: l && `<div class="side-t">Look it up</div>${l}`, r: `<div class="side-t">On the exam</div>${r}` };
 }
 function quizCardHTML(d) {
   const r = S.quiz[d.id], tries = r ? r.tries.length : 0, ok = quizOk(d), live = liveQuiz(d);
@@ -746,7 +966,9 @@ function setTick(id, val, srcEl) {
   const was = { g: groupDone(g), d: dayDone(d), w: week.every(dayDone), a: DAYS.every(dayDone) };
   if (val) S.ticks[id] = true; else delete S.ticks[id];
   markDayDone(d);
+  const billed = billFor(id, val, d);
   save();
+  if (billed.length) setTimeout(() => FX.toast(`🧾 On your <b>still running</b> list: ${billed.map(esc).join(", ")}`), 900);
   if (val) {
     // effects start from the button that was pressed, so fire them before the card is redrawn
     const nowDay = dayDone(d);
@@ -766,6 +988,7 @@ function setTick(id, val, srcEl) {
 function complete(id, srcEl) {
   FX.unlock();
   setTick(id, true, srcEl);
+  autoFocus();
   const d = itemIndex[id].d;
   if (view.day !== d.id) return;
   const ids = dIds(d), i = ids.indexOf(id);
@@ -817,7 +1040,7 @@ function xpTotal() {
   x += XP.step * Object.keys(S.ticks).filter(id => itemIndex[id]).length;
   x += XP.pass * DAYS.filter(d => S.quiz[d.id] && S.quiz[d.id].passed).length;
   for (const id in S.ach) if (ACH_BY[id]) x += ACH_BY[id].xp;
-  return x;
+  return x + CHAL_XP * Object.keys(S.chal).length;
 }
 function levelOf(x) {
   x = Number.isFinite(x) && x > 0 ? Math.min(x, 1e12) : 0;
@@ -855,11 +1078,266 @@ let lvShown = 0;   // the highest level on screen so far; only a level above it 
 const syncLevel = () => { lvShown = Math.max(lvShown, levelOf(xpTotal()).n); };
 // New badges, then a new level, each as a badge at the top of the screen.
 function showGains(got, delay = 0) {
-  got.forEach((a, k) => setTimeout(() => { FX.sound("unlock"); FX.badge(a.i, a.t, `New badge, +${a.xp} XP`, "gold"); }, delay + k * 650));
+  const all = got.map(a => [a.i, a.t, `New badge, +${a.xp} XP`, "gold"]).concat(checkGoals());
+  all.forEach(([i, t, sub, tier], k) => setTimeout(() => { FX.sound("unlock"); FX.badge(i, t, sub, tier); }, delay + k * 650));
   const n = levelOf(xpTotal()).n, was = lvShown;
-  if (was && n > was) setTimeout(() => { FX.sound("level"); FX.badge("⭐", `Level ${n}`, rankOf(n) !== rankOf(was) ? `New title: ${rankOf(n)}` : rankOf(n), "level"); }, delay + got.length * 650);
+  if (was && n > was) setTimeout(() => { FX.sound("level"); FX.badge("⭐", `Level ${n}`, rankOf(n) !== rankOf(was) ? `New title: ${rankOf(n)}` : rankOf(n), "level"); }, delay + all.length * 650);
   lvShown = Math.max(lvShown, n);
 }
+
+// ---------- daily goal, weekly challenges ----------
+// Today's XP is the total now minus the total when the day was first seen (S.xpDay). Days and weeks are stamped only
+// after the first sync was tried (ready), so a copy that is behind doesn't stamp a starting point that is too low.
+let ready = false;
+const DEV = (() => { if (!/^[a-z0-9]{1,12}$/.test(str0(ui.dev))) { ui.dev = Math.random().toString(36).slice(2, 10) || "dev"; saveUI(); } return ui.dev; })();
+// This device's counts for today (answers, right, focus minutes), created on first use.
+function dailyNow() {
+  const day = S.daily[today()] || (S.daily[today()] = {});
+  return day[DEV] || (day[DEV] = { a: 0, r: 0, f: 0 });
+}
+const weekKey = (d = new Date()) => { const m = new Date(d.getFullYear(), d.getMonth(), d.getDate()); m.setDate(m.getDate() - (m.getDay() + 6) % 7); return iso(m); };
+// The counters the challenges measure, as totals so far.
+function counters() {
+  let a = 0, r = 0;
+  for (const id in S.qs) { a += S.qs[id].seen; r += S.qs[id].right; }
+  return { a, r, x: xpTotal(), d: DAYS.filter(dayDone).length, s: Object.keys(S.ticks).filter(id => itemIndex[id]).length,
+    f: Math.round(Object.values(S.log).reduce((x, y) => x + y, 0)), fix: Object.values(S.book).filter(b => b.fixed).length,
+    w: Object.values(S.warm).filter(v => v === "done").length, dr: S.drill.runs, k: Object.values(S.kconf).filter(v => v === "ok").length };
+}
+// Three a week, one from each group, drawn from the week's date so every device draws the same.
+function pickChal(key) {
+  let h = 7;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return [["ans", "right", "xp"], ["days", "steps", "focus"], ["fix", "warm", "drill", "recall"]].map((g, gi) => {
+    const ok = g.filter(id => !CHAL_BY[id].can || CHAL_BY[id].can());
+    return ok.length ? ok[(h >>> (gi * 5)) % ok.length] : "";
+  }).filter(Boolean);
+}
+// Stamp today's and this week's starting points, once each. True when something changed.
+function stamp() {
+  if (!ready) return false;
+  let ch = false;
+  const t = today(), wk = weekKey();
+  if (!S.xpDay[t]) { S.xpDay[t] = { x: xpTotal(), at: Date.now(), hit: false }; pruneDates(S.xpDay); ch = true; }
+  if (S.week.key !== wk) { S.week = { key: wk, at: Date.now(), ids: pickChal(wk), base: counters() }; ch = true; }
+  return ch;
+}
+const xpToday = () => { const e = S.xpDay[today()]; return e ? Math.max(0, xpTotal() - e.x) : 0; };
+const chalDone = id => !!S.chal[`${S.week.key}:${id}`];
+const chalProg = (id, c = counters()) => { const k = CHAL_BY[id].k; return Math.max(0, c[k] - num0(S.week.base[k], c[k])); };
+// Days in a row the goal was reached, up to today (or yesterday, while today's is still open).
+function goalStreak() {
+  const d = midnight();
+  if (!(S.xpDay[iso(d)] || {}).hit) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while ((S.xpDay[iso(d)] || {}).hit) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+// After XP or a counter changed: the daily goal and the week's challenges, each announced once. Returns badges to show.
+function checkGoals() {
+  const e = S.xpDay[today()];
+  if (!ready || !e) return [];
+  const out = [];
+  if (!e.hit && xpToday() >= S.settings.goal) { e.hit = true; const gs = goalStreak(); out.push(["🎯", "Daily goal reached", `${S.settings.goal} XP today${gs > 1 ? `, ${gs} days in a row` : ""}`, "silver"]); }
+  const c = counters();
+  for (const id of S.week.ids) {
+    const ch = CHAL_BY[id];
+    if (chalDone(id) || chalProg(id, c) < ch.n) continue;
+    S.chal[`${S.week.key}:${id}`] = today();
+    out.push(["🏆", "Weekly challenge done", `${ch.t(ch.n)}, +${CHAL_XP} XP`, "epic"]);
+  }
+  if (out.length) save();
+  return out;
+}
+function renderToday() {
+  const el = document.getElementById("today");
+  if (!ready || !S.xpDay[today()]) { el.hidden = true; return; }
+  el.hidden = false;
+  const goal = S.settings.goal, x = xpToday(), hit = x >= goal, gs = goalStreak(), R = 34, C = 2 * Math.PI * R;
+  // a meter: the fill is the share of the goal, the track a lighter step of the same colour
+  const ring = `<svg class="ring" viewBox="0 0 84 84" aria-hidden="true"><circle class="ring-t" cx="42" cy="42" r="${R}"/>` +
+    `<circle class="ring-f" cx="42" cy="42" r="${R}" stroke-dasharray="${(Math.min(1, x / goal) * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 42 42)"/></svg>`;
+  const c = counters(), sun = parseDate(S.week.key); sun.setDate(sun.getDate() + 6);
+  const rows = S.week.ids.map(id => {
+    const ch = CHAL_BY[id], n = Math.min(ch.n, chalDone(id) ? ch.n : chalProg(id, c)), done = n >= ch.n, f = ch.fmt || (v => v.toLocaleString("en-GB"));
+    return `<li class="${done ? "done" : ""}"><span class="ch-i" aria-hidden="true">${ch.i}</span><span class="ch-t">${ch.t(ch.n)}</span>` +
+      `<span class="ch-m"><span class="mt" role="meter" aria-valuemin="0" aria-valuemax="${ch.n}" aria-valuenow="${n}" aria-label="${esc(ch.t(ch.n))}"><span style="width:${pct(n, ch.n)}%"></span></span>` +
+      `<span class="ch-n">${done ? "✓ Done" : `${f(n)} / ${f(ch.n)}`}</span></span></li>`;
+  }).join("");
+  el.innerHTML = `<div class="td-goal${hit ? " hit" : ""}" role="group" aria-label="Today's goal: ${x} of ${goal} XP">${ring}` +
+    `<div class="ring-v"><b>${x.toLocaleString("en-GB")}</b><small>of ${goal} XP</small></div>` +
+    `<div class="td-x"><h3>Today's goal</h3><p>${hit ? "Reached 🎯" : `${goal - x} XP to go`}</p>` +
+    `<p class="muted">${gs > 1 ? `Reached ${gs} days in a row.` : hit ? "Reached today. Keep it up tomorrow for a run of days." : "Right answers, steps, passed quizzes and challenges count."} <button type="button" class="link" data-goal-set>Change</button></p></div></div>` +
+    `<div class="td-ch"><h3>This week's challenges <span class="muted">+${CHAL_XP} XP each, until ${fmtD(sun)}</span></h3><ul>${rows || `<li class="muted">None this week.</li>`}</ul></div>`;
+}
+
+// ---------- readiness and trends (overview) ----------
+const MIN_MET = 15;                 // answers a domain needs before its readiness means something
+const READY = 80, CLOSE = 70;       // readiness bands: ready, close, not yet
+const DOM_W = [30, 26, 24, 20];     // exam guide weights
+// Per domain: the questions met so far, and how many of them were right at the last answer.
+function readiness() {
+  const r = DOMAINS.map(() => ({ met: 0, ok: 0, all: 0 }));
+  for (const q of BANK) { const d = r[q.dom - 1], s = S.qs[q.id]; d.all++; if (s && s.seen) { d.met++; if (s.last) d.ok++; } }
+  return r.map(d => ({ ...d, acc: d.met ? Math.round(d.ok / d.met * 100) : 0 }));
+}
+// The weakest topic of the weakest domain (with enough answers), and the step that teaches it.
+function studyNext(rd) {
+  const dom = rd.map((d, i) => ({ ...d, i })).filter(d => d.met >= MIN_MET).sort((a, b) => a.acc - b.acc)[0];
+  if (!dom) return null;
+  const w = QZ.weakTags(BANK.filter(q => q.dom === dom.i + 1), S.qs, 3).find(t => tagRefs(t.tag).length);
+  return w ? { dom: dom.i + 1, tag: w.tag, right: w.right, seen: w.seen, step: tagRefs(w.tag)[0] } : null;
+}
+const band = a => (a >= READY ? ["ok", "✓", "Ready"] : a >= CLOSE ? ["warn", "◐", "Close"] : ["bad", "✗", "Not yet"]);
+function whyCounts() {
+  const n = Object.create(null);
+  for (const id in S.book) if (QBY[id] && S.book[id].why) n[S.book[id].why] = (n[S.book[id].why] || 0) + 1;
+  return WHY.map(w => [w, n[w[0]] || 0]).filter(x => x[1]).sort((a, b) => b[1] - a[1]);
+}
+const WHY_TIP = {
+  know: () => "Go back to the step that teaches it: every miss lists the steps under it.",
+  mix: () => `Put the two services side by side: <button type="button" class="link" data-look>the look-alikes</button>.`,
+  read: () => "Read the question's last sentence first: it says what is asked. Then read the scenario for the requirements.",
+  word: () => `Learn what the requirement words point to (least cost, least operational overhead…): <button type="button" class="link" data-sheet="cues">exam wording</button>.`,
+  rush: () => "Read every option before you pick one, and change an answer only for a reason you can name."
+};
+// Why you miss: one bar per reason, most common first, with what helps against the top one.
+function whyPatternHTML() {
+  const wc = whyCounts();
+  if (!wc.length) return `<p class="muted">Mark why you missed a question (the buttons under a wrong answer, or in the notebook) and the pattern shows here.</p>`;
+  const max = wc[0][1], all = wc.reduce((a, x) => a + x[1], 0);
+  return `<ul class="why-bars">${wc.map(([w, n]) => `<li><span class="wb-l">${w[1]} ${esc(w[2])}</span><span class="wb-t"><span style="width:${(n / max * 100).toFixed(1)}%"></span></span><span class="wb-n">${n}</span></li>`).join("")}</ul>` +
+    `<p class="why-tip"><b>Most often: ${esc(wc[0][0][2].toLowerCase())}</b> (${wc[0][1]} of ${all}). ${WHY_TIP[wc[0][0][0]]()}</p>`;
+}
+function renderReady() {
+  const rd = readiness(), el = document.getElementById("ready");
+  const total = rd.reduce((a, d) => a + d.met, 0);
+  if (total < 10) { el.innerHTML = `<p class="muted">Fills in as you answer quiz questions: how many of each exam domain's questions you would get right now.</p>`; return; }
+  const full = rd.every(d => d.met >= MIN_MET), all = full ? Math.round(rd.reduce((a, d, i) => a + d.acc * DOM_W[i], 0) / 100) : 0;
+  let h = `<div class="rd-head">${full ? `<div class="rd-all"><b>${all}%</b><span class="muted">weighted like the exam (30 / 26 / 24 / 20)</span></div>` : `<p class="muted">An overall figure needs ${MIN_MET} answers in each domain.</p>`}` +
+    `<p class="muted rd-how">Of the questions you have met in a domain, the share you got right at your last answer. Ready from ${READY}%.</p></div><ul class="rd-list">`;
+  rd.forEach((d, i) => {
+    const few = d.met < MIN_MET, [cls, ic, lb] = band(d.acc);
+    h += `<li class="${few ? "few" : cls}"><span class="rd-n">D${i + 1} ${DOMAINS[i]}</span>` +
+      `<span class="mt" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${d.acc}" aria-label="Domain ${i + 1} ${DOMAINS[i]}"><span style="width:${d.acc}%"></span><i style="left:${READY}%"></i></span>` +
+      `<span class="rd-v">${d.met ? `${d.acc}%` : "–"}</span><span class="rd-s">${few ? `${d.met} of ${MIN_MET} answers` : `${ic} ${lb}`}</span>` +
+      `<span class="rd-c muted">${d.met} of ${d.all} questions met</span></li>`;
+  });
+  h += `</ul>`;
+  const nx = studyNext(rd);
+  if (nx) {
+    const { d, it } = itemIndex[nx.step];
+    h += `<div class="rd-next"><span class="rd-nk">📍 Study this next</span><p><b>${esc(nx.tag)}</b> in D${nx.dom} ${DOMAINS[nx.dom - 1]}: ${nx.right} of ${nx.seen} answers right. Day ${d.day} teaches it: ${it[1]}</p>` +
+      `<div class="row"><button type="button" data-jump="${nx.step}">Open the step</button><button type="button" data-step-quiz="${nx.step}">Try 3 questions on it</button>${laTag(nx.tag).length ? `<button type="button" data-look="${esc(laTag(nx.tag)[0].id)}">⚖️ ${esc(laTag(nx.tag)[0].title)}</button>` : ""}</div></div>`;
+  }
+  h += `<h3 class="sub-h">Why you miss</h3>${whyPatternHTML()}`;
+  el.innerHTML = h;
+}
+
+// Trends: answers right, focus time and XP per day. One series per chart, so the title names it; values on hover
+// or with the arrow keys, and all of them in the table view.
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const shortD = k => { const d = parseDate(k); return `${d.getDate()} ${MON[d.getMonth()]}`; };
+// XP on a day: the next stamped day's starting total (or today's total) minus this day's.
+function xpOn(k) {
+  const e = S.xpDay[k];
+  if (!e) return null;
+  const next = Object.keys(S.xpDay).sort().find(x => x > k);
+  return Math.max(0, (next ? S.xpDay[next].x : xpTotal()) - e.x);
+}
+function trendData(n) {
+  const out = [], d = midnight(), first = Object.keys(S.daily).sort()[0] || today();
+  // before the per-day counts existed: day quizzes and mock exams only
+  const old = {};
+  for (const q of Object.values(S.quiz)) for (const t of q.tries) if (t.at && t.at < first) { const o = old[t.at.slice(0, 10)] || (old[t.at.slice(0, 10)] = [0, 0]); o[0] += t.n; o[1] += t.score; }
+  for (const m of S.mocks) if (m.at && m.at < first) { const o = old[m.at.slice(0, 10)] || (old[m.at.slice(0, 10)] = [0, 0]); o[0] += m.n; o[1] += m.score; }
+  d.setDate(d.getDate() - (n - 1));
+  for (let i = 0; i < n; i++, d.setDate(d.getDate() + 1)) {
+    const k = iso(d), day = S.daily[k] || {};
+    let a = 0, r = 0, f = 0;
+    for (const dev in day) { a += day[dev].a; r += day[dev].r; f += day[dev].f; }
+    if (!a && old[k]) [a, r] = old[k];
+    out.push({ k, a, r, f: Math.round(f), x: xpOn(k), old: !!old[k] && k < first });
+  }
+  return out;
+}
+const niceMax = v => { if (v <= 0) return 1; const p = 10 ** Math.floor(Math.log10(v)), m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; };
+// One chart as SVG: kind "line" (percent, gaps where a day has no answers) or "col"; ref = a labelled reference line.
+function chartSVG(data, val, { kind, max, ref, refLabel, unit, per = 1 }) {
+  const W = 320, H = 150, L = 34, R = 10, T = 12, B = 22, pw = W - L - R, ph = H - T - B, n = data.length, bw = pw / n;
+  // per: the axis steps in whole units of this size (60: hours for minutes)
+  const vs = data.map(val), top = max || niceMax(Math.max(ref || 0, ...vs.filter(v => v != null)) / per) * per;
+  const y = v => T + ph - (v / top) * ph, x = i => L + bw * i + bw / 2;
+  let g = "";
+  for (const t of [0, top / 2, top]) g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/><text class="ax" x="${L - 5}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${unit(t, true)}</text>`;
+  for (const i of [0, Math.floor((n - 1) / 2), n - 1]) g += `<text class="ax" x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${shortD(data[i].k)}</text>`;
+  // the reference line's label sits at the left end: the recent days, on the right, are the ones read most
+  if (ref) g += `<line class="ref" x1="${L}" x2="${W - R}" y1="${y(ref).toFixed(1)}" y2="${y(ref).toFixed(1)}"/><text class="ref-t" x="${L + 4}" y="${(y(ref) - 4).toFixed(1)}">${refLabel}</text>`;
+  if (kind === "col") {
+    const w = Math.min(24, Math.max(2, bw - 2));
+    vs.forEach((v, i) => {
+      if (!v) return;
+      const h = Math.max(1, (v / top) * ph), x0 = x(i) - w / 2, y0 = T + ph - h, r = Math.min(4, w / 2, h);
+      g += `<path class="mk" d="M${x0.toFixed(1)} ${(T + ph).toFixed(1)}V${(y0 + r).toFixed(1)}q0 -${r} ${r} -${r}h${(w - 2 * r).toFixed(1)}q${r} 0 ${r} ${r}V${(T + ph).toFixed(1)}z"/>`;
+    });
+  } else {
+    let path = "", on = false;
+    vs.forEach((v, i) => { if (v == null) { on = false; return; } path += `${on ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`; on = true; });
+    g += `<path class="ln" d="${path}"/>`;
+    vs.forEach((v, i) => { if (v != null) g += `<circle class="dot" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4"/>`; });
+  }
+  // the last value is labelled; the rest are on hover, with the keys, and in the table
+  const li = vs.map((v, i) => (v ? i : -1)).filter(i => i >= 0).pop();
+  if (li != null) { const t = unit(vs[li]), hw = t.length * 3; g += `<text class="lab" x="${Math.min(x(li), W - 2 - hw).toFixed(1)}" y="${(y(vs[li]) - 8).toFixed(1)}" text-anchor="middle">${t}</text>`; }
+  g += `<line class="xh" x1="0" x2="0" y1="${T}" y2="${T + ph}" visibility="hidden"/>`;
+  data.forEach((_, i) => { g += `<rect class="hit" data-i="${i}" x="${(L + bw * i).toFixed(1)}" y="${T}" width="${bw.toFixed(1)}" height="${ph}"/>`; });
+  return `<svg class="ch" viewBox="0 0 ${W} ${H}" aria-hidden="true">${g}</svg>`;
+}
+const pctU = (v, ax) => `${Math.round(v)}%`;
+const minU = (v, ax) => (v >= 60 || ax ? `${Math.round(v / 6) / 10} h` : `${Math.round(v)} min`);   // axis ticks fall on whole or half hours (per: 60)
+const xpU = v => `${Math.round(v)}`;
+const TRENDS = [
+  { id: "acc", t: "Answers right, per day", val: d => (d.a ? Math.round(d.r / d.a * 100) : null), o: { kind: "line", max: 100, ref: 90, refLabel: "90% pass mark", unit: pctU },
+    tip: d => (d.a ? [`${Math.round(d.r / d.a * 100)}%`, `${d.r} of ${d.a} right${d.old ? " (day quizzes and mocks)" : ""}`] : ["–", "no answers"]) },
+  { id: "focus", t: "Focus time, per day", val: d => d.f, o: { kind: "col", unit: minU, per: 60 }, tip: d => [d.f ? fmtH(d.f) : "–", "focus logged"] },
+  { id: "xp", t: "XP, per day", val: d => d.x || 0, o: { kind: "col", ref: 0, refLabel: "", unit: xpU }, tip: d => [d.x == null ? "–" : `${d.x} XP`, d.x == null ? "app not opened" : d.x >= S.settings.goal ? "goal reached" : `goal ${S.settings.goal}`] }
+];
+let trendCache = [];
+function renderTrends() {
+  const n = ui.trend === 30 ? 30 : 14, data = trendCache = trendData(n), el = document.getElementById("trends");
+  TRENDS[2].o.ref = S.settings.goal; TRENDS[2].o.refLabel = `goal ${S.settings.goal}`;
+  const empty = !data.some(d => d.a || d.f || d.x);
+  const ctl = `<div class="tr-ctl" role="group" aria-label="Range">${[14, 30].map(k => `<button type="button" class="sm" data-trend="${k}" aria-pressed="${n === k}">Last ${k} days</button>`).join("")}` +
+    `<button type="button" class="sm" data-trend-table aria-pressed="${!!ui.trendTable}">${ui.trendTable ? "Show charts" : "Show as table"}</button></div>`;
+  if (empty) { el.innerHTML = ctl + `<p class="muted">Nothing in these days yet. Answers, focus time and XP show here per day.</p>`; return; }
+  if (ui.trendTable) {
+    el.innerHTML = ctl + `<div class="tr-tw"><table class="tr-tab"><thead><tr><th scope="col">Day</th><th scope="col">Answers</th><th scope="col">Right</th><th scope="col">Focus</th><th scope="col">XP</th></tr></thead><tbody>` +
+      data.slice().reverse().map(d => `<tr><th scope="row">${esc(fmtD(parseDate(d.k)))}</th><td>${d.a || "–"}</td><td>${d.a ? `${Math.round(d.r / d.a * 100)}%` : "–"}</td><td>${d.f ? fmtH(d.f) : "–"}</td><td>${d.x == null ? "–" : d.x}</td></tr>`).join("") + `</tbody></table></div>`;
+    return;
+  }
+  el.innerHTML = ctl + `<div class="tr-grid">${TRENDS.map(c => `<figure class="tr" data-chart="${c.id}" tabindex="0" aria-label="${esc(c.t)}. Use the arrow keys to read each day.">` +
+    `<figcaption>${esc(c.t)}</figcaption>${chartSVG(data, c.val, c.o)}<div class="tt" hidden></div></figure>`).join("")}</div>`;
+}
+// The hover layer: one tooltip per chart, a hairline on the day under the pointer (or chosen with the arrow keys).
+function trendShow(fig, i) {
+  const c = TRENDS.find(t => t.id === fig.dataset.chart), d = trendCache[i];
+  if (!c || !d) return;
+  fig.dataset.i = i;
+  const hit = fig.querySelector(`.hit[data-i="${i}"]`), xh = fig.querySelector(".xh"), svg = fig.querySelector("svg");
+  const cx = +hit.getAttribute("x") + +hit.getAttribute("width") / 2;
+  xh.setAttribute("x1", cx); xh.setAttribute("x2", cx); xh.setAttribute("visibility", "visible");
+  const tt = fig.querySelector(".tt"), [v, sub] = c.tip(d);
+  tt.replaceChildren();
+  const b = document.createElement("b"); b.textContent = v;
+  const s1 = document.createElement("span"); s1.textContent = sub;
+  const s2 = document.createElement("span"); s2.className = "muted"; s2.textContent = fmtD(parseDate(d.k));
+  tt.append(b, s1, s2);
+  tt.hidden = false;
+  const box = svg.getBoundingClientRect(), fx = (cx / 320) * box.width + (box.left - fig.getBoundingClientRect().left);
+  // beside the hairline, on the side with room, so it doesn't sit on the marks of that day
+  tt.style.left = `${fx + 10 + tt.offsetWidth <= fig.clientWidth ? fx + 10 : Math.max(0, fx - 10 - tt.offsetWidth)}px`;
+}
+function trendHide(fig) { fig.querySelector(".tt").hidden = true; fig.querySelector(".xh").setAttribute("visibility", "hidden"); }
 
 // ---------- scores ----------
 function num(k) { const v = S.scores[k]; return v === "" || v == null || isNaN(+v) ? null : +v; }
@@ -932,14 +1410,17 @@ function renderPractice() {
       ? `${QZ.MOCK.n} questions in ${QZ.MOCK.minutes} minutes, results at the end like the real exam. Each attempt draws different questions.${last ? ` Last: ${last.pct}% on ${fmtD(parseDate(last.at))}.` : ""}`
       : `Unlocks when Days 1–${MOCK_AFTER} are complete (${left} to go): the lectures and labs.`,
       `<button type="button" data-mock${mockOpen() || liveMock ? ' class="primary"' : " disabled"}>${liveMock ? `Resume (${clock(S.run.end - Date.now())} left)` : "Start mock exam"}</button>`],
-    ["⚡ Which service?", `60 seconds of quick picks: a requirement, four services, choose one.${S.drill.best ? ` Your best: ${S.drill.best}.` : ""}`,
-      `<button type="button" data-drill${DRILL.length ? "" : " disabled"}>Start drill</button>`],
+    ["⚡ Which service?", `Quick picks between services, four ways.${S.drill.day[t] != null ? ` Today's five: ${S.drill.day[t]} of 5.` : ""}`,
+      `<div class="dr-modes">${Object.entries(DRILL_MODES).map(([k, m]) => { const b = { go: S.drill.best, rev: S.drill.rev, lives: S.drill.lives }[k];
+        return `<button type="button"${k === "go" ? " data-drill" : ` data-drill-mode="${k}"`}${DRILL.length ? "" : " disabled"} title="${esc(m.t)}: ${esc(m.d)}">${m.b}${b ? ` <small>best ${b}</small>` : k === "day" && S.drill.day[t] != null ? ` <small>✓ ${S.drill.day[t]}/5</small>` : ""}</button>`; }).join("")}</div>`],
     ["📓 Wrong-answer notebook", book.length ? `${open} open, ${book.length - open} fixed.` : "Every question you miss lands here with your one-line note.",
       `<button type="button" data-sheet="notebook">Open notebook</button>`],
     ["📈 Weak spots", weak ? `Weakest topic so far: ${esc(weak.tag)} (${pct(weak.right, weak.seen)}% right).` : "Fills in as you answer questions.",
       `<button type="button" data-sheet="weak">Show weak spots</button>`],
     ["🗣 Exam wording", "What phrases like “least operational overhead” usually point to.",
       `<button type="button" data-sheet="cues"${CUES.length ? "" : " disabled"}>Open cheat sheet</button>`],
+    ["⚖️ Look-alikes", `${plural(LA.length, "table")} of services that sound alike, side by side: SQS or SNS, ALB or NLB, EBS, EFS or S3…`,
+      `<button type="button" data-look${LA.length ? "" : " disabled"}>Compare them</button>`],
     ["🏅 Badges and level", (L => `Level ${L.n}, ${rankOf(L.n)}: ${L.to - L.x} XP to level ${L.n + 1}. ${Object.keys(S.ach).filter(id => ACH_BY[id]).length} of ${ACH.length} badges earned.`)(levelOf(xpTotal())),
       `<button type="button" data-sheet="badges">Show badges</button>`]
   ];
@@ -1021,7 +1502,7 @@ function startRun(kind, of) {
   const ord = {};
   qs.forEach(q => { ord[q.id] = QZ.order(q); });
   const now = Date.now();
-  S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "",
+  S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, x: {}, hl: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "",
     row: 0, rowMax: 0, best0: S.rowBest, xp0: xpTotal(), rec: false };
   picks = {};
   save(); refresh(); openQuiz();
@@ -1064,15 +1545,22 @@ function refHTML(id, extra = "") {
     `<div class="ref-a">${url ? `<a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}<button type="button" class="sm" data-jump="${id}">Open step</button></div></li>`;
 }
 // side: the feedback on the question just answered; wide screens show it beside the quiz card (style.css, .qz-side).
-function studyHTML(q, side = false) {
-  const refs = studyRefs(q);
+// miss: the question was missed (picked = the options chosen, when known), so it links to its look-alike tables
+function studyHTML(q, side = false, miss = false, picked) {
+  const refs = studyRefs(q), las = miss ? laFor(q, picked) : [];
   const doc = q.doc && DOCS[q.doc];
-  if (!refs.length && !doc) return "";
+  if (!refs.length && !doc && !las.length) return "";
   return `<div class="qz-study${side ? " qz-side" : ""}"><div class="qz-sh">Where to study this</div><ul class="qz-refs">${refs.map(id => refHTML(id)).join("")}</ul>` +
-    (doc ? `<div class="qz-doc">AWS page: <a href="${doc[1]}" target="_blank" rel="noopener">${doc[0]} ↗</a></div>` : "") + `</div>`;
+    (doc ? `<div class="qz-doc">AWS page: <a href="${doc[1]}" target="_blank" rel="noopener">${doc[0]} ↗</a></div>` : "") + laLinks(las) + `</div>`;
 }
 const answerHTML = q => `<ul class="qz-ans">${q.a.map(i => `<li><b>✓ ${q.o[i]}</b><div class="qz-why">${q.x[i]}</div></li>`).join("")}</ul>`;
-const noteHTML = q => `<label class="qz-note">Why did you miss it? One line for your notebook.<input type="text" maxlength="300" data-note="${q.id}" value="${esc((S.book[q.id] || {}).note || "")}" placeholder="e.g. mixed up gateway and interface endpoints"></label>`;
+// One click says why a question was missed; the weak spots and the overview show the pattern.
+const whyHTML = q => {
+  const b = S.book[q.id];
+  if (!b) return "";
+  return `<div class="why-r" role="group" aria-label="Why did you miss it?"><span class="why-k">Why did you miss it?</span>${WHY.map(([k, i, t]) => `<button type="button" class="sm" data-why="${k}" data-wq="${esc(q.id)}" aria-pressed="${b.why === k}">${i} ${t}</button>`).join("")}</div>`;
+};
+const noteHTML = q => `<label class="qz-note">A line for your notebook, if you like.<input type="text" maxlength="300" data-note="${q.id}" value="${esc((S.book[q.id] || {}).note || "")}" placeholder="e.g. mixed up gateway and interface endpoints"></label>`;
 const optsHTML = (q, ord, on) => `<div class="qz-opts">${ord.map((oi, k) => `<button type="button" class="qz-o${on.includes(oi) ? " on" : ""}" data-o="${oi}" aria-pressed="${on.includes(oi)}"><span class="qz-l">${LETTERS[k]}</span><span class="qz-t">${q.o[oi]}</span></button>`).join("")}</div>`;
 
 // Record an answer everywhere it matters: stats, spaced repetition, notebook.
@@ -1082,6 +1570,8 @@ function learn(q, ok) {
   const t = today(), s = S.qs[q.id], due = !!(S.srs[q.id] && S.srs[q.id].due <= t);
   const earns = ok && (!s || !s.right || !s.last || due);
   QZ.record(S.qs, q.id, ok, t);
+  const dl = dailyNow();
+  dl.a++; if (ok) dl.r++;
   const e = S.qs[q.id];
   e.xp = Math.min(e.right, (e.xp || 0) + (earns ? 1 : 0));
   if (ok) {
@@ -1089,7 +1579,7 @@ function learn(q, ok) {
     if (S.book[q.id]) S.book[q.id].fixed = true;
   } else {
     QZ.srsMiss(S.srs, q.id, t);
-    const b = S.book[q.id] || (S.book[q.id] = { at: t, misses: 0, note: "", fixed: false });
+    const b = S.book[q.id] || (S.book[q.id] = { at: t, misses: 0, note: "", fixed: false, why: "" });
     b.misses++; b.at = t; b.fixed = false;
   }
   return earns;
@@ -1135,7 +1625,7 @@ function renderQ() {
     const main = to < 0 ? "See results" : to === r.i + 1 ? "Next question →" : `Continue at question ${to + 1} →`;
     qzBody.innerHTML = mapHTML(r) + `<div class="qz-q">${q.q}</div>` +
       `<div class="qz-verdict ${ok ? "ok" : "bad"}${fresh ? " fresh" : ""}" role="status">${ok ? "✓ Correct." : `✗ Not quite. The answer is ${keyL}.`}${fresh === "xp" ? `<span class="xp-up">+${XP.right} XP</span>` : ""}</div>` +
-      fbHTML(q, ord, ans, fresh) + studyHTML(q, true) + (ok ? "" : noteHTML(q)) +
+      fbHTML(q, ord, ans, fresh) + studyHTML(q, true, !ok, ans) + (ok ? "" : whyHTML(q) + noteHTML(q)) +
       `<div class="qz-a qz-nav">${prev}${to === r.i + 1 ? "" : skip}<button type="button" class="primary" data-qz="next">${main}</button></div>`;
   }
   fresh = false; comboFx = "";
@@ -1167,6 +1657,7 @@ function pick(oi) {
     else if (cur.length < q.a.length) next = cur.concat(oi);
     else return;
     if (next.length) r.ans[id] = next; else delete r.ans[id];
+    if (r.x[id] && next.includes(oi)) { r.x[id] = r.x[id].filter(x => x !== oi); if (!r.x[id].length) delete r.x[id]; }   // picking an option brings it back
     save(); renderMockQ(); refocus(`[data-o="${oi}"]`);
     return;
   }
@@ -1259,7 +1750,7 @@ function missedHTML(missed) {
   missed.forEach(q => { const id = studyRefs(q)[0]; if (id) refs[id] = (refs[id] || 0) + 1; });
   const order = Object.keys(refs).sort((a, b) => refs[b] - refs[a]);
   return `<h3 class="sub-h">Go back to</h3><ul class="qz-refs">${order.map(id => refHTML(id, `<span class="pill warn">${plural(refs[id], "miss", "misses")}</span>`)).join("")}</ul>` +
-    `<h3 class="sub-h">Questions you missed</h3><ol class="qz-missed">${missed.map(q => `<li><details><summary>${q.q}</summary>${answerHTML(q)}</details></li>`).join("")}</ol>`;
+    `<h3 class="sub-h">Questions you missed</h3><ol class="qz-missed">${missed.map(q => `<li><details><summary>${q.q}</summary>${answerHTML(q)}${whyHTML(q)}</details></li>`).join("")}</ol>`;
 }
 // How a finished quiz went: "ace" (every answer right), "pass" or "fail". The bar is the pass mark on a day quiz,
 // 72% on a mock exam (where its results call it close to the line), 60% on a review, warm-up or step practice.
@@ -1350,25 +1841,87 @@ function finishResults() {
 }
 
 // ---------- mock exam (no feedback until the end) ----------
+// The mock exam screen works like an exam screen: strike out the options you have ruled out, highlight the words
+// that carry the requirement, flag questions for review, the clock always in view (red in the last 10 minutes).
+const mkClock = r => `<span id="mk-time" class="mk-time${r.end - Date.now() < 600000 ? " low" : ""}">⏱ ${clock(r.end - Date.now())}</span> left`;
 function renderMockQ() {
-  const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), mine = r.ans[id] || [];
+  const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), mine = r.ans[id] || [], xs = r.x[id] || [];
   r.ord[id] = ord;
   const answered = r.ids.filter(k => (r.ans[k] || []).length).length;
-  head("Mock exam", [`Question ${r.i + 1} of ${r.ids.length}`, `<span id="mk-time">${clock(r.end - Date.now())}</span> left`, `${answered} answered`], answered / r.ids.length * 100);
-  const last = r.i + 1 >= r.ids.length;
-  qzBody.innerHTML = `<div class="qz-q">${q.q}</div>${optsHTML(q, ord, mine)}` +
+  head("Mock exam", [`Question ${r.i + 1} of ${r.ids.length}`, mkClock(r), `${answered} answered`], answered / r.ids.length * 100);
+  const last = r.i + 1 >= r.ids.length, multi = q.a.length > 1;
+  qzBody.innerHTML = `<div class="mk-tools"><button type="button" data-qz="flag" class="flagb" aria-pressed="${!!r.flag[id]}">${r.flag[id] ? "⚑ Flagged for review" : "⚐ Flag for review"}</button>` +
+    `<span class="muted mk-hint">🖍 Click or drag over words to highlight them. Shift + 1–${ord.length} or ⊘ strikes an option out.</span></div>` +
+    `<div class="qz-q mk-q">${q.q}</div>` +
+    `<div class="qz-opts mk-opts${multi ? " multi" : ""}">${ord.map((oi, k) => `<div class="mk-row${xs.includes(oi) ? " x" : ""}">` +
+      `<button type="button" class="qz-o${mine.includes(oi) ? " on" : ""}" data-o="${oi}" aria-pressed="${mine.includes(oi)}"><span class="qz-l">${LETTERS[k]}</span><span class="qz-t">${q.o[oi]}</span></button>` +
+      `<button type="button" class="mk-x" data-qz="strike" data-x="${oi}" aria-pressed="${xs.includes(oi)}" title="${xs.includes(oi) ? "Bring this option back" : "Strike this option out"}" aria-label="${xs.includes(oi) ? "Bring back" : "Strike out"} option ${LETTERS[k]}">⊘</button></div>`).join("")}</div>` +
     `<div class="qz-a mk-a"><button type="button" data-qz="prev"${r.i ? "" : " disabled"}>← Previous</button>` +
-    `<button type="button" data-qz="flag" class="flagb" aria-pressed="${!!r.flag[id]}">${r.flag[id] ? "⚑ Flagged" : "⚐ Flag for review"}</button>` +
     `<button type="button" data-qz="grid">Review all</button>` +
     `<button type="button" class="primary" data-qz="${last ? "grid" : "mnext"}">${last ? "Review and finish" : "Next →"}</button></div>`;
+  mkWords();
 }
+// Wrap every word of the question in a span (numbered in reading order) and mark the highlighted ones.
+function mkWords() {
+  const qEl = qzBody.querySelector(".mk-q"), r = S.run, hl = new Set(r.hl[r.ids[r.i]] || []);
+  if (!qEl) return;
+  const walker = document.createTreeWalker(qEl, NodeFilter.SHOW_TEXT), nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  let n = 0;
+  for (const t of nodes) {
+    const parts = t.nodeValue.split(/(\s+)/), frag = document.createDocumentFragment();
+    for (const p of parts) {
+      if (!p) continue;
+      if (/^\s+$/.test(p)) { frag.append(p); continue; }
+      const w = document.createElement("span");
+      w.className = "w" + (hl.has(n) ? " hl" : ""); w.dataset.w = n++; w.textContent = p;
+      frag.append(w);
+    }
+    t.replaceWith(frag);
+  }
+}
+// A click on a word toggles it; a drag over several marks them all (or clears them, when all were marked).
+function mkHighlight(from, to) {
+  const r = S.run, id = r.ids[r.i], set = new Set(r.hl[id] || []), lo = Math.min(from, to), hi = Math.max(from, to);
+  const all = [];
+  for (let i = lo; i <= hi; i++) all.push(i);
+  const off = all.every(i => set.has(i));
+  all.forEach(i => (off ? set.delete(i) : set.add(i)));
+  r.hl[id] = [...set].sort((a, b) => a - b);
+  if (!r.hl[id].length) delete r.hl[id];
+  save();
+  qzBody.querySelectorAll(".mk-q .w").forEach(w => w.classList.toggle("hl", set.has(+w.dataset.w)));
+}
+function mkStrike(oi) {
+  const r = S.run, id = r.ids[r.i], xs = new Set(r.x[id] || []);
+  if (xs.has(oi)) xs.delete(oi);
+  else { xs.add(oi); if ((r.ans[id] || []).includes(oi)) { r.ans[id] = r.ans[id].filter(x => x !== oi); if (!r.ans[id].length) delete r.ans[id]; } }   // a struck option is no longer picked
+  r.x[id] = [...xs];
+  if (!r.x[id].length) delete r.x[id];
+  save(); renderMockQ(); refocus(`[data-x="${oi}"]`);
+}
+let gridF = "";   // the review screen's filter: "", "flag" or "open"
+// Highlighting: press on a word, release on the same word (toggle) or another one (the words between).
+let mkDown = -1;
+qzBody.addEventListener("pointerdown", e => { const w = e.target.closest(".mk-q .w"); mkDown = w ? +w.dataset.w : -1; });
+qzBody.addEventListener("pointerup", e => {
+  if (mkDown < 0) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY), w = el && el.closest(".mk-q .w"), from = mkDown;
+  mkDown = -1;
+  if (!w || !S.run || S.run.kind !== "mock" || S.run.done) return;
+  mkHighlight(from, +w.dataset.w);
+  const sel = getSelection();
+  if (sel) sel.removeAllRanges();
+});
 function renderGrid() {
   const r = S.run;
   const un = r.ids.filter(k => !(r.ans[k] || []).length).length;
   const fl = r.ids.filter(k => r.flag[k]).length;
-  head("Mock exam", ["Review", `<span id="mk-time">${clock(r.end - Date.now())}</span> left`], (r.ids.length - un) / r.ids.length * 100);
+  head("Mock exam", ["Review", mkClock(r)], (r.ids.length - un) / r.ids.length * 100);
+  const show = k => (gridF === "flag" ? !!r.flag[k] : gridF === "open" ? !(r.ans[k] || []).length : true);
   qzBody.innerHTML = `<p>${r.ids.length - un} of ${r.ids.length} answered${fl ? `, ${fl} flagged` : ""}. Pick a number to go back to it.</p>` +
-    `<div class="mk-grid">${r.ids.map((k, i) => `<button type="button" data-go="${i}" class="${(r.ans[k] || []).length ? "ans" : ""}${r.flag[k] ? " flag" : ""}">${i + 1}</button>`).join("")}</div>` +
+    `<div class="seg mk-f" role="group" aria-label="Show">${[["", `All (${r.ids.length})`], ["flag", `Flagged (${fl})`], ["open", `Not answered (${un})`]].map(([k, l]) => `<button type="button" data-grid-f="${k}" aria-pressed="${gridF === k}">${l}</button>`).join("")}</div>` +
+    `<div class="mk-grid">${r.ids.map((k, i) => show(k) ? `<button type="button" data-go="${i}" class="${(r.ans[k] || []).length ? "ans" : ""}${r.flag[k] ? " flag" : ""}">${i + 1}</button>` : "").join("") || `<p class="muted">None.</p>`}</div>` +
     `<div class="mk-key"><span class="ans">Answered</span><span class="flag">Flagged</span><span>Not answered</span></div>` +
     `<div class="qz-a"><button type="button" data-qz="back">Back to the questions</button><button type="button" class="primary" data-qz="finish-mock">Finish exam</button></div>`;
 }
@@ -1409,29 +1962,58 @@ function renderMockResult() {
     `<p class="muted">The real exam reports a scaled score from 100 to 1000 (720 to pass), and AWS doesn't publish how right answers map to it, so treat this percentage as a rough guide. Aim for 80% or more here.${prev.length ? ` Earlier mocks: ${prev.join(", ")}.` : ""}</p>` +
     `<div class="dom-bars">${res.dom.map(([a, n], i) => bar(`D${i + 1} ${doms[i]}`, pct(a, n), `${a}/${n}`)).join("")}</div>` +
     `<div class="mk-rev-h"><h3 class="sub-h">Review</h3><label class="chk"><input type="checkbox" data-only${r.only ? " checked" : ""}> Only the ones I got wrong</label></div>` +
-    `<ol class="qz-missed">${list.map(x => `<li value="${x.i + 1}" class="${x.ok ? "right" : "wrong"}"><details><summary>${x.ok ? "✓" : "✗"} ${x.q.q}</summary>${fbHTML(x.q, r.ord[x.q.id] || QZ.order(x.q), r.ans[x.q.id] || [])}${studyHTML(x.q)}</details></li>`).join("") || "<li>Nothing wrong. 🎉</li>"}</ol>` +
+    `<ol class="qz-missed">${list.map(x => `<li value="${x.i + 1}" class="${x.ok ? "right" : "wrong"}"><details><summary>${x.ok ? "✓" : "✗"} ${x.q.q}</summary>${fbHTML(x.q, r.ord[x.q.id] || QZ.order(x.q), r.ans[x.q.id] || [])}${x.ok ? "" : whyHTML(x.q)}${studyHTML(x.q, false, !x.ok, r.ans[x.q.id])}</details></li>`).join("") || "<li>Nothing wrong. 🎉</li>"}</ol>` +
     `<div class="qz-a"><button type="button" class="primary" data-qz="finish">Close</button></div>`;
   hookGif();
 }
 
 // ---------- "Which service?" drill ----------
-function startDrill() {
+// The "Which service?" drill, four ways (the owner chose the three new ones):
+//   go:    60 seconds, a requirement and four services
+//   rev:   60 seconds, a service and four requirements: which one is it for?
+//   lives: no clock, until the third miss
+//   day:   the same five for everyone on a date, once a day; the first try is the day's result
+const DRILL_MODES = {
+  go: { t: "60 seconds", b: "⏱ 60 s", d: "A requirement, four services." },
+  rev: { t: "Reverse", b: "🔁 Reverse", d: "A service, four requirements: which one is it for?" },
+  lives: { t: "Three lives", b: "❤ 3 lives", d: "No clock. Keep going until your third miss." },
+  day: { t: "Daily five", b: "📅 Daily five", d: "Today's five, the same all day. Your first try counts." }
+};
+// A seeded shuffle, so the daily five are the same five all day.
+function seeded(arr, seed) {
+  let h = 2166136261;
+  for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; const j = h % (i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+// Reverse mode: the wrong requirements come from the services that this one is usually confused with, then from its neighbours in the list.
+function revOpts(it) {
+  const k = DRILL.indexOf(it), out = [];
+  for (const w of it[2]) { const x = DRILL.find(d => d[1] === w); if (x && !out.includes(x[0])) out.push(x[0]); }
+  for (let d = 1; out.length < 3 && d < DRILL.length; d++) for (const j of [k - d, k + d]) { const x = DRILL[j]; if (x && x !== it && out.length < 3 && !out.includes(x[0])) out.push(x[0]); }
+  return QZ.shuffle([it[0], ...out.slice(0, 3)]);
+}
+function startDrill(mode = "go") {
   if (!DRILL.length) return;
+  if (!DRILL_MODES[mode]) mode = "go";
   intro = null;
   stopDrill();
-  drill = { end: Date.now() + 60000, items: QZ.shuffle(DRILL), i: 0, score: 0, n: 0, missed: [], lock: false, done: false, opts: [] };
+  const t = today();
+  drill = { mode, end: mode === "go" || mode === "rev" ? Date.now() + 60000 : 0, lives: 3, items: mode === "day" ? seeded(DRILL, t).slice(0, 5) : QZ.shuffle(DRILL), i: 0, score: 0, n: 0, missed: [], lock: false, done: false, opts: [], date: t };
   drillNext();
   if (!qzDlg.open) qzDlg.showModal();
   focusMain();
-  drill.timer = setInterval(drillTick, 200);
+  if (drill.end) drill.timer = setInterval(drillTick, 200);
 }
+const drillAns = it => (drill.mode === "rev" ? it[0] : it[1]);
 function drillNext() {
   const it = drill.items[drill.i % drill.items.length];
-  drill.opts = QZ.shuffle([it[1], ...it[2]]);
+  drill.opts = drill.mode === "rev" ? revOpts(it) : QZ.shuffle([it[1], ...it[2]]);
   renderDrill();
 }
 function drillTick() {
-  if (!drill || drill.done) return;
+  if (!drill || drill.done || !drill.end) return;
   const left = drill.end - Date.now();
   if (left <= 0) return drillEnd();
   const el = document.getElementById("dr-time");
@@ -1440,25 +2022,38 @@ function drillTick() {
 }
 function drillPick(k) {
   if (!drill || drill.lock || drill.done) return;
-  const it = drill.items[drill.i % drill.items.length], ok = drill.opts[k] === it[1];
+  const it = drill.items[drill.i % drill.items.length], ok = drill.opts[k] === drillAns(it);
   drill.n++;
-  if (ok) drill.score++; else drill.missed.push(it);
+  if (ok) drill.score++; else { drill.missed.push(it); drill.lives--; }
   drill.lock = true;
   qzBody.querySelectorAll("[data-dr]").forEach((b, i) => {
-    if (drill.opts[i] === it[1]) b.classList.add("right");
+    if (drill.opts[i] === drillAns(it)) b.classList.add("right");
     else if (i === k) b.classList.add("wrong");
   });
   const sc = document.getElementById("dr-score");
   if (sc) sc.textContent = `Score ${drill.score}`;
+  const lv = document.getElementById("dr-lives");
+  if (lv) lv.innerHTML = livesHTML();
   FX.sound(ok ? "pop" : "miss");
-  setTimeout(() => { if (!drill || drill.done) return; drill.lock = false; drill.i++; drillNext(); }, ok ? 350 : 1200);
+  const over = (drill.mode === "lives" && drill.lives <= 0) || (drill.mode === "day" && drill.n >= drill.items.length);
+  setTimeout(() => { if (!drill || drill.done) return; if (over) return drillEnd(); drill.lock = false; drill.i++; drillNext(); }, ok ? 350 : 1200);
+}
+const livesHTML = () => [0, 1, 2].map(i => `<span class="${i < drill.lives ? "on" : ""}" aria-hidden="true">${i < drill.lives ? "❤" : "♡"}</span>`).join("") + `<span class="sr">${plural(Math.max(0, drill.lives), "life", "lives")} left</span>`;
+// Days in a row with the daily five done, up to today (or yesterday, while today's is still open).
+function dailyRun() {
+  const d = midnight();
+  if (!(iso(d) in S.drill.day)) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (iso(d) in S.drill.day) { n++; d.setDate(d.getDate() - 1); }
+  return n;
 }
 function drillEnd() {
   drill.done = true;
   clearInterval(drill.timer);
   S.drill.runs++;
-  drill.best = drill.score > S.drill.best;
-  if (drill.best) S.drill.best = drill.score;
+  const key = { go: "best", rev: "rev", lives: "lives" }[drill.mode];
+  if (key) { drill.best = drill.score > S.drill[key]; if (drill.best) S.drill[key] = drill.score; }
+  else { drill.first = !(drill.date in S.drill.day); if (drill.first) S.drill.day[drill.date] = drill.score; }
   const got = award();
   save(); renderDrill(); renderPractice();
   FX.sound("chime");
@@ -1466,16 +2061,21 @@ function drillEnd() {
 }
 function stopDrill() { if (drill) clearInterval(drill.timer); drill = null; }
 function renderDrill() {
+  const m = DRILL_MODES[drill.mode], title = drill.mode === "go" ? "Which service?" : `Which service? ${m.t}`;
   if (!drill.done) {
-    const it = drill.items[drill.i % drill.items.length];
-    head("Which service?", [`<span id="dr-time">${Math.ceil((drill.end - Date.now()) / 1000)} s</span>`, `<span id="dr-score">Score ${drill.score}</span>`], 100 - (drill.end - Date.now()) / 600);
-    qzBody.innerHTML = `<div class="dr-req">${esc(it[0])}</div><div class="qz-opts dr-opts">${drill.opts.map((o, k) => `<button type="button" class="qz-o" data-dr="${k}"><span class="qz-l">${k + 1}</span><span class="qz-t">${esc(o)}</span></button>`).join("")}</div><p class="muted">Keys 1–4 work too.</p>`;
+    const it = drill.items[drill.i % drill.items.length], rev = drill.mode === "rev";
+    const meta = drill.end ? [`<span id="dr-time">${Math.ceil((drill.end - Date.now()) / 1000)} s</span>`] : drill.mode === "lives" ? [`<span id="dr-lives" class="dr-lives">${livesHTML()}</span>`] : [`${drill.n + 1} of ${drill.items.length}`];
+    head(title, [...meta, `<span id="dr-score">Score ${drill.score}</span>`], drill.end ? 100 - (drill.end - Date.now()) / 600 : drill.mode === "day" ? drill.n / drill.items.length * 100 : 0);
+    qzBody.innerHTML = `<div class="dr-req${rev ? " dr-svc" : ""}">${rev ? `<span class="muted">What is this one for?</span>` : ""}${esc(rev ? it[1] : it[0])}</div>` +
+      `<div class="qz-opts dr-opts${rev ? " dr-long" : ""}">${drill.opts.map((o, k) => `<button type="button" class="qz-o" data-dr="${k}"><span class="qz-l">${k + 1}</span><span class="qz-t">${esc(o)}</span></button>`).join("")}</div><p class="muted">Keys 1–4 work too.</p>`;
     return;
   }
-  head("Which service?", ["Time is up"], 100);
-  qzBody.innerHTML = `<div class="qz-res ok"><div class="qz-score">${drill.score} <small>right of ${drill.n}</small></div><div>${drill.best ? "New personal best. 🎉" : `Your best: ${S.drill.best}.`}</div></div>` +
+  const best = drill.mode === "day" ? "" : drill.best ? "New personal best. 🎉" : `Your best: ${S.drill[{ go: "best", rev: "rev", lives: "lives" }[drill.mode]]}.`;
+  const day = drill.mode === "day" ? (drill.first ? `Today's result. ${dailyRun() > 1 ? `🔥 ${dailyRun()} days in a row.` : "Come back tomorrow for the next five."}` : `Today's result stays ${S.drill.day[drill.date]} of 5: only the first try counts.`) : "";
+  head(title, [drill.mode === "lives" ? "Out of lives" : drill.mode === "day" ? "Done" : "Time is up"], 100);
+  qzBody.innerHTML = `<div class="qz-res ok"><div class="qz-score">${drill.score} <small>right of ${drill.n}</small></div><div>${best}${day}</div></div>` +
     (drill.missed.length ? `<h3 class="sub-h">Missed</h3><ul class="dr-missed">${drill.missed.map(it => `<li><div>${esc(it[0])}</div><div><b>${esc(it[1])}</b>: ${esc(it[3])}</div></li>`).join("")}</ul>` : "") +
-    `<div class="qz-a"><button type="button" data-qz="close">Close</button><button type="button" class="primary" data-drill>Play again</button></div>`;
+    `<div class="qz-a"><button type="button" data-qz="close">Close</button>${drill.mode === "day" ? "" : `<button type="button" class="primary" data-drill-mode="${drill.mode}">Play again</button>`}</div>`;
 }
 
 // ---------- quiz dialog events ----------
@@ -1491,6 +2091,8 @@ qzDlg.addEventListener("click", e => {
   }
   const j = e.target.closest("[data-jump]");
   if (j) { qzDlg.close(); jumpTo(j.dataset.jump); return; }
+  const gf = e.target.closest("[data-grid-f]");
+  if (gf) { gridF = gf.dataset.gridF; renderGrid(); return; }
   const b = e.target.closest("[data-qz]");
   if (!b) return;
   const a = b.dataset.qz, r = S.run;
@@ -1505,6 +2107,7 @@ qzDlg.addEventListener("click", e => {
   else if (a === "skip") goQ(r.i + 1);
   else if (a === "mnext") { r.i = Math.min(r.ids.length - 1, r.i + 1); save(); renderMockQ(); qzDlg.scrollTop = 0; mockFocus(a); }
   else if (a === "flag") { const id = r.ids[r.i]; if (r.flag[id]) delete r.flag[id]; else r.flag[id] = 1; save(); renderMockQ(); mockFocus(a); }
+  else if (a === "strike") mkStrike(+b.dataset.x);
   else if (a === "grid") { r.view = "grid"; save(); renderGrid(); qzDlg.scrollTop = 0; }
   else if (a === "back") { r.view = ""; save(); renderMockQ(); }
   else if (a === "finish-mock") finishMock(false);
@@ -1514,7 +2117,7 @@ qzDlg.addEventListener("change", e => {
 });
 // Listen on the document: re-rendering removes the focused button, which drops focus to <body>.
 document.addEventListener("keydown", e => {
-  if (!qzDlg.open || brkDlg.open || e.target.matches("input,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!qzDlg.open || brkDlg.open || shDlg.open || e.target.matches("input,textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (drill) {
     const n = k.length === 1 ? Math.max("1234".indexOf(k), "abcd".indexOf(k)) : -1;
@@ -1525,6 +2128,11 @@ document.addEventListener("keydown", e => {
   if (intro || !r || r.done) return;
   // Enter on a focused control (Previous, Flag, Open ↗, Open step) presses that control.
   if (k === "enter" && e.target.closest("button,a") && !e.target.closest(".qz-o")) return;
+  if (r.kind === "mock" && e.shiftKey && /^Digit[1-5]$/.test(e.code)) {
+    const x = qzBody.querySelectorAll(".mk-x")[+e.code.slice(5) - 1];
+    if (x) { e.preventDefault(); x.click(); }
+    return;
+  }
   const n = k.length === 1 ? Math.max("12345".indexOf(k), "abcde".indexOf(k)) : -1;
   if (n >= 0) {
     const opt = qzBody.querySelectorAll(".qz-opts .qz-o")[n];
@@ -1554,13 +2162,16 @@ qzDlg.addEventListener("close", () => {
   else refresh();
   runPending();
 });
+let mkWarned = "";
 // mock exam clock: tick the display, submit when time is up (even with the dialog closed)
 setInterval(() => {
   const r = S.run;
   if (!r || r.kind !== "mock" || r.done) return;
   if (Date.now() >= r.end) return finishMock(true);
-  const el = document.getElementById("mk-time");
-  if (el && qzDlg.open) el.textContent = clock(r.end - Date.now());
+  const el = document.getElementById("mk-time"), left = r.end - Date.now();
+  if (el && qzDlg.open) { el.textContent = `⏱ ${clock(left)}`; el.classList.toggle("low", left < 600000); }
+  // like the exam, a word when 10 minutes and 1 minute are left (once each, in this tab)
+  for (const m of [10, 1]) if (left < m * 60000 && left > m * 60000 - 5000 && mkWarned !== `${r.t0}:${m}`) { mkWarned = `${r.t0}:${m}`; FX.toast(`⏱ <b>${m === 1 ? "1 minute" : "10 minutes"} left</b> in the mock exam`, "warn"); }
 }, 1000);
 
 // ---------- notebook, weak spots, cheat sheet, day notes ----------
@@ -1575,9 +2186,10 @@ function openSheet(kind) {
 function renderSheet() {
   const kind = shDlg.dataset.kind;
   const [title, html] = kind === "notebook" ? ["📓 Wrong-answer notebook", notebookHTML()] : kind === "weak" ? ["📈 Weak spots", weakHTML()]
-    : kind === "daynotes" ? dayNotesHTML() : kind === "badges" ? ["🏅 Badges and level", badgesHTML()] : ["🗣 Exam wording", cuesHTML()];
+    : kind === "daynotes" ? dayNotesHTML() : kind === "badges" ? ["🏅 Badges and level", badgesHTML()] : kind === "look" ? ["⚖️ Look-alikes", lookHTML()] : kind === "dg" ? dgSheet() : ["🗣 Exam wording", cuesHTML()];
   document.getElementById("sh-title").textContent = title;
   shBody.innerHTML = html;
+  if (kind === "dg") { dgMark(shBody); applyGlossary(shBody); }
 }
 // Notes for the day on screen, plus the notes written on its single steps.
 function dayNotesHTML() {
@@ -1603,7 +2215,7 @@ function notebookHTML() {
   return `<div class="seg">${[["open", `Open (${open.length})`], ["fixed", `Fixed (${fixed.length})`], ["all", `All (${all.length})`]].map(([k, l]) => `<button type="button" data-nb="${k}" aria-pressed="${nbFilter === k}">${l}</button>`).join("")}<button type="button" class="nb-exp" data-nb-export>Export as Markdown</button></div>` +
     `<p class="muted">Fixed means you answered it right after missing it. ${weakDay ? `Day ${weakDay.day} and the` : "The"} morning of the exam ${weakDay ? "are" : "is"} for this list.</p>` +
     `<ol class="qz-missed nb">${list.map(({ q, b }) => `<li class="${b.fixed ? "right" : "wrong"}"><details><summary>${q.q}<span class="nb-m">${q.tags.map(esc).join(", ")}. Missed ${b.misses}×${b.fixed ? ", answered right since" : ""}.</span></summary>` +
-      `${answerHTML(q)}<label class="qz-note">Why I missed it<input type="text" maxlength="300" data-note="${q.id}" value="${esc(b.note || "")}"></label>${studyHTML(q)}</details></li>`).join("") || `<li class="muted">Nothing here.</li>`}</ol>`;
+      `${answerHTML(q)}${whyHTML(q)}<label class="qz-note">My note<input type="text" maxlength="300" data-note="${q.id}" value="${esc(b.note || "")}"></label>${studyHTML(q, false, true)}</details></li>`).join("") || `<li class="muted">Nothing here.</li>`}</ol>`;
 }
 function exportNotebook() {
   const md = ["# SAA-C03 wrong-answer notebook", "", `Exported ${fmtD(new Date())}.`, ""];
@@ -1621,13 +2233,15 @@ function exportNotebook() {
 function weakHTML() {
   const w = QZ.weakTags(BANK, S.qs), dom = QZ.domainAcc(BANK, S.qs);
   const shaky = Object.keys(S.conf).filter(id => S.conf[id] === "shaky" && itemIndex[id]);
-  if (!w.length && !shaky.length) return `<p class="muted">Nothing yet. This fills in as you answer quiz questions and mark self-checks as shaky.</p>`;
-  let h = "";
+  const kshaky = Object.keys(S.kconf).filter(k => S.kconf[k] === "shaky").map(k => { const [id, i] = k.split(":"); const p = ((KEYS[id] || {}).k || [])[+i]; return itemIndex[id] && Array.isArray(p) ? [id, p[0]] : null; }).filter(Boolean);
+  if (!w.length && !shaky.length && !kshaky.length && !whyCounts().length) return `<p class="muted">Nothing yet. This fills in as you answer quiz questions and mark self-checks as shaky.</p>`;
+  let h = `<h3 class="sub-h">Why you miss</h3>${whyPatternHTML()}`;
   if (dom.some(x => x[1])) h += `<h3 class="sub-h">By exam domain</h3><div class="dom-bars">${dom.map(([a, n], i) => n ? bar(`D${i + 1} ${DOMAINS[i]}`, pct(a, n), `${pct(a, n)}%`) : "").join("")}</div>`;
   if (w.length) h += `<h3 class="sub-h">By topic, weakest first</h3><p class="muted">Share of answers right, counting every attempt. Open a topic to see where to study it.</p>` +
     `<ul class="wk">${w.map(t => `<li><details><summary><span class="wk-t">${esc(t.tag)}</span><span class="tr"><span class="fi${t.acc < 0.7 ? " low" : ""}" style="width:${Math.round(t.acc * 100)}%"></span></span><span class="wk-n">${t.right}/${t.seen}</span></summary>` +
-      `<ul class="qz-refs">${tagRefs(t.tag).map(id => refHTML(id)).join("")}</ul></details></li>`).join("")}</ul>`;
+      `<ul class="qz-refs">${tagRefs(t.tag).map(id => refHTML(id)).join("")}</ul>${laLinks(laTag(t.tag))}</details></li>`).join("")}</ul>`;
   if (shaky.length) h += `<h3 class="sub-h">Self-checks you marked shaky</h3><ul class="qz-refs">${shaky.map(id => refHTML(id)).join("")}</ul>`;
+  if (kshaky.length) h += `<h3 class="sub-h">Key points you marked shaky in "Test me"</h3><ul class="qz-refs">${kshaky.map(([id, label]) => refHTML(id, `<span class="pill warn">${label}</span>`)).join("")}</ul>`;
   return h;
 }
 function badgesHTML() {
@@ -1640,6 +2254,146 @@ function badgesHTML() {
     `<ul class="ach">${ACH.map(a => `<li class="${S.ach[a.id] ? "on" : ""}"><span class="ach-i">${a.i}</span><span class="ach-x"><b>${a.t}</b><span>${a.d}</span>` +
       `<span class="muted">${S.ach[a.id] ? `Earned ${fmtD(parseDate(S.ach[a.id]))}, +${a.xp} XP` : `+${a.xp} XP`}</span></span></li>`).join("")}</ul>`;
 }
+// ---------- search (Ctrl+K, / or 🔍): steps, key points, terms, exam wording, your notes, the notebook ----------
+const srDlg = document.getElementById("search"), srQ = document.getElementById("sr-q"), srList = document.getElementById("sr-list");
+let srStatic = null, srHits = [], srAt = 0;
+const plainOf = h => strip(String(h || "")).replace(/\s+/g, " ").trim();
+// What the data files hold, built once: every step, its why, each key point and trap, the glossary, exam wording.
+function srBuild() {
+  const out = [];
+  for (const id of Object.keys(itemIndex)) {
+    const { d, it } = itemIndex[id], kp = KEYS[id], at = `Day ${d.day}`;
+    out.push({ kind: "Step", where: at, title: plainOf(it[1]), text: plainOf(`${it[1]} ${it[2] || ""}`), go: ["step", id] });
+    if (!kp) continue;
+    if (kp.why) out.push({ kind: "Why it exists", where: at, title: stepTitle(id), text: plainOf(kp.why), go: ["step", id] });
+    (kp.k || []).forEach(x => { if (Array.isArray(x)) out.push({ kind: "Key point", where: at, title: plainOf(x[0]), text: plainOf(`${x[0]}: ${x[1]}`), go: ["step", id] }); });
+    if (kp.trap) out.push({ kind: "Exam trap", where: at, title: stepTitle(id), text: plainOf(kp.trap), go: ["step", id] });
+  }
+  for (const k of Object.keys(GLOSS)) out.push({ kind: "Term", where: "", title: k, text: `${k}: ${GLOSS[k]}`, go: ["term", k], full: true });
+  for (const c of CUES) out.push({ kind: "Exam wording", where: "", title: c[0], text: `${c[0]}: ${c[1]}. ${c[2]}`, go: ["cues"] });
+  for (const e of LA) out.push({ kind: "Look-alikes", where: "", title: e.title, text: plainOf(`${e.title}. ${e.why} ${e.rows.map(r => r.join(" ")).join(" ")}`), go: ["look", e.id] });
+  for (const key in DGS) {
+    const first = Object.keys(itemIndex).find(id => dgKey(id) === key);
+    if (first) for (const pid in DGS[key].parts || {}) {
+      const p = DGS[key].parts[pid];
+      out.push({ kind: "Diagram", where: `Day ${itemIndex[first].d.day}`, title: p.name, text: plainOf(`${p.name}: ${p.why} ${(p.k || []).map(x => x.join(": ")).join(" ")} ${p.trap || ""}`), go: ["part", first, pid] });
+    }
+  }
+  return out;
+}
+// What you wrote, read fresh on every search: step notes, day notes, the notebook.
+function srDynamic() {
+  const out = [];
+  for (const id in S.inotes) if (itemIndex[id] && S.inotes[id].trim()) out.push({ kind: "My note", where: `Day ${itemIndex[id].d.day}`, title: stepTitle(id), text: S.inotes[id], go: ["step", id] });
+  for (const id in S.notes) { const d = dayOf(id); if (d && S.notes[id].trim()) out.push({ kind: "Day note", where: `Day ${d.day}`, title: d.title, text: S.notes[id], go: ["day", id] }); }
+  for (const id in S.book) if (QBY[id]) {
+    const q = QBY[id], b = S.book[id];
+    out.push({ kind: "Notebook", where: `Missed ${b.misses}×`, title: plainOf(q.q).slice(0, 90), text: plainOf(`${b.note} ${q.q} ${q.a.map(i => q.o[i]).join(" ")}`), go: ["book", id] });
+  }
+  return out;
+}
+const srWords = q => q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 8);
+function srFind(q) {
+  const words = srWords(q);
+  if (!words.length) return [];
+  srStatic = srStatic || srBuild();
+  const hits = [];
+  for (const e of [...srDynamic(), ...srStatic]) {
+    const t = e.text.toLowerCase();
+    if (!words.every(w => t.includes(w))) continue;
+    const tl = e.title.toLowerCase();
+    hits.push({ e, s: words.filter(w => tl.includes(w)).length * 10 + (/note|Notebook/.test(e.kind) ? 4 : 0) - e.text.length / 2000 });
+  }
+  return hits.sort((a, b) => b.s - a.s).slice(0, 40).map(h => h.e);
+}
+// Mark the words on the plain text and escape every piece, so nothing typed or written becomes markup.
+function srMark(text, words) {
+  const low = text.toLowerCase(), on = new Array(text.length).fill(false);
+  for (const w of words) for (let i = low.indexOf(w); i >= 0; i = low.indexOf(w, i + w.length)) for (let k = i; k < i + w.length; k++) on[k] = true;
+  let h = "", m = false;
+  for (let i = 0; i < text.length; i++) { if (on[i] !== m) { h += m ? "</mark>" : "<mark>"; m = on[i]; } h += esc(text[i]); }
+  return h + (m ? "</mark>" : "");
+}
+function srSnip(text, words) {
+  const low = text.toLowerCase(), first = Math.min(...words.map(w => { const j = low.indexOf(w); return j < 0 ? Infinity : j; }));
+  const from = Math.max(0, (isFinite(first) ? first : 0) - 50), s = text.slice(from, from + 180);
+  return (from ? "…" : "") + s + (from + 180 < text.length ? "…" : "");
+}
+function srRender() {
+  const q = srQ.value.trim(), words = srWords(q);
+  srHits = srFind(q);
+  srAt = Math.min(srAt, Math.max(0, srHits.length - 1));
+  srList.innerHTML = !q ? `<li class="muted sr-none">Type a word or two.</li>`
+    : !srHits.length ? `<li class="muted sr-none">Nothing found for “${esc(q)}”.</li>`
+    : srHits.map((e, i) => `<li role="option" class="sr-it${i === srAt ? " on" : ""}" data-sr="${i}" aria-selected="${i === srAt}">` +
+      `<span class="sr-h"><span class="sr-k">${esc(e.kind)}</span>${e.where ? `<span class="muted">${esc(e.where)}</span>` : ""}</span>` +
+      `<b class="sr-t">${srMark(e.title, words)}</b><span class="sr-s">${srMark(e.full ? e.text : srSnip(e.text, words), words)}</span></li>`).join("");
+}
+function openSearch() {
+  if (document.querySelector("dialog[open]") && !srDlg.open) return;
+  if (!srDlg.open) srDlg.showModal();
+  srAt = 0; srRender(); srQ.focus(); srQ.select();
+}
+function srOpen(i) {
+  const e = srHits[i];
+  if (!e || e.go[0] === "term") return;   // a term's result is its definition
+  const [k, v] = e.go;
+  srDlg.close();
+  if (k === "step") jumpTo(v);
+  else if (k === "day") { const d = dayOf(v); setView(d.id, landing(d), true); openSheet("daynotes"); }
+  else if (k === "book") { nbFilter = "all"; openSheet("notebook"); }
+  else if (k === "look") openLook(v);
+  else if (k === "part") { dgSel = { id: v, part: e.go[2] }; ui.dg = true; saveUI(); jumpTo(v); const m = cardEl.querySelector(".b-map"); if (m) m.scrollIntoView({ block: "start" }); }
+  else openSheet("cues");
+}
+srQ.addEventListener("input", () => { srAt = 0; srRender(); });
+srDlg.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    srAt = Math.max(0, Math.min(srHits.length - 1, srAt + (e.key === "ArrowDown" ? 1 : -1)));
+    srRender();
+    const on = srList.querySelector(".on");
+    if (on) on.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") { e.preventDefault(); srOpen(srAt); }
+});
+srDlg.addEventListener("click", e => {
+  const it = e.target.closest("[data-sr]");
+  if (it) srOpen(+it.dataset.sr);
+  else if (e.target.closest("[data-sr-close]")) srDlg.close();
+});
+srDlg.addEventListener("close", runPending);
+document.addEventListener("keydown", e => {
+  const typing = e.target.matches("input,textarea,select");
+  if (((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "k") || (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey)) {
+    if (document.querySelector("dialog[open]") && !srDlg.open) return;
+    e.preventDefault();
+    openSearch();
+  }
+});
+document.getElementById("b-search").onclick = openSearch;
+
+// ---------- the focus view and "Test me" on a step ----------
+function toggleFocusView() { ui.focusView = !ui.focusView; saveUI(); applyDisplay(); if (view.day) renderFlow(false); }
+let recall = { id: "", open: new Set(), marks: {} };   // the card being tested, in memory; the marks themselves go to S.kconf
+function recallClick(b) {
+  const ds = b.dataset;
+  if ("test" in ds) recall = { id: ds.test, open: new Set(), marks: {} };
+  else if ("testEnd" in ds) recall = { id: "", open: new Set(), marks: {} };
+  else if ("reveal" in ds) recall.open.add(+ds.reveal);
+  else if ("kc" in ds && recall.id) {
+    const i = +ds.ki, pts = ((KEYS[recall.id] || {}).k || []).filter(Array.isArray).length;
+    recall.marks[i] = ds.kc;
+    S.kconf[`${recall.id}:${i}`] = ds.kc;
+    save();
+    if (ds.kc === "ok") { FX.sound("pop"); FX.sparkle(b); }
+    const marks = Object.values(recall.marks);
+    if (marks.length === pts && marks.every(m => m === "ok")) setTimeout(() => FX.small(cardEl.querySelector(".c-key")), 50);   // every point recalled
+  }
+  renderFlow(false);
+  const next = cardEl.querySelector(ds.reveal !== undefined ? `[data-kc][data-ki="${ds.reveal}"]` : "[data-reveal],[data-test-end],[data-test]");
+  if (next) next.focus({ preventScroll: true });
+}
+
 function cuesHTML() {
   return `<p class="muted">Exam questions hide the deciding requirement in a phrase. Spot it and half the options fall away.</p>` +
     `<table class="cues"><thead><tr><th>When you read</th><th>It usually points to</th><th>Example</th></tr></thead><tbody>` +
@@ -1651,9 +2405,14 @@ shDlg.addEventListener("click", e => {
   if (e.target.closest("[data-nb-export]")) { exportNotebook(); return; }
   const j = e.target.closest("[data-jump]");
   if (j) { shDlg.close(); jumpTo(j.dataset.jump); return; }
+  const lg = e.target.closest("[data-la-go]");
+  if (lg) { laOn = lg.dataset.laGo; shBody.querySelectorAll(".la.on,.la-nav .on").forEach(x => x.classList.remove("on")); lg.classList.add("on"); const el = document.getElementById("la-" + laOn); if (el) { el.classList.add("on"); el.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); } return; }
   if (e.target.closest("[data-sh-close]")) shDlg.close();
 });
-shDlg.addEventListener("close", runPending);
+shDlg.addEventListener("close", () => {
+  if (shDlg.dataset.kind === "dg" && view.day) renderFlow(false);   // the card shows the part chosen in the larger view
+  runPending();
+});
 let noteT = 0;
 document.addEventListener("input", e => {
   const id = e.target.dataset && e.target.dataset.note;
@@ -1663,6 +2422,118 @@ document.addEventListener("input", e => {
   noteT = setTimeout(save, 400);
 });
 
+// ---------- cost guard: what is still running in your own AWS account ----------
+// The owner's own account is billed by the hour for some of what the Build steps create. The list on the overview
+// shows what is still there; after 20:00 a reminder comes up every 30 minutes while anything is (or until "keep running tonight").
+const NAG_HOUR = 20, COST_SNOOZE = 30 * 60000;
+const costRunning = () => S.cost.items.filter(x => !x.gone);
+const costName = x => BILL.kinds[x.k][0] + (x.label ? ` “${x.label}”` : "");
+// A Build step ticked: what it creates goes on the list; unticked: those come off again (unless already deleted).
+function billFor(id, val, d) {
+  const ks = BILL.steps[id] || [], out = [];
+  for (const k of ks) {
+    const key = `${id}:${k}`, i = S.cost.items.findIndex(x => x.id === key);
+    if (val && (i < 0 || S.cost.items[i].gone)) {
+      if (i >= 0) S.cost.items.splice(i, 1);
+      S.cost.items.push({ id: key, k, label: "", day: d.id, at: Date.now(), gone: 0 });
+      out.push(BILL.kinds[k][0]);
+    } else if (!val && i >= 0 && !S.cost.items[i].gone) S.cost.items.splice(i, 1);
+  }
+  return out;
+}
+const sinceText = at => {
+  if (!at) return "";
+  const d = new Date(at), mins = (Date.now() - at) / 60000, hm = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `since ${iso(d) === today() ? hm : `${fmtD(d)} ${hm}`} (${mins < 1 ? "just now" : fmtH(mins)})`;
+};
+const costAddHTML = dayId => `<div class="cost-add"><select data-cost-k aria-label="What you created">${Object.entries(BILL.kinds).map(([k, v]) => `<option value="${k}">${esc(v[0])}</option>`).join("")}</select>` +
+  `<input type="text" maxlength="60" data-cost-l placeholder="Its name, if you like" aria-label="Its name"><button type="button" data-cost-add="${esc(dayId)}">Add</button></div>`;
+const costItemHTML = (x, undo) => `<li class="${x.gone ? "gone" : ""}"><span class="ci-n"><b>${esc(costName(x))}</b>${x.gone ? ` <span class="pill ok">deleted</span>` : ` <span class="muted">${sinceText(x.at)}</span>`}</span>` +
+  (BILL.kinds[x.k][1] ? `<span class="ci-d muted">${esc(BILL.kinds[x.k][1])}</span>` : "") +
+  (x.gone ? (undo ? `<button type="button" class="link sm" data-cost-back="${esc(x.id)}">Undo</button>` : "") : `<button type="button" class="sm" data-cost-gone="${esc(x.id)}">✓ Deleted</button>`) + `</li>`;
+function renderRunning() {
+  const el = document.getElementById("running"), run = costRunning();
+  el.hidden = !run.length;
+  if (!run.length) { el.innerHTML = ""; return; }
+  el.innerHTML = `<h3>🧾 Still running in your AWS account <span class="muted">${plural(run.length, "thing")}</span></h3>` +
+    `<p class="muted">Delete them when you're done with them: they cost money while they exist. Mark each one when it's gone.</p>` +
+    `<ul class="cost-l">${run.map(x => costItemHTML(x)).join("")}</ul>` +
+    `<div class="row"><a class="btn" href="${esc(linkFor("own"))}" target="_blank" rel="noopener">Open AWS ↗</a><details class="cost-more"><summary class="btn">+ Something else</summary>${costAddHTML("")}</details></div>`;
+}
+// On a Build card: what this day put in your account, and a way to add what the steps don't know about.
+function costBoxHTML(d) {
+  const mine = S.cost.items.filter(x => x.day === d.id);
+  return box("cost", "🧾", "Billable things from this day",
+    (mine.length ? `<ul class="cost-l">${mine.map(x => costItemHTML(x, true)).join("")}</ul>` : `<p class="muted">Nothing yet. Steps that create something billable add it here and to the overview when you complete them.</p>`) +
+    `<p class="muted cost-h">Made something else that bills (a load balancer, a database…)? Add it, so the evening check knows.</p>${costAddHTML(d.id)}`, "c-cost");
+}
+function costChanged() {
+  save(); renderRunning();
+  if (view.day) renderFlow(false);
+  if (clDlg.open) renderCleanupRun();
+  if (costDlg.open) renderCostNag();
+}
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-cost-gone]");
+  if (g) {
+    const x = S.cost.items.find(y => y.id === g.dataset.costGone);
+    if (!x) return;
+    x.gone = Date.now();
+    FX.small(g);
+    costChanged();
+    if (!costRunning().length) FX.toast("🧹 <b>All clean</b>: nothing left running up a bill");
+    return;
+  }
+  const b = e.target.closest("[data-cost-back]");
+  if (b) { const x = S.cost.items.find(y => y.id === b.dataset.costBack); if (x) { x.gone = 0; costChanged(); } return; }
+  const a = e.target.closest("[data-cost-add]");
+  if (a) {
+    const wrap = a.closest(".cost-add"), k = wrap.querySelector("[data-cost-k]").value, label = wrap.querySelector("[data-cost-l]").value.trim().slice(0, 60);
+    if (!BILL.kinds[k]) return;
+    S.cost.items.push({ id: "q" + Date.now().toString(36), k, label, day: a.dataset.costAdd, at: Date.now(), gone: 0 });
+    if (S.cost.items.length > 60) S.cost.items.splice(S.cost.items.findIndex(x => x.gone), 1);
+    FX.sound("pop");
+    costChanged();
+  }
+});
+// The evening reminder: a pop-up of its own (after any other dialog, never over the mock exam or the drill),
+// plus a Windows notification when this window isn't the one in use.
+const costDlg = document.getElementById("costnag");
+const costDue = () => costRunning().length > 0 && new Date().getHours() >= NAG_HOUR && S.cost.night !== today() && Date.now() >= S.cost.snooze;
+function renderCostNag() {
+  const run = costRunning();
+  document.getElementById("cn-body").innerHTML = run.length
+    ? `<p>It's evening, and ${run.length === 1 ? "this is" : "these are"} still in your AWS account:</p><ul class="cost-l">${run.map(x => costItemHTML(x)).join("")}</ul>` +
+      `<p class="muted">Delete ${run.length === 1 ? "it" : "them"} in the console, then mark ${run.length === 1 ? "it" : "each one"} here. Keeping something for tomorrow's step? Say so and the reminder stops for tonight.</p>`
+    : `<p class="cl-ok">All clean ✓. Nothing left running up a bill.</p>`;
+  document.getElementById("cn-open").href = linkFor("own");
+  costDlg.querySelector('[data-cn="night"]').hidden = costDlg.querySelector('[data-cn="later"]').hidden = !run.length;
+}
+function openCostNag() {
+  renderCostNag();
+  costDlg.showModal();
+  costDlg.querySelector("h2").focus({ preventScroll: true });
+  FX.sound("nag");
+  const run = costRunning();
+  notify("Still running in your AWS account", run.map(costName).join(", "));
+}
+costDlg.addEventListener("click", e => {
+  const b = e.target.closest("[data-cn]");
+  if (!b) return;
+  if (b.dataset.cn === "night") S.cost.night = today();
+  else S.cost.snooze = Date.now() + COST_SNOOZE;   // "In 30 minutes", and Done with something still running
+  save();
+  costDlg.close();
+});
+costDlg.addEventListener("close", () => {
+  if (costRunning().length && S.cost.night !== today() && S.cost.snooze <= Date.now()) { S.cost.snooze = Date.now() + COST_SNOOZE; save(); }   // Esc: ask again in 30 minutes
+  runPending();
+});
+setInterval(() => {
+  if (costDlg.open) { if (!costRunning().length && !costDlg.querySelector(".cl-ok")) renderCostNag(); else if (!costDue() && costRunning().length) costDlg.close(); return; }   // answered in another tab
+  if (costDue() && !document.querySelector("dialog[open]") && !inTimed()) openCostNag();
+}, 15000);
+
 // ---------- cleanup dialog ----------
 const clDlg = document.getElementById("cleanup");
 function openCleanup(dayId) {
@@ -1670,6 +2541,7 @@ function openCleanup(dayId) {
   document.getElementById("cl-day").textContent = d ? `· Day ${d.day}` : "";
   document.getElementById("cl-open").href = linkFor("own");
   document.getElementById("cl-ok").hidden = true;
+  renderCleanupRun();
   const ul = document.getElementById("cl-list");
   ul.innerHTML = CLEANUP.map(([t, n], i) => `<li><label><input type="checkbox" data-cl="${i}"><span>${t}${n ? `<span class="n">${n}</span>` : ""}</span></label></li>`).join("");
   if (!clDlg.open) clDlg.showModal();
@@ -1683,9 +2555,18 @@ clDlg.addEventListener("change", e => {
   } else document.getElementById("cl-ok").hidden = true;
 });
 clDlg.addEventListener("close", runPending);
+function renderCleanupRun() {
+  const run = costRunning(), el = document.getElementById("cl-run");
+  el.hidden = !run.length;
+  el.innerHTML = run.length ? `<h3>Still running, from your list</h3><ul class="cost-l">${run.map(x => costItemHTML(x)).join("")}</ul>` : "";
+}
 
 // ---------- events: day flow ----------
 flowEl.addEventListener("click", e => {
+  if (e.target.closest("[data-focus-view]")) { toggleFocusView(); return; }
+  if (e.target.closest("[data-search]")) { openSearch(); return; }
+  const tst = e.target.closest("[data-test],[data-test-end],[data-reveal],[data-kc]");
+  if (tst) { recallClick(tst); return; }
   const g = e.target.closest(".g");
   if (g) { e.preventDefault(); g.classList.toggle("show"); return; }
   if (e.target.closest("[data-home]")) { setView("", "", true); return; }
@@ -1711,8 +2592,8 @@ flowEl.addEventListener("click", e => {
     else { flip(id, false); save(); refresh(); }
   }
 });
-// <details> toggles don't bubble: catch them on the way down and remember the choice.
-cardEl.addEventListener("toggle", e => {
+// <details> toggles don't bubble: catch them on the way down (card and panels) and remember the choice.
+bodyEl.addEventListener("toggle", e => {
   const sec = e.target.dataset && e.target.dataset.sec;
   if (!sec) return;
   ui[sec] = e.target.open;
@@ -1723,9 +2604,10 @@ document.addEventListener("keydown", e => {
   if (!view.day || document.querySelector("dialog[open]") || e.ctrlKey || e.metaKey || e.altKey || e.target.matches("input,textarea,select")) return;
   const nav = document.getElementById("fl-nav");
   let b = null;
+  if ((e.key === "f" || e.key === "F") && !e.repeat) { e.preventDefault(); toggleFocusView(); return; }
   if (e.key === "ArrowLeft") b = nav.querySelector("[data-back]");
   else if (e.key === "ArrowRight") b = nav.querySelector("[data-next]");
-  else if (e.key === "Enter" && !e.repeat && !e.target.closest("button,a,summary")) b = nav.querySelector("[data-main]");
+  else if (e.key === "Enter" && !e.repeat && !e.target.closest("button,a,summary,[role=button]")) b = nav.querySelector("[data-main]");
   if (b && !b.disabled) { e.preventDefault(); b.click(); }
 });
 // Day notes and step notes save as you type.
@@ -1751,15 +2633,61 @@ document.getElementById("next").addEventListener("click", e => {
   if (w.dataset.warm === "skip") { S.warm[today()] = "skip"; save(); refresh(); }
   else { FX.unlock(); startRun("warm"); }
 });
+// reasons for a miss, the trends' range and table, "Change" on the daily goal, practice on the overview's "study this next"
+document.addEventListener("click", e => {
+  const wy = e.target.closest("[data-why]");
+  if (wy) {
+    const b = S.book[wy.dataset.wq];
+    if (!b) return;
+    b.why = b.why === wy.dataset.why ? "" : wy.dataset.why;
+    save();
+    document.querySelectorAll(`[data-wq="${CSS.escape(wy.dataset.wq)}"]`).forEach(x => x.setAttribute("aria-pressed", x.dataset.why === b.why));
+    renderReady();
+    return;
+  }
+  const tr = e.target.closest("[data-trend],[data-trend-table]");
+  if (tr) { if (tr.dataset.trend) ui.trend = +tr.dataset.trend; else ui.trendTable = !ui.trendTable; saveUI(); renderTrends(); return; }
+  if (e.target.closest("[data-goal-set]")) { document.getElementById("b-set").click(); setTimeout(() => document.getElementById("s-goal").focus(), 0); return; }
+  const sq = e.target.closest("#home [data-step-quiz]");
+  if (sq) { FX.unlock(); startRun("step", sq.dataset.stepQuiz); return; }
+  const jp = e.target.closest("#home [data-jump]");
+  if (jp) jumpTo(jp.dataset.jump);
+});
+const trEl = document.getElementById("trends");
+trEl.addEventListener("pointermove", e => { const h = e.target.closest(".hit"); if (h) trendShow(h.closest(".tr"), +h.dataset.i); });
+trEl.addEventListener("pointerout", e => { const f = e.target.closest(".tr"); if (f && !f.contains(e.relatedTarget) && document.activeElement !== f) trendHide(f); });
+trEl.addEventListener("focusin", e => { const f = e.target.closest(".tr"); if (f) trendShow(f, f.dataset.i ? +f.dataset.i : trendCache.length - 1); });
+trEl.addEventListener("focusout", e => { const f = e.target.closest(".tr"); if (f) trendHide(f); });
+trEl.addEventListener("keydown", e => {
+  const f = e.target.closest(".tr");
+  if (!f || (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End")) return;
+  e.preventDefault();
+  const i = +(f.dataset.i ?? trendCache.length - 1), n = trendCache.length - 1;
+  trendShow(f, e.key === "Home" ? 0 : e.key === "End" ? n : Math.max(0, Math.min(n, i + (e.key === "ArrowRight" ? 1 : -1))));
+});
+// a look-alike table (from a miss, a card's panel, weak spots, the overview), and a part of a course diagram
+document.addEventListener("click", e => {
+  const l = e.target.closest("[data-look]");
+  if (l) { openLook(l.dataset.look); return; }
+  const p = e.target.closest(".dg-box [data-part],.dg-box [data-dg-part]");
+  if (p) { dgPick(p.closest(".dg-box"), p.dataset.part || p.dataset.dgPart); return; }
+  const big = e.target.closest("[data-dg-big]");
+  if (big) openDiagram(big.dataset.dgBig);
+});
+document.addEventListener("keydown", e => {
+  const p = (e.key === "Enter" || e.key === " ") && e.target.closest && e.target.closest(".dg-box [data-part]");
+  if (p) { e.preventDefault(); dgPick(p.closest(".dg-box"), p.dataset.part); }
+});
 // buttons that can appear anywhere: overview, cards, practice panel, slip banner, dialogs
 document.addEventListener("click", e => {
-  const t = e.target.closest("[data-quiz-start],[data-review],[data-mock],[data-drill],[data-sheet],[data-slip]");
+  const t = e.target.closest("[data-quiz-start],[data-review],[data-mock],[data-drill],[data-drill-mode],[data-sheet],[data-slip]");
   if (!t || t.disabled) return;
   FX.unlock();
   if (t.dataset.quizStart) startRun("day", t.dataset.quizStart);
   else if ("review" in t.dataset) startRun("review");
   else if ("mock" in t.dataset) { if (mockOpen() || (S.run && S.run.kind === "mock")) promptMock(); }
   else if ("drill" in t.dataset) startDrill();
+  else if (t.dataset.drillMode) startDrill(t.dataset.drillMode);
   else if (t.dataset.sheet) openSheet(t.dataset.sheet);
   else if (t.dataset.slip) applySlip(t.dataset.slip);
 });
@@ -1794,6 +2722,9 @@ document.getElementById("b-set").onclick = () => {
   document.getElementById("s-fx").checked = S.settings.fx;
   document.getElementById("s-snd").checked = S.settings.sound;
   document.getElementById("s-gif").checked = S.settings.gif;
+  document.getElementById("s-goal").value = String(S.settings.goal);
+  document.getElementById("s-theme").value = ui.theme === "light" || ui.theme === "dark" ? ui.theme : "";
+  document.getElementById("s-size").value = ui.size === "l" || ui.size === "xl" ? ui.size : "";
   renderSettingsInfo();
   setDlg.returnValue = "";
   setDlg.showModal();
@@ -1809,6 +2740,10 @@ setDlg.addEventListener("close", () => {
   S.settings.fx = document.getElementById("s-fx").checked;
   S.settings.sound = document.getElementById("s-snd").checked;
   S.settings.gif = document.getElementById("s-gif").checked;
+  const goal = +document.getElementById("s-goal").value;
+  if (GOALS.includes(goal)) S.settings.goal = goal;
+  ui.theme = document.getElementById("s-theme").value; ui.size = document.getElementById("s-size").value;
+  saveUI(); applyDisplay();
   save(); rebuild();
 });
 document.getElementById("s-unslip").onclick = () => { S.slips = []; S.slipSkip = ""; save(); refresh(); renderSettingsInfo(); };
@@ -1867,18 +2802,27 @@ function logFocus() {
   const d = dayOf(t.day) || workDay();
   if (sec < 30 || !d) return;
   S.log[d.id] = (S.log[d.id] || 0) + sec / 60;
+  const dl = dailyNow();
+  dl.f = Math.min(24 * 60, dl.f + sec / 60);
 }
 function tmRender() {
-  const t = S.timer, rest = t.mode === "rest", s = rest ? restUp() : tmLeft(), over = rest && t.running && s >= REST_NAG;
+  const t = S.timer, rest = t.mode === "rest", s = rest ? restUp() : tmLeft(), over = rest && t.running && s >= REST_NAG, away = !rest && t.running && t.away > 0;
   tm.classList.toggle("running", t.running);
   tm.classList.toggle("break", rest);
   tm.classList.toggle("over", over);
-  tm.classList.toggle("min", !!t.min);
-  tm.querySelector(".tm-mode").textContent = !rest ? "50-minute focus" : over ? "Break is over" : !t.running && s ? "Break, paused" : "Break";
+  tm.classList.toggle("away", away);
+  // the strip fills as the block runs; a break fills towards its 10 minutes, then turns red
+  tm.querySelector(".tm-fill").style.width = `${Math.round((t.ask ? 1 : rest ? Math.min(1, s / REST_NAG) : 1 - s / FOCUS) * 1000) / 10}%`;
+  tm.querySelector(".tm-mode").textContent = away ? "Away" : !rest ? (t.running || s === FOCUS ? "Focus" : "Focus, paused")
+    : over ? "Break is over" : !t.running && s ? "Break, paused" : t.ask ? "Focus block done" : "Break";
   tm.querySelector(".tm-time").textContent = mmss(s);
-  tm.querySelector('[data-tm="toggle"]').textContent = t.running ? "Pause" : rest ? (s ? "Resume" : "Start break") : s === FOCUS ? "Start" : "Resume";
-  tm.querySelector('[data-tm="switch"]').textContent = rest ? "Focus" : "Break";
-  tm.querySelector('[data-tm="min"]').textContent = t.min ? "+" : "–";
+  const go = tm.querySelector('[data-tm="toggle"]'), what = t.running ? "Pause" : rest ? (s ? "Resume the break" : "Start the break") : s === FOCUS ? "Start a 50-minute focus block" : "Resume focus";
+  go.textContent = t.running ? "❚❚" : "▶";
+  go.title = what; go.setAttribute("aria-label", what);
+  tm.querySelector('[data-tm="switch"]').textContent = rest ? "🎯 Focus now" : "☕ Break now";
+  const day = dayOf(t.day) || workDay();
+  tm.querySelector(".tm-info").textContent = [day && (S.log[day.id] || 0) >= 1 ? `Focus on Day ${day.day} so far: ${fmtH(S.log[day.id])}.` : "Starts by itself when you start a day or complete a step.", permText()].filter(Boolean).join(" ");
+  tm.querySelector('[data-tm="perm"]').hidden = !permAsk();
   document.title = t.running ? `${mmss(s)} ${!rest ? "🎯" : over ? "⏰" : "☕"} · SAA-C03 Plan` : t.ask ? "Focus block done 🎯 · SAA-C03 Plan" : "SAA-C03 Plan";
   const up = document.getElementById("brk-up");
   if (up) up.textContent = mmss(restUp());
@@ -1889,9 +2833,10 @@ const startRest = () => { logFocus(); Object.assign(S.timer, { mode: "rest", run
 const pauseRest = () => { Object.assign(S.timer, { up: restUp(), running: false }); };
 tm.addEventListener("click", e => {
   const b = e.target.closest("[data-tm]");
-  const a = b ? b.dataset.tm : e.target.closest(".tm-time") && S.timer.min ? "min" : null;
-  if (!a) return;
-  const t = S.timer, rest = t.mode === "rest";
+  if (!b) return;
+  const a = b.dataset.tm, t = S.timer, rest = t.mode === "rest";
+  if (a === "menu") { tmMenu(); return; }
+  if (a === "perm") { askPerms(); return; }
   if (a === "toggle") {
     if (t.running) { if (rest) pauseRest(); else { logFocus(); t.left = tmLeft(); t.running = false; } }
     else {
@@ -1900,17 +2845,75 @@ tm.addEventListener("click", e => {
       else { if (t.left <= 0) t.left = FOCUS; t.from = t.left; t.endAt = Date.now() + t.left * 1000; t.day = (workDay() || {}).id || ""; }   // paused at 00:00: a new block
       t.running = true;
     }
-  } else if (a === "reset" || a === "switch") { logFocus(); tmSet(a === "reset" ? t.mode : rest ? "focus" : "rest"); refresh(); showGains(award()); return; }
-  else if (a === "min") { t.min = !t.min; }
-  tmSave();
-  if (a !== "min") { refresh(); showGains(award()); }
+  } else if (a === "reset" || a === "switch") { logFocus(); tmSet(a === "reset" ? t.mode : rest ? "focus" : "rest"); tmMenu(false); refresh(); showGains(award()); return; }
+  tmSave(); refresh(); showGains(award());
 });
+function tmMenu(open) {
+  const pop = document.getElementById("tm-pop"), on = open === undefined ? pop.hidden : open;
+  pop.hidden = !on;
+  tm.querySelector('[data-tm="menu"]').setAttribute("aria-expanded", String(on));
+}
+document.addEventListener("click", e => { if (!e.target.closest("#timer")) tmMenu(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") tmMenu(false); });
+// Starting a day or completing a step starts a focus block, unless one is running or you're on a break (a paused one resumes).
+function autoFocus() {
+  const t = S.timer;
+  if (t.running || (t.mode === "rest" && (t.up > 0 || t.ask))) return;   // a block runs already, or you are on a break (paused too)
+  FX.unlock();
+  if (t.mode === "rest" || t.left <= 0 || t.left > FOCUS) t.left = FOCUS;
+  Object.assign(t, { mode: "focus", from: t.left, endAt: Date.now() + t.left * 1000, running: true, day: (workDay() || {}).id || "" });
+  tmSave();
+  FX.toast(`🎯 <b>Focus on</b>, ${Math.round(t.left / 60)} minutes`);
+}
+document.addEventListener("click", e => { if (e.target.closest("[data-start-day]")) autoFocus(); }, true);
+
+// Away: two monitors with a full-screen window each keep the page "visible" while you work in the other one, so the
+// page can't tell from that. It uses the PC's own idle state (Edge's idle detection, once you allow it: no mouse or
+// keyboard for 5 minutes, when your screen turns off, or the screen locked) and a jump in its clock (the PC slept).
+// While you're away the block can't end; when you're back, a pop-up asks whether that time counts.
+const AWAY = 5 * 60000;
+let idleDet = null, idlePerm = "", lastTick = Date.now();
+function goneSince(at) {
+  const t = S.timer;
+  if (t.mode !== "focus" || !t.running || t.away) return;
+  t.away = Math.max(at, t.endAt - FOCUS * 1000);
+  tmSave();
+}
+async function startIdle() {
+  if (idleDet || !("IdleDetector" in window)) return;
+  try {
+    const det = new IdleDetector();
+    det.addEventListener("change", () => { if (det.userState === "idle" || det.screenState === "locked") goneSince(det.screenState === "locked" ? Date.now() : Date.now() - AWAY); });
+    await det.start({ threshold: AWAY });
+    idleDet = det;
+    tmRender();
+  } catch (e) {}
+}
+const here = () => !idleDet || (idleDet.userState === "active" && idleDet.screenState !== "locked");
+if ("IdleDetector" in window && navigator.permissions) navigator.permissions.query({ name: "idle-detection" }).then(p => { idlePerm = p.state; if (p.state === "granted") startIdle(); }).catch(() => {});
+// Windows notifications, so a prompt on one monitor is seen from the other.
+const notifyOK = () => "Notification" in window && Notification.permission === "granted";
+function notify(title, body) {
+  if (!notifyOK() || document.hasFocus()) return;
+  try { const n = new Notification(title, { body, tag: "saa-timer", renotify: true }); n.onclick = () => { focus(); n.close(); }; } catch (e) {}
+}
+const permAsk = () => ("Notification" in window && Notification.permission === "default") || ("IdleDetector" in window && !idleDet && idlePerm !== "denied");
+const permText = () => { const on = [notifyOK() && "Windows notifications", idleDet && "away detection"].filter(Boolean); return on.length ? `On: ${on.join(" and ")}.` : ""; };
+async function askPerms() {
+  try { if ("IdleDetector" in window && !idleDet) { idlePerm = await IdleDetector.requestPermission(); if (idlePerm === "granted") await startIdle(); } } catch (e) {}
+  try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch (e) {}
+  tmRender();
+}
 // The pop-up: "done" when a focus block has just ended, "over" when the break has run past 10 minutes.
 // It is a modal of its own, so it also comes up over an open quiz (and the quiz keys wait under it). The keyboard
 // goes to its heading, not a button, so a key typed for something else (a note, a quiz answer) doesn't answer it.
 function brkOpen(kind) {
   brkDlg.dataset.kind = kind;
-  brkBody.innerHTML = kind === "done"
+  brkBody.innerHTML = kind === "away"
+    ? `<h2 id="brk-t" tabindex="-1">Welcome back 👋</h2><p>You were away for <b>${Math.max(1, Math.round((Date.now() - S.timer.away) / 60000))} minutes</b> during this focus block: no mouse or keyboard${idleDet ? "" : " (or the PC slept)"}. Count that time as focus?</p>` +
+      `<p class="muted">Not counting it picks the block up where you left it.</p>` +
+      `<div class="row end"><button type="button" data-brk="skip-away">Don't count it</button><button type="button" class="primary" data-brk="keep-away">Count it</button></div>`
+    : kind === "done"
     ? `<h2 id="brk-t" tabindex="-1">Focus block done 🎯</h2><p>50 minutes of focus. Take a break now: it has no set length. The clock counts up, and after ${REST_NAG / 60} minutes it reminds you every minute to come back.</p>` +
       `<div class="row end"><button type="button" data-brk="focus">Skip the break, focus again</button><button type="button" class="primary" data-brk="rest">Start break ☕</button></div>`
     : `<h2 id="brk-t" tabindex="-1">Break is over ⏰</h2><p>You have been on a break for <b id="brk-up">${mmss(restUp())}</b>. Time for the next 50 minutes of focus.</p>` +
@@ -1918,6 +2921,7 @@ function brkOpen(kind) {
       `<div class="row end"><button type="button" data-brk="pause">Pause the break</button><button type="button" data-brk="later">Not yet</button><button type="button" class="primary" data-brk="focus">Start focus 🎯</button></div>`;
   if (!brkDlg.open) brkDlg.showModal();
   brkAt = Date.now();
+  if (kind === "done") notify("Focus block done 🎯", "Time for a break. It has no set length.");
   document.getElementById("brk-t").focus({ preventScroll: true });
 }
 brkDlg.addEventListener("click", e => {
@@ -1927,7 +2931,10 @@ brkDlg.addEventListener("click", e => {
   brkDlg.close();
   if (a === "later") return;
   FX.unlock();
-  if (a === "rest") startRest(); else if (a === "pause") pauseRest(); else startFocus();
+  const t = S.timer;
+  if (a === "keep-away") t.away = 0;
+  else if (a === "skip-away") { const left = Math.max(0, t.endAt - t.away); Object.assign(t, { endAt: Date.now() + left, away: 0 }); }   // the block resumes where you left it
+  else if (a === "rest") startRest(); else if (a === "pause") pauseRest(); else startFocus();
   tmSave(); refresh();
   showGains(award());
   FX.sound("pop");
@@ -1935,12 +2942,16 @@ brkDlg.addEventListener("click", e => {
 brkDlg.addEventListener("close", () => {
   // Esc on "done" answers it too: no break for now (the timer offers Start break)
   if (brkDlg.dataset.kind === "done" && S.timer.ask) { S.timer.ask = false; tmSave(); }
+  if (brkDlg.dataset.kind === "away" && S.timer.away) { S.timer.away = 0; tmSave(); }   // Esc on "welcome back": the time counts
   if (brkGains.length) showGains(brkGains.splice(0), 300);
   runPending();
 });
 setInterval(() => {
-  const t = S.timer;
-  if (t.running && t.mode === "focus" && tmLeft() <= 0) {
+  const t = S.timer, now = Date.now();
+  if (now - lastTick > AWAY) goneSince(lastTick);   // the clock jumped: the PC slept or hibernated
+  lastTick = now;
+  if (t.away && here() && !brkDlg.open && !inTimed()) brkOpen("away");
+  if (t.running && t.mode === "focus" && !t.away && tmLeft() <= 0) {
     logFocus();
     tmSet("rest");
     t.ask = true;   // the prompt waits for an answer, in every tab and after a reload
@@ -1957,13 +2968,14 @@ setInterval(() => {
       nagKey = key;
       let heard = "";
       try { heard = localStorage.getItem(NAG_KEY) || ""; localStorage.setItem(NAG_KEY, key); } catch (e) {}
-      if (heard !== key) FX.sound("nag");   // another tab already knocked this minute
+      if (heard !== key) { FX.sound("nag"); notify("Break is over ⏰", `On a break for ${mmss(restUp())}. Time for the next focus block.`); }   // another tab already knocked this minute
       if (!brkDlg.open) { if (inTimed()) overHeld = true; else brkOpen("over"); }
     }
     if (overHeld && !brkDlg.open && !inTimed()) { overHeld = false; brkOpen("over"); }
   } else overHeld = false;
   // the timer moved on elsewhere (another tab, the server): a pop-up that no longer fits goes away
-  if (brkDlg.open && (brkDlg.dataset.kind === "over" ? !(t.mode === "rest" && t.running && restUp() >= REST_NAG) : !t.ask)) brkDlg.close();
+  const k = brkDlg.dataset.kind;
+  if (brkDlg.open && (k === "over" ? !(t.mode === "rest" && t.running && restUp() >= REST_NAG) : k === "away" ? !t.away : !t.ask)) brkDlg.close();
   if (t.running) tmRender();
 }, 1000);
 // Browsers keep sound off after a reload until the first click or key: take the first one anywhere, so reminders can be heard.
@@ -1987,7 +2999,7 @@ function mergeDocs(local, remote) {
   const m = clone(newer);
   const seenIn = (st, id) => (st.qs[id] ? st.qs[id].seen : 0);
   for (const k in older.ticks) m.ticks[k] = true;
-  for (const f of ["notes", "inotes", "scores", "conf", "warm"]) for (const k in older[f]) if (!(k in m[f]) || m[f][k] === "") m[f][k] = older[f][k];
+  for (const f of ["notes", "inotes", "scores", "conf", "kconf", "warm"]) for (const k in older[f]) if (!(k in m[f]) || m[f][k] === "") m[f][k] = older[f][k];
   for (const k in older.dayDone) if (!m.dayDone[k] || older.dayDone[k] < m.dayDone[k]) m.dayDone[k] = older.dayDone[k];
   for (const k in older.quiz) {
     const o = older.quiz[k], n = m.quiz[k];
@@ -2007,9 +3019,28 @@ function mergeDocs(local, remote) {
   const mk = x => `${x.at}|${x.score}|${x.pct}|${x.mins}`, have = new Set(m.mocks.map(mk));
   m.mocks = m.mocks.concat(older.mocks.filter(x => !have.has(mk(x)))).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
   for (const k in older.log) m.log[k] = Math.max(m.log[k] || 0, older.log[k]);
-  m.drill = { best: Math.max(m.drill.best, older.drill.best), runs: Math.max(m.drill.runs, older.drill.runs) };
+  m.drill = { best: Math.max(m.drill.best, older.drill.best), runs: Math.max(m.drill.runs, older.drill.runs), rev: Math.max(m.drill.rev, older.drill.rev),
+    lives: Math.max(m.drill.lives, older.drill.lives), day: { ...older.drill.day, ...m.drill.day } };
   for (const k in older.ach) if (!m.ach[k] || older.ach[k] < m.ach[k]) m.ach[k] = older.ach[k];
   m.rowBest = Math.max(m.rowBest, older.rowBest);
+  for (const id in older.book) if (m.book[id] && !m.book[id].why && older.book[id].why) m.book[id].why = older.book[id].why;
+  // a day's and a week's starting point: the copy that stamped it first (a copy behind on sync stamps a lower total later)
+  for (const k in older.xpDay) {
+    const o = older.xpDay[k], n = m.xpDay[k];
+    if (!n || (o.at && o.at < n.at)) m.xpDay[k] = { ...o, hit: o.hit || !!(n && n.hit) };
+    else if (o.hit) n.hit = true;
+  }
+  if (older.week.key > m.week.key || (older.week.key === m.week.key && older.week.at && older.week.at < m.week.at)) m.week = clone(older.week);
+  for (const k in older.chal) if (!m.chal[k] || older.chal[k] < m.chal[k]) m.chal[k] = older.chal[k];
+  // billable things: every item from both; deleted on either side means deleted
+  for (const o of older.cost.items) { const n = m.cost.items.find(x => x.id === o.id); if (!n) m.cost.items.push(o); else { n.gone = Math.max(n.gone, o.gone); n.at = Math.min(n.at || o.at, o.at || n.at); } }
+  m.cost.snooze = Math.max(m.cost.snooze, older.cost.snooze);
+  if (older.cost.night > m.cost.night) m.cost.night = older.cost.night;
+  // each device counts its own answers and focus per day; the copy that counted more for a device is the newer one
+  for (const k in older.daily) {
+    const n = m.daily[k] || (m.daily[k] = {});
+    for (const dev in older.daily[k]) { const o = older.daily[k][dev]; if (!n[dev] || o.a + o.f > n[dev].a + n[dev].f) n[dev] = o; }
+  }
   if (older.timer.ts > newer.timer.ts) m.timer = clone(older.timer);   // the timer that changed last, not the copy that saved last
   m.run = local.run || remote.run;      // the run on this screen stays
   m.savedAt = Date.now();
@@ -2047,13 +3078,18 @@ async function push() {
   sync.busy = false;
   if (sync.again) { sync.again = false; push(); }
 }
+// The first try (answered or not) makes the day's and the week's starting points safe to stamp.
+function markReady() { if (ready) return; ready = true; if (stamp()) save(); refresh(); showGains([], 600); }
 async function pull() {
   let cur;
   try {
     const r = await fetch("api/state", { cache: "no-store" });
-    if (!r.ok || !(r.headers.get("Content-Type") || "").includes("application/json")) return;
+    if (!r.ok || !(r.headers.get("Content-Type") || "").includes("application/json")) return markReady();
     cur = await r.json();
-  } catch (e) { return; }
+  } catch (e) { return markReady(); }
+  try { await pullApply(cur); } finally { markReady(); }
+}
+async function pullApply(cur) {
   sync.on = true;
   if (cur.rev === sync.rev) { if (sync.dirty) push(); return; }
   if (!isObj(cur.doc)) { sync.rev = cur.rev; push(); return; }   // empty server: upload this copy

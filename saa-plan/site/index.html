@@ -13,6 +13,22 @@
 </head>
 <body>
 
+<!-- Focus timer: a strip along the top of the window that fills as a block runs; its chip holds the controls -->
+<div id="timer" class="timer">
+  <div class="tm-bar" aria-hidden="true"><span class="tm-fill"></span></div>
+  <div class="tm-row">
+    <div class="tm-chip">
+      <button type="button" class="tm-go" data-tm="toggle"></button>
+      <button type="button" class="tm-face" data-tm="menu" aria-expanded="false" aria-controls="tm-pop"><span class="tm-mode"></span><span class="tm-time"></span><span class="tm-caret" aria-hidden="true">▾</span></button>
+    </div>
+    <div class="tm-pop" id="tm-pop" hidden>
+      <div class="tm-btns"><button type="button" data-tm="reset">↺ Reset</button><button type="button" data-tm="switch"></button></div>
+      <p class="tm-info"></p>
+      <button type="button" class="tm-perm" data-tm="perm" hidden>Turn on Windows notifications and away detection</button>
+    </div>
+  </div>
+</div>
+
 <!-- Blueprint drawings in the margins (decorative) -->
 <svg class="bp-art" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
@@ -79,6 +95,7 @@
   <div class="tb-tools">
     <button id="b-fx" class="ghost" title="Visual effects"></button>
     <button id="b-snd" class="ghost" title="Sounds"></button>
+    <button id="b-search" class="ghost" title="Search (Ctrl+K)">🔍 Search</button>
     <button id="b-set" class="ghost">⚙ Settings</button>
   </div>
 </header>
@@ -95,9 +112,20 @@
   <div class="bar"><div id="bar"></div></div>
 </section>
 
+<section id="today" class="today" aria-label="Today's goal and this week's challenges" hidden></section>
+<section id="running" class="running" aria-live="polite" hidden></section>
+
 <nav id="links" class="links" aria-label="Quick links"></nav>
 
 <div id="map" class="map"></div>
+
+<details class="panel" id="progress" open>
+  <summary>📈 Readiness and trends</summary>
+  <div class="pg-grid">
+    <section aria-labelledby="ready-h"><h3 class="sub-h" id="ready-h">Exam readiness by domain</h3><div id="ready" class="ready"></div></section>
+    <section aria-labelledby="trends-h"><h3 class="sub-h" id="trends-h">Day by day</h3><div id="trends" class="trends"></div></section>
+  </div>
+</details>
 
 <details class="panel" id="places">
   <summary>🗺 Where things happen: 4 separate places</summary>
@@ -180,21 +208,14 @@
     <div class="fl-strip" id="fl-strip"></div>
     <span class="fl-count" id="fl-count"></span>
   </div>
-  <article id="card" class="card" aria-live="polite"></article>
+  <!-- the step in the middle; on wide screens "Look it up" on its left and "On the exam" on its right, below it on narrower ones -->
+  <div class="fl-body" id="fl-body">
+    <article id="card" class="card" aria-live="polite"></article>
+    <aside id="side-r" class="side side-r" aria-label="On the exam" hidden></aside>
+    <aside id="side-l" class="side side-l" aria-label="Look it up" hidden></aside>
+  </div>
   <div class="fl-nav" id="fl-nav"></div>
 </div>
-</div>
-
-<!-- Focus timer -->
-<div id="timer" class="timer">
-  <button class="tm-min" data-tm="min" title="Minimise">–</button>
-  <div class="tm-mode"></div>
-  <div class="tm-time"></div>
-  <div class="tm-btns">
-    <button data-tm="toggle" class="primary"></button>
-    <button data-tm="reset" title="Reset">↺</button>
-    <button data-tm="switch"></button>
-  </div>
 </div>
 
 <!-- Cleanup check -->
@@ -202,6 +223,7 @@
   <form method="dialog">
     <h2>🧹 Cleanup check <span id="cl-day" class="muted"></span></h2>
     <p class="muted">Before you stop for the day — in ③ your AWS account, Region eu-west-1, confirm:</p>
+    <div id="cl-run" class="cl-run" hidden></div>
     <ul id="cl-list" class="cl"></ul>
     <p id="cl-ok" class="cl-ok" hidden>All clean ✓ — nothing left running up a bill.</p>
     <div class="row end">
@@ -231,6 +253,18 @@
   <div id="sh-body" class="qz-body"></div>
 </dialog>
 
+<!-- The evening reminder: billable things still running in your own AWS account -->
+<dialog id="costnag" class="costnag" aria-labelledby="cn-t">
+  <h2 id="cn-t" tabindex="-1">🧾 Still running in your AWS account</h2>
+  <div id="cn-body"></div>
+  <div class="row end">
+    <a class="btn" id="cn-open" target="_blank" rel="noopener">Open AWS ↗</a>
+    <button type="button" data-cn="night">Keep running tonight</button>
+    <button type="button" data-cn="later">In 30 minutes</button>
+    <button type="button" class="primary" data-cn="done">Done</button>
+  </div>
+</dialog>
+
 <!-- Settings -->
 <dialog id="settings">
   <form method="dialog">
@@ -248,6 +282,14 @@
     <label class="chk"><input type="checkbox" id="s-fx"> Visual effects</label>
     <label class="chk"><input type="checkbox" id="s-snd"> Sounds</label>
     <label class="chk"><input type="checkbox" id="s-gif"> South Park GIFs on quiz results (loaded from GIPHY)</label>
+    <label class="field">Daily XP goal <small>The ring on the overview. A day's quiz with its steps is worth about 400.</small>
+      <select id="s-goal"><option>100</option><option>150</option><option>200</option><option>300</option><option>400</option><option>600</option></select></label>
+    <div class="s-disp">
+      <label class="field">Theme <small>This browser only.</small>
+        <select id="s-theme"><option value="">Follow the system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+      <label class="field">Text size <small>Cards, panels and quizzes.</small>
+        <select id="s-size"><option value="">Normal</option><option value="l">Larger</option><option value="xl">Largest</option></select></label>
+    </div>
     <div class="row">
       <button type="button" id="s-export">Export progress</button>
       <button type="button" id="s-import">Import…</button>
@@ -260,6 +302,16 @@
       <button value="save" class="primary">Save</button>
     </div>
   </form>
+</dialog>
+
+<!-- Search: key points, steps, terms, your notes and the notebook (Ctrl+K) -->
+<dialog id="search" class="qz srch" aria-labelledby="sr-title">
+  <div class="qz-h"><h2 id="sr-title">🔍 Search</h2><button type="button" class="qz-x" data-sr-close aria-label="Close">✕</button></div>
+  <div class="qz-body">
+    <input type="search" id="sr-q" autocomplete="off" spellcheck="false" placeholder="Key points, steps, terms, your notes, the notebook…" aria-controls="sr-list">
+    <ul id="sr-list" class="sr-list" role="listbox" aria-label="Results"></ul>
+    <p class="muted sr-hint">↑ and ↓ move, Enter opens, Esc closes. Every word you type must appear.</p>
+  </div>
 </dialog>
 
 <!-- Break reminder: a focus block ended, or the break has run past 10 minutes. Last in the page: it can open over the quiz. -->
@@ -285,6 +337,16 @@
 <script src="quiz/mock2.js"></script>
 <script src="extras.js"></script>
 <script src="gifs.js"></script>
+<script src="lookalikes.js"></script>
+<script src="diagrams/c1.js"></script>
+<script src="diagrams/c2.js"></script>
+<script src="diagrams/c3.js"></script>
+<script src="diagrams/c4.js"></script>
+<script src="diagrams/c5.js"></script>
+<script src="diagrams/c6.js"></script>
+<script src="diagrams/c7.js"></script>
+<script src="diagrams/c8.js"></script>
+<script src="diagram.js"></script>
 <script src="keys/d01.js"></script>
 <script src="keys/d02.js"></script>
 <script src="keys/d03.js"></script>
