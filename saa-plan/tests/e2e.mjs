@@ -117,6 +117,23 @@ try {
   assert.match(await page.textContent("#next"), /Start Day 1/);
   await page.screenshot({ path: path.join(SHOTS, "01-overview.png"), fullPage: false });
 
+  log("today first: the day and its next step at the top, with one big button; the numbers and the tiles further down");
+  const topBox = () => page.evaluate(() => {
+    const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width }; };
+    return { next: r("#next"), day: r("#next .nx-day"), go: r("#next .nx-go"), big: r("#next .nx-go .big"), stats: r("#stats"), map: r("#map"), h: innerHeight };
+  });
+  let tb = await topBox();
+  assert.ok(tb.next.b <= tb.stats.t && tb.stats.t <= tb.map.t, "the card for today comes first, then the numbers, then the day tiles");
+  assert.ok(tb.go.l >= tb.day.r && Math.abs(tb.go.t - tb.day.t) < 2, `the next step beside the day: ${JSON.stringify([tb.day, tb.go])}`);
+  assert.ok(tb.big.b <= tb.h, "the big button is on the first screen");
+  assert.equal(await page.locator("#next .primary").count(), 1, "one orange button on the card");
+  assert.equal(await page.locator("#next .segs i").count(), D1.ids.length + (D1.quiz ? 1 : 0), "one segment per card of the day");
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  tb = await topBox();
+  assert.ok(tb.next.w > 1100 && tb.go.l >= tb.day.r && tb.big.b <= tb.h, `a full-screen window: the overview takes more of it, still side by side: ${JSON.stringify(tb.next)}`);
+  await page.screenshot({ path: path.join(SHOTS, "01b-overview-wide.png") });
+  await page.setViewportSize({ width: 1200, height: 900 });
+
   // ---------- one step per card ----------
   log("Start Day 1 opens the first step alone on a card");
   await page.click('#next a[href="#d1"]');
@@ -604,6 +621,8 @@ try {
   else { await tickDays(page, [D1.day, QA.day]); await page.reload(); }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   assert.ok(overflow <= 1, `no horizontal scroll on mobile (overflow ${overflow}px)`);
+  const [mDay, mGo] = await page.$$eval("#next .nx-day, #next .nx-go", els => els.map(e => { const b = e.getBoundingClientRect(); return { t: b.top, b: b.bottom }; }));
+  assert.ok(mGo.t >= mDay.b, "on a phone the next step comes under the day");
   await page.screenshot({ path: path.join(SHOTS, "15-mobile-dark.png") });
   await setState(page, s => { s.run = null; });
   await page.reload();

@@ -490,16 +490,13 @@ function refresh() {
   document.getElementById("tb-exam").textContent = fmtD(examD);
   document.getElementById("tb-exam-k").textContent = S.settings.exam ? "Exam (booked)" : "Exam";
 
-  // status line
+  // where the plan stands: in the head of the card at the top, next to today's date
   const st = [];
   if (ti < 1) {
     st.push(`<span>Starts <b>${fmtD(dayDate(1))}</b> (in ${plural(1 - ti, "day")})</span>`);
   } else if (ti > LAST) {
     st.push(`<span>Plan period ended ${fmtD(dayDate(LAST))}</span>`);
   } else {
-    const td = DAYS[ti - 1];
-    st.push(`<span><b>Today:</b> ${td.title}</span>`);
-    st.push(dayDone(td) ? `<span class="pill ok">Today done</span>` : `<span>~${fmtH(dayLeft(td))} left today</span>`);
     const overdue = DAYS.filter(d => d.day < ti).reduce((a, d) => a + dayLeft(d), 0);
     if (overdue > 0) st.push(`<span class="pill ${overdue > 180 ? "bad" : "warn"}">Behind: ~${fmtH(overdue)} from earlier days</span>`);
     else if (DAYS.some(d => d.day > ti && dIds(d).some(done))) st.push(`<span class="pill ok">Ahead of plan</span>`);
@@ -508,11 +505,10 @@ function refresh() {
   if (S.settings.exam && dayDate(LAST) > parseDate(S.settings.exam)) st.push(`<span class="pill bad">Plan now ends after your booked exam</span>`);
   const daysToExam = diffDays(examD, new Date());
   if (daysToExam >= 0) st.push(`<span>${daysToExam ? `Exam in <b>${plural(daysToExam, "day")}</b>` : "<b>Exam today</b>"}</span>`);
-  document.getElementById("status").innerHTML = st.join("");
 
   if (stamp()) save();
   renderSlip();
-  renderNext(ti);
+  renderNext(ti, st);
   renderStats(dn, total);
   renderToday();
   renderRunning();
@@ -546,7 +542,7 @@ function applySlip(v) {
   FX.banner("Schedule moved", `Day ${d.day} is today. Day ${LAST} is now ${fmtD(dayDate(LAST))}.`, "info");
 }
 
-// ---------- overview: the day to work on, with one button to start or continue ----------
+// ---------- overview, today first: the day to work on, its next step and one big button to start or continue ----------
 function nextStep() {
   for (const d of DAYS) {
     for (const g of d.groups) for (const it of g.items) if (!done(it[0])) return { d, g, it };
@@ -567,41 +563,53 @@ function warmInfo() {
 function warmHTML() {
   const w = warmInfo();
   if (!w) return "";
+  // the warm-up's Start is not orange: the card's one orange button is the day's
   return w.kind === "warm"
-    ? `<div class="nx-warm"><span>☕ <b>Warm-up:</b> ${plural(w.n, "quick question")} from yesterday before you start. Recalling it now is what makes it stick.</span><span class="nx-wb"><button type="button" class="primary" data-warm="start">Start</button><button type="button" data-warm="skip">Skip today</button></span></div>`
+    ? `<div class="nx-warm"><span>☕ <b>Warm-up:</b> ${plural(w.n, "quick question")} from yesterday before you start. Recalling it now is what makes it stick.</span><span class="nx-wb"><button type="button" class="nx-wgo" data-warm="start">Start the warm-up</button><button type="button" data-warm="skip">Skip today</button></span></div>`
     : `<div class="nx-warm"><span>🔁 <b>${plural(w.n, "missed question")}</b> ${w.n === 1 ? "is" : "are"} due for review.</span><span class="nx-wb"><button type="button" data-review>Review now</button></span></div>`;
 }
 const liveQuiz = d => !!(S.run && S.run.kind === "day" && S.run.day === d.id && !S.run.done);
-function renderNext(ti) {
+// The card at the top of the overview. Its day is the one with the earliest open step (today's, unless you are behind
+// or ahead); left: the day, its goal and its progress; right: the next step in a box of its block's colour, with the
+// one big button under it. The head holds today's date and where the plan stands (st, from refresh).
+function renderNext(ti, st) {
   const el = document.getElementById("next");
-  const pre = warmHTML();
-  const n = nextStep();
+  const pre = warmHTML(), n = nextStep(), td = ti >= 1 && ti <= LAST ? DAYS[ti - 1] : null;
+  const head = (k, date) => `<div class="nx-h"><span class="nx-k">${k}</span>${date ? `<span class="nx-d">${date}</span>` : ""}<span class="nx-st">${st.join("")}</span></div>`;
   if (!n) {
     el.className = "next all-done";
-    el.innerHTML = pre + `<div>Every day is done. 🚀 Go pass SAA-C03.</div>` +
-      `<div class="nx-a center"><button type="button" class="primary" data-mock>${S.run && S.run.kind === "mock" && !S.run.done ? "Resume mock exam" : "Take a mock exam"}</button></div>`;
+    el.innerHTML = pre + head("All done", fmtD(new Date())) + `<p class="nx-fin">Every day is done. 🚀 Go pass SAA-C03.</p>` +
+      `<div class="nx-a center"><button type="button" class="primary big" data-mock>${S.run && S.run.kind === "mock" && !S.run.done ? "Resume mock exam" : "Take a mock exam"}</button></div>`;
     return;
   }
   el.className = "next";
-  const { d } = n, ids = dIds(d), k = ids.filter(done).length;
-  const when = d.day < ti ? `<span class="pill warn">from Day ${d.day}</span>` : d.day > ti && ti >= 1 ? `<span class="pill ok">working ahead</span>` : "";
-  let step, act;
+  const { d } = n, ids = dIds(d), k = ids.filter(done).length, cards = stepIds(d), at = n.quiz ? "quiz" : n.it[0];
+  // the card is on another day than the calendar's: say which day today is on the plan
+  const cal = td && td !== d ? `<p class="nx-cal">Today on the plan: Day ${td.day}, ${td.title}${dayDone(td) ? ` <span class="pill ok">✓ Done</span>` : `, about ${fmtH(dayLeft(td))}`}</p>` : "";
+  // one segment per card, grouped like the day's blocks: the done ones filled, the next one outlined
+  const seg = id => `<i class="${(id === "quiz" ? quizOk(d) : done(id)) ? "on" : id === at ? "nx" : ""}${id === "quiz" ? " q" : ""}"></i>`;
+  const segs = d.groups.map(g => `<span style="flex:${g.items.length}">${gIds(g).map(seg).join("")}</span>`).join("") + (hasQuiz(d) ? `<span style="flex:1">${seg("quiz")}</span>` : "");
+  let edge, kick, body, act;
   if (n.quiz) {
     const r = S.quiz[d.id], tries = r ? r.tries.length : 0, live = liveQuiz(d);
-    step = `<span class="tag t-quiz">Quiz</span><span>${live ? `You are on question ${S.run.i + 1} of ${S.run.ids.length}.` : tries ? `Best so far ${r.best} of ${QZ.DAILY}. A retake draws different questions.` : `Every step is done. ${QZ.DAILY} questions, pass at ${QZ.needed(QZ.DAILY)}.`}</span>`;
+    edge = "quiz"; kick = "Up next";
+    body = `<span class="tag t-quiz">Quiz</span><p class="nx-step">${live ? `You are on question ${S.run.i + 1} of ${S.run.ids.length}.` : tries ? `Best so far ${r.best} of ${QZ.DAILY}. A retake draws different questions.` : `Every step is done. ${QZ.DAILY} questions, pass at ${QZ.needed(QZ.DAILY)}.`}</p>`;
     act = `<button type="button" class="primary big" data-quiz-start="${d.id}">${live ? "Resume quiz" : tries ? `Retake the Day ${d.day} quiz` : `Take the Day ${d.day} quiz`}</button>` +
       `<a class="btn" href="#${d.id}/quiz">Open Day ${d.day}</a>`;
   } else {
-    step = `<span class="tag t-${n.g.t}">${n.g.label || TAGS[n.g.t]}</span><span>${n.it[1]}</span>`;
-    act = `<a class="btn primary big" href="#${d.id}" data-start-day>${k ? "Continue" : "Start"} Day ${d.day}</a>`;
+    edge = TAGS[n.g.t] ? n.g.t : "check"; kick = k ? "Next step" : "First step";
+    body = `<span class="tag t-${edge}">${n.g.label || TAGS[n.g.t]}</span><p class="nx-step">${n.it[1]}</p>` +
+      (n.g.where ? `<p class="nx-where"><span aria-hidden="true">📍</span> ${n.g.where}</p>` : "");
+    act = `<a class="btn primary big" href="#${d.id}" data-start-day>${k ? "Continue" : "Start"} Day ${d.day} <span aria-hidden="true">→</span></a>`;
   }
-  el.innerHTML = pre +
-    `<div class="nx-h"><span class="nx-k">${d.day === ti ? "Today" : "Next up"}</span><span>${fmtD(dayDate(d.day))}</span>${when}</div>` +
+  // before Day 1 the head already says when the plan starts
+  el.innerHTML = pre + head(d.day === ti ? "Today" : "Next up", d.day === ti ? fmtD(dayDate(d.day)) : ti < 1 ? "" : `planned for ${fmtD(dayDate(d.day))}`) + cal +
+    `<div class="nx-body"><div class="nx-day">` +
     `<div class="hero"><span class="hero-n"><small>Day</small>${d.day}</span><div><h2 class="hero-t">${d.title}</h2><p class="goal">${d.goal}</p></div></div>` +
-    `<div class="hero-p"><span class="pbar"><span style="width:${pct(k, stepIds(d).length)}%"></span></span>` +
-    `<span class="muted">${k} of ${ids.length} steps done${hasQuiz(d) ? ", then the quiz" : ""}. About ${fmtH(dayLeft(d))} left.</span></div>` +
-    `<div class="hero-nx"><span class="muted">${n.quiz ? "Up next" : k ? "Next step" : "First step"}</span>${step}</div>` +
-    `<div class="nx-a">${act}</div>`;
+    `<div class="hero-p"><div class="segs" role="img" aria-label="${k} of ${ids.length} steps done">${segs}</div>` +
+    `<span class="muted">${k} of ${ids.length} steps done${hasQuiz(d) ? ", then the quiz" : ""}. About ${fmtH(dayLeft(d))} left.</span></div></div>` +
+    `<div class="box nx-go" style="--edge:var(--${edge})"><div class="nx-gk"><span>${kick}</span><span class="muted">Step ${cards.indexOf(at) + 1} of ${cards.length}</span></div>` +
+    body + `<div class="nx-a">${act}</div></div></div>`;
 }
 
 // ---------- day flow: one card at a time ----------
@@ -1392,7 +1400,7 @@ function renderScores() {
   if (q7 != null) sum.push(`QS ${Math.round(q7 / 20 * 100)}%`);
   if (q13 != null) sum.push(`retake ${Math.round(q13 / 20 * 100)}%`);
   if (pe != null) sum.push(`practice exam ${pe}`);
-  document.getElementById("score-sum").textContent = sum.length ? "· " + sum.join(" · ") : "";
+  document.getElementById("score-sum").textContent = sum.join(", ");
 }
 // A score can be typed in the 📊 Scores panel or on the card of the step that asks for it: keep both in step.
 document.addEventListener("input", e => {
@@ -3129,7 +3137,6 @@ setInterval(() => { if (todayIdx() !== lastIdx || today() !== lastDate) { lastId
 // Days ticked off before quizzes existed count as done once their quiz is passed.
 DAYS.forEach(markDayDone);
 award(0, false);   // saved with the next change, or after the first sync (applyState)
-document.getElementById("places").open = Object.keys(S.ticks).length === 0;
 document.getElementById("tb-sub").textContent = `SAA-C03 in ${DAYS.length} days`;
 restoreScores();
 rebuild();
