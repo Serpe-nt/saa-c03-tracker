@@ -375,10 +375,38 @@ dialog h2{font:700 24px var(--display);margin:0 0 8px}
 .fx-canvas{position:fixed;inset:0;pointer-events:none;z-index:50}
 .fx-banner{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6) rotate(-2deg);opacity:0;z-index:60;pointer-events:none;border-radius:10px;padding:18px 34px 20px;text-align:center;border-top:6px solid var(--accent);transition:opacity .25s,transform .4s cubic-bezier(.2,1.6,.4,1)}
 .fx-banner.show{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
+.fx-banner{width:max-content;max-width:92vw}   /* left:50% alone would leave it half the screen to wrap in */
 .fx-banner .b-t{font:700 38px/1.05 var(--display)}
 .fx-banner .b-s{font-size:15px;color:var(--muted);margin-top:6px}
-.fx-banner.k-week .b-t,.fx-banner.k-all .b-t{font-size:48px}
-.fx-banner.k-all{border-top-color:var(--done)}
+/* the top rungs: a day, a week, everything. Much bigger, a big icon that stamps in, a shine, a longer stay (fx.js) */
+.fx-banner.k-day,.fx-banner.k-week,.fx-banner.k-all{overflow:hidden;padding:18px 52px 26px;border-top-width:8px;transition:opacity .3s,transform .75s cubic-bezier(.2,1.7,.4,1)}
+.fx-banner.k-day:not(.show),.fx-banner.k-week:not(.show),.fx-banner.k-all:not(.show){transform:translate(-50%,-50%) scale(.3) rotate(-6deg)}
+.fx-banner .b-i{font-size:64px;line-height:1.1}
+.fx-banner.show .b-i{animation:b-stamp .8s .2s cubic-bezier(.2,1.8,.4,1) both}
+.fx-banner.k-day .b-t{font-size:clamp(36px,7vw,60px)}
+.fx-banner.k-week .b-t{font-size:clamp(40px,8.5vw,74px)}
+.fx-banner.k-all .b-t{font-size:clamp(44px,10vw,88px)}
+.fx-banner.k-day .b-s{font-size:17px}
+.fx-banner.k-week .b-s,.fx-banner.k-all .b-s{font-size:19px}
+.fx-banner.k-week .b-i{font-size:84px}
+.fx-banner.k-all .b-i{font-size:104px}
+.fx-banner.k-week{border-top-color:#ffc61a;box-shadow:0 0 0 2px #ffc61a,0 0 46px rgba(255,198,26,.55),var(--shadow)}
+.fx-banner.k-all{border-top-color:#8a3ffc;box-shadow:0 0 0 2px #b58cff,0 0 60px rgba(181,140,255,.7),var(--shadow)}
+.fx-banner.k-day::after,.fx-banner.k-week::after,.fx-banner.k-all::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.55) 48%,transparent 66%);transform:translateX(-130%);pointer-events:none}
+.fx-banner.show.k-day::after{animation:bd-shine 1.2s .7s ease-out both}
+.fx-banner.show.k-week::after{animation:bd-shine 1.3s .7s ease-out 3 both}
+.fx-banner.show.k-all::after{animation:bd-shine 1.3s .7s ease-out 5 both}
+:root:not(.fx-off) .fx-banner.show.k-week,:root:not(.fx-off) .fx-banner.show.k-all{animation:b-glow 1.4s .9s ease-in-out infinite alternate}
+@keyframes b-stamp{0%{opacity:0;transform:scale(3.2) rotate(-24deg)}55%{opacity:1;transform:scale(.88) rotate(5deg)}100%{transform:none}}
+@keyframes b-glow{to{box-shadow:0 0 0 3px #ffe066,0 0 90px 10px rgba(255,198,26,.75),var(--shadow)}}
+/* the page dims round a top rung's banner (only with effects and motion), under the confetti */
+.fx-veil{position:fixed;inset:0;z-index:49;pointer-events:none;opacity:0;transition:opacity .6s;background:radial-gradient(ellipse at 50% 38%,rgba(4,22,48,0) 0,rgba(4,22,48,.18) 40%,rgba(4,22,48,.58) 100%)}
+.fx-veil.show{opacity:1}
+.fx-veil.k-week{background:radial-gradient(ellipse at 50% 38%,rgba(255,198,26,.2) 0,rgba(4,22,48,.28) 45%,rgba(4,22,48,.66) 100%)}
+.fx-veil.k-all{background:radial-gradient(ellipse at 50% 38%,rgba(181,140,255,.24) 0,rgba(4,22,48,.32) 45%,rgba(4,22,48,.72) 100%)}
+/* a long run of right answers lights up the quiz's edge (fx.js glow(); a box-shadow, so nothing inside it moves) */
+dialog.fx-glow{animation:fx-glow 1.2s ease-out}
+@keyframes fx-glow{0%{box-shadow:0 0 0 0 var(--fx-glow),0 0 0 0 var(--fx-glow)}25%{box-shadow:0 0 0 5px var(--fx-glow),0 0 70px 14px var(--fx-glow)}100%{box-shadow:0 0 0 0 transparent,0 0 0 0 transparent}}
 .fx-banner.k-info{border-top-color:var(--watch)}
 .fx-banner.k-info .b-t{font-size:26px}
 .fx-banner.k-block{border-top-color:var(--done)}
@@ -604,12 +632,47 @@ dialog.qz{width:min(780px,96vw);max-width:none;max-height:92vh;padding:0;overflo
 .qz-hint{font-size:13.5px;margin:12px 0 0}
 .qz-nav{justify-content:flex-start}
 .qz-nav .primary{margin-left:auto}
-.qz-combo{display:inline-block;font:700 15px var(--display);padding:1px 10px;border-radius:999px;color:#fff;background:#e8890c}
-.qz-combo.h2{background:linear-gradient(90deg,#ff7a00,#e5383b)}
-.qz-combo.h3{background:linear-gradient(90deg,#e5383b,#8a3ffc);box-shadow:0 0 12px rgba(138,63,252,.55)}
-.qz-combo.up{animation:cb-up .45s cubic-bezier(.2,1.8,.4,1)}
-.qz-combo.broke{background:var(--bad-soft);color:var(--bad);animation:v-shake .45s}
-@keyframes cb-up{0%{transform:scale(1)}40%{transform:scale(1.35) rotate(-4deg)}100%{transform:none}}
+.qz-map button.just{animation:sq-pop .5s cubic-bezier(.2,1.8,.4,1)}
+.qz-map button.just.ok{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--quiz),0 0 12px 3px rgba(95,211,122,.8)}
+@keyframes sq-pop{0%{transform:scale(.4)}50%{transform:scale(1.7)}100%{transform:none}}
+.qz-meta .bump{display:inline-block;animation:cb-up .45s cubic-bezier(.2,1.8,.4,1)}
+/* the combo meter (app.js comboHTML): right answers in a row and a bar to the next streak badge. It heats up as the run
+   grows (h0–h4), bursts at each mark (boom), drains with a shake on a miss (broke). Not in the mock exam. */
+.qz-cb{--cb:#e8890c;display:inline-flex;align-items:center;gap:6px;font:700 15px/1 var(--display);padding:3px 10px 3px 6px;border-radius:999px;color:#fff;background:var(--cb);white-space:nowrap}
+.qz-cb .cb-f{display:inline-block;width:1.25em;text-align:center;font-size:17px;line-height:1;transform-origin:50% 90%}
+.qz-cb .cb-n b{display:inline-block;font-size:17px}
+.qz-cb .cb-n small{font:600 12.5px var(--display);opacity:.85}
+.qz-cb .cb-m{display:block;width:64px;height:7px;border-radius:999px;background:rgba(255,255,255,.3);overflow:hidden}
+.qz-cb .cb-m i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#fff3b0,#fff)}
+.qz-cb .cb-to{font:700 12.5px var(--display);opacity:.9;min-width:1.2em;text-align:center}
+.qz-cb.h0{--cb:var(--field);color:var(--muted);box-shadow:0 0 0 1px var(--line) inset}
+.qz-cb.h0 .cb-f{filter:grayscale(.8);opacity:.75}
+.qz-cb.h0 .cb-m{background:var(--line)}
+.qz-cb.h0 .cb-m i{background:var(--accent)}
+.qz-cb.h2{background:linear-gradient(90deg,#ff7a00,#e5383b)}
+.qz-cb.h2 .cb-f{font-size:19px}
+.qz-cb.h3{background:linear-gradient(90deg,#e5383b,#8a3ffc);box-shadow:0 0 12px rgba(138,63,252,.55)}
+.qz-cb.h3 .cb-f{font-size:21px}
+.qz-cb.h4{background:linear-gradient(90deg,#ff5c8a,#ffc61a,#5fd37a,#5aa9ff,#b58cff,#ff5c8a);background-size:200% 100%;box-shadow:0 0 16px rgba(181,140,255,.85)}
+.qz-cb.h4 .cb-f{font-size:23px}
+.qz-cb.h4 .cb-n,.qz-cb.h4 .cb-to{text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.qz-cb.broke{background:var(--bad-soft);color:var(--bad);animation:v-shake .45s}
+.qz-cb.broke .cb-m{background:color-mix(in srgb,var(--bad) 22%,transparent)}
+.qz-cb.broke .cb-m i{background:var(--bad)}
+.qz-cb.miss{animation:v-shake .4s}
+.qz-cb.up .cb-m i,.qz-cb.boom .cb-m i,.qz-cb.broke .cb-m i,.qz-cb.miss .cb-m i{animation:cb-fill .45s ease-out both}
+.qz-cb.up .cb-n b{animation:cb-up .45s cubic-bezier(.2,1.8,.4,1)}
+:root:not(.fx-off) .qz-cb.h3 .cb-f,:root:not(.fx-off) .qz-cb.h4 .cb-f{animation:cb-flick .5s ease-in-out infinite alternate}
+:root:not(.fx-off) .qz-cb.h4{animation:cb-rainbow 2.4s linear infinite}
+.qz-cb.boom{animation:cb-boom .75s cubic-bezier(.2,1.6,.4,1)}
+:root:not(.fx-off) .qz-cb.h4.boom{animation:cb-boom .75s cubic-bezier(.2,1.6,.4,1),cb-rainbow 2.4s linear infinite}
+.qz-cb.boom .cb-f,:root:not(.fx-off) .qz-cb.boom .cb-f{animation:cb-jump .75s cubic-bezier(.2,1.8,.4,1)}
+@keyframes cb-fill{from{width:var(--from,0%)}}
+@keyframes cb-up{0%{transform:scale(1)}40%{transform:scale(1.5) rotate(-6deg)}100%{transform:none}}
+@keyframes cb-boom{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,198,26,.95)}35%{transform:scale(1.35) rotate(-3deg)}100%{transform:none;box-shadow:0 0 0 18px rgba(255,198,26,0)}}
+@keyframes cb-jump{0%{transform:none}35%{transform:translateY(-6px) scale(1.9) rotate(-10deg)}100%{transform:none}}
+@keyframes cb-flick{from{transform:scale(1) rotate(-5deg)}to{transform:scale(1.15) rotate(5deg)}}
+@keyframes cb-rainbow{to{background-position:200% 0}}
 /* a fresh answer: a right one pops and glows, a wrong one shakes */
 .qz-verdict{position:relative}
 .qz-verdict.fresh.ok{animation:v-pop .45s cubic-bezier(.2,1.6,.4,1)}
@@ -658,6 +721,9 @@ dialog.qz{width:min(780px,96vw);max-width:none;max-height:92vh;padding:0;overflo
 .ach-x b{font:700 16px var(--display)}
 .ach-x .muted{font-size:12.5px}
 @media (max-width:640px){
+  .fx-banner.k-day,.fx-banner.k-week,.fx-banner.k-all{padding:14px 22px 18px}
+  .fx-banner .b-i{font-size:52px}
+  .fx-banner.k-week .b-i,.fx-banner.k-all .b-i{font-size:64px}
   .fx-badges{top:40px;gap:5px}
   dialog .fx-badges{top:8px}
   .fx-badge{gap:9px;padding:4px 16px 4px 5px}
