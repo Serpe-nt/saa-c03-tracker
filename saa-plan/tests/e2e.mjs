@@ -332,6 +332,10 @@ try {
   assert.equal(asked.length, 30);
   assert.ok(await page.evaluate(([ids, id]) => { const tp = window.QZ.topics(window.PLAN, window.STEP_TAGS)[id]; return ids.every(q => { const t = window.QUIZ.find(x => x.id === q).tags; return t.some(x => tp.own.has(x)) && t.every(x => tp.sofar.has(x)); }); }, [asked, QA.id]),
     "every question is on one of the day's topics, and none touches a topic taught later");
+  // the combo meter: right answers in a row and a bar towards the next streak badge
+  const meter = () => page.$eval("#qz-meta .qz-cb", el => ({ cls: el.className, txt: el.textContent, w: el.querySelector(".cb-m i").style.width }));
+  let m = await meter();
+  assert.ok(/0 in a row/.test(m.txt) && /3$/.test(m.txt) && m.w === "0%", "the combo meter is in the quiz header from the start, empty, aiming at 3: " + JSON.stringify(m));
   for (let i = 0; i < 30; i++) {
     await answer(page, true);
     if (i === 0) {
@@ -345,7 +349,12 @@ try {
       const top = await page.$eval("#quiz .fx-badges", el => el.getBoundingClientRect().top);
       assert.ok(top < 40, `the streak badge sits at the top of the screen (top ${top})`);
       assert.match(await page.textContent("#qz-meta"), /3 in a row/, "the run of right answers shows in the quiz header");
+      m = await meter();
+      assert.ok(/\bboom\b/.test(m.cls) && /\bh1\b/.test(m.cls) && m.w === "100%", "the meter fills and bursts at a streak mark: " + JSON.stringify(m));
     }
+    if (i === 3) { m = await meter(); assert.ok(m.w === "50%" && /5$/.test(m.txt) && /\bup\b/.test(m.cls), "after a mark the bar starts again towards the next one: " + JSON.stringify(m)); }
+    if (i === 9) assert.match((await meter()).cls, /\bh3\b/, "the meter heats up as the run grows");
+    if (i === 0) assert.ok(await page.locator("#qz-body .qz-map button.ok.just").count() === 1, "the square just answered pops");
     if (i === 9) { await page.waitForTimeout(100); await page.screenshot({ path: path.join(SHOTS, "04c-streak-badge.png") }); }
     if (i === 0) {
       assert.ok(await page.locator("#qz-body .qz-study .qz-refs li").count() >= 1, "feedback shows where to study");
@@ -381,6 +390,10 @@ try {
   assert.equal((await state(page)).rowBest, 30, "the longest run of right answers is kept");
   await page.click('#qz-body [data-qz="finish"]');
   await page.waitForFunction(h => location.hash === h, `#${QA.id}/done`, { timeout: 3000 });
+  // the top rung of the ladder: a big banner with an icon; the dimmed page round it is an effect, so not with effects off
+  await page.waitForSelector(".fx-banner.show.k-day .b-i");
+  assert.match(await page.textContent(".fx-banner"), new RegExp(`Day ${QA.day} complete`), "finishing a day gets the day's banner");
+  assert.equal(await page.locator(".fx-veil.show").count(), 0, "no veil with effects off");
   assert.match(await page.textContent("#card .c-t"), new RegExp(`Day ${QA.day} is done`));
   assert.match(await page.textContent("#fl-nav"), new RegExp(`Start Day ${QB.day}`));
   await page.waitForTimeout(300);
@@ -395,27 +408,40 @@ try {
   assert.match(await page.textContent("#next"), new RegExp(`Start Day ${QB.day}`));
 
   // ---------- the next day: fail, then retake shows new questions ----------
-  log(`Day ${QB.day}: miss 4 → fail at 26/30, notebook + review queue filled`);
+  log(`Day ${QB.day}: miss 4 → fail at 26/30, notebook + review queue filled; every answer has its effect, a miss breaks the run`);
   await tickDays(page, [QB.day]);
   await page.reload();
   assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-quiz"), "1", "day shows quiz pending");
   assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-done"), "0");
   assert.match(await page.textContent("#next"), new RegExp(`Take the Day ${QB.day} quiz`));
+  // every answer calls its effect (sound and stars inside; the switches decide what plays)
+  await page.evaluate(() => { window.__ans = []; for (const k of ["right", "wrong", "combo"]) { const f = window.FX[k]; window.FX[k] = (...a) => { window.__ans.push([k, a[0]]); return f(...a); }; } });
   await page.click(`#next [data-quiz-start="${QB.id}"]`);
   const first = (await state(page)).run.ids.slice();
   assert.equal(first.length, 30);
   assert.equal(new Set(first).size, 30);
+  const MISS = [0, 1, 2, 6];                               // the last one ends a run of three
   for (let i = 0; i < 30; i++) {
-    const { q } = await answer(page, i >= 4);
+    const ok = !MISS.includes(i);
+    const { q } = await answer(page, ok);
     await page.click('#qz-body [data-qz="check"]');
-    await page.waitForSelector(`#qz-body .qz-verdict.${i >= 4 ? "ok" : "bad"}`);
+    await page.waitForSelector(`#qz-body .qz-verdict.${ok ? "ok" : "bad"}`);
     if (i === 0) {
       assert.ok(await page.locator("#qz-body .qz-fb li.wrong").count() >= 1, "wrong pick is marked");
       assert.ok(await page.locator("#qz-body .qz-fb li.right").count() === q.a.length, "right answer is marked");
+      assert.match(await page.textContent("#qz-meta .qz-cb"), /0 in a row/, "a miss with no run leaves the meter at 0");
       await page.fill("#qz-body [data-note]", "mixed up stateful and stateless");
       await page.screenshot({ path: path.join(SHOTS, "07-feedback-wrong.png") });
     }
+    if (i === 6) assert.match(await page.textContent("#qz-meta .qz-cb.broke"), /Streak lost at 3/, "a miss after a run says the streak is lost");
     await page.click('#qz-body [data-qz="next"]');
+  }
+  {
+    const calls = await page.evaluate(() => window.__ans);
+    assert.equal(calls.filter(c => c[0] === "wrong").length, 4, "a wrong answer's effect on every miss");
+    assert.equal(calls.length, 30, "one effect per answer");
+    assert.deepEqual(calls.filter(c => c[0] === "combo").map(c => c[1]), [3, 3, 5, 10, 15, 20], "the streak marks burst");
+    assert.deepEqual(calls.filter(c => c[0] === "wrong").map(c => c[1]), [0, 0, 0, 3], "the wrong effect knows the run it ended");
   }
   await page.waitForSelector("#qz-body .qz-res.bad");
   assert.match(await page.textContent("#qz-body .qz-score"), /26/);
@@ -561,7 +587,10 @@ try {
   console.log(`  mock domains: ${doms.join("/")}`);
   assert.deepEqual(doms, [20, 17, 15, 13]);
   assert.ok(await page.locator("#qz-body .qz-verdict").count() === 0, "no feedback during the mock");
+  assert.equal(await page.locator("#quiz .qz-cb").count(), 0, "no combo meter in the mock: it stays exam-like");
+  await page.evaluate(() => { window.__ans = []; for (const k of ["right", "wrong", "combo"]) { const f = window.FX[k]; window.FX[k] = (...a) => { window.__ans.push(k); return f(...a); }; } });
   for (let i = 0; i < 10; i++) { await answer(page, i % 2 === 0); await page.click('#qz-body [data-qz="mnext"]'); }
+  assert.deepEqual(await page.evaluate(() => window.__ans), [], "no answer effects in the mock");
   await page.click('#qz-body [data-qz="flag"]');
   await page.click('#qz-body [data-qz="grid"]');
   assert.equal(await page.locator("#qz-body .mk-grid button.ans").count(), 10);

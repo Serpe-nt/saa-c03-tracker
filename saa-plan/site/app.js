@@ -989,15 +989,15 @@ function setTick(id, val, srcEl) {
   if (billed.length) setTimeout(() => FX.toast(`🧾 On your <b>still running</b> list: ${billed.map(esc).join(", ")}`), 900);
   if (val) {
     // effects start from the button that was pressed, so fire them before the card is redrawn
-    const nowDay = dayDone(d);
-    if (!was.a && DAYS.every(dayDone)) celebrate("all", d);
-    else if (!was.w && week.every(dayDone)) celebrate("week", d);
-    else if (!was.d && nowDay) celebrate("day", d);
+    let cel = 0;   // how long a top rung's banner stays up
+    if (!was.a && DAYS.every(dayDone)) cel = celebrate("all", d);
+    else if (!was.w && week.every(dayDone)) cel = celebrate("week", d);
+    else if (!was.d && dayDone(d)) cel = celebrate("day", d);
     else if (!was.g && groupDone(g)) blockDone(d, g, srcEl);
     else stepDone(d, g, srcEl);
     markStrip(id, !was.g && groupDone(g) ? g.key : "");
     const builds = d.groups.filter(x => x.t === "build");
-    if (g.t === "build" && !was.g && builds.every(groupDone)) setTimeout(() => whenFree(() => openCleanup(d.id)), nowDay ? 3400 : 1100);
+    if (g.t === "build" && !was.g && builds.every(groupDone)) setTimeout(() => whenFree(() => openCleanup(d.id)), cel ? cel + 200 : 1100);
   }
   showGains(val ? award() : [], 1200);
   refresh();
@@ -1012,16 +1012,19 @@ function complete(id, srcEl) {
   const ids = dIds(d), i = ids.indexOf(id);
   move(ids.slice(i + 1).concat(ids.slice(0, i)).find(x => !done(x)) || (dayDone(d) ? "done" : hasQuiz(d) ? "quiz" : id));
 }
+// The top rungs. Returns how long the banner stays up, so what follows (the cleanup check, the mock's prompt) waits for it.
 function celebrate(kind, d) {
   const sk = streak();
   const skTxt = sk > 1 ? ` · 🔥 ${sk}-day streak` : "";
-  if (kind === "all") { FX.all(); FX.banner(`All ${DAYS.length} days done 🚀`, "Go pass SAA-C03.", "all"); }
+  let ms;
+  if (kind === "all") { FX.all(); ms = FX.banner(`All ${DAYS.length} days done`, "Go pass SAA-C03.", "all", "🚀"); }
   else if (kind === "week") {
     const w = WEEK[d.id], next = WEEKS[w + 1];
-    FX.week(); FX.banner(`Week ${w + 1} complete 🏆`, (next ? `Next: ${strip(next)}.` : "Only the exam left.") + skTxt, "week");
+    FX.week(); ms = FX.banner(`Week ${w + 1} complete`, (next ? `Next: ${strip(next)}.` : "Only the exam left.") + skTxt, "week", "🏆");
   }
-  else { FX.day(); FX.banner(`Day ${d.day} complete 🎉`, `${DAYS.filter(dayDone).length}/${DAYS.length} days done${skTxt}`, "day"); }
+  else { FX.day(); ms = FX.banner(`Day ${d.day} complete`, `${DAYS.filter(dayDone).length}/${DAYS.length} days done${skTxt}`, "day", "🎉"); }
   if ([3, 5, 7, 10, 14, 21].includes(sk)) setTimeout(() => FX.badge("🔥", `${sk} days in a row`, "A study streak", sk >= 10 ? "epic" : "gold"), 3400);
+  return ms;
 }
 
 // ---------- XP, levels and badges ----------
@@ -1456,10 +1459,12 @@ const qzDlg = document.getElementById("quiz"), qzBody = document.getElementById(
 new ResizeObserver(() => qzDlg.style.setProperty("--qzdh", qzDlg.offsetHeight + "px")).observe(qzDlg);
 let picks = {};      // question id → options picked, not yet checked (memory only; kept while you move between questions)
 let fresh = false;   // the answer on screen was checked just now: animate it (going back to it later does not); "xp" when it earned XP
-let comboFx = "";    // "up" when the run of right answers just grew, "broke" when a miss ended one
+let comboFx = "";    // the answer just checked, for the combo meter: "up" (right), "broke" (a miss ended a run of 2 or more), "miss"
+let comboWas = 0;    // the run a miss just ended
 // Right answers in a row (run.row) get a badge at these marks; the tier sets its look.
 const ROW_TIERS = [[30, "👑", "Flawless", "epic"], [25, "💎", "Untouchable", "epic"], [20, "🌟", "Legendary", "epic"], [15, "⚡", "Unstoppable", "gold"], [10, "🔥", "On fire", "gold"], [5, "🔥", "On a roll", "silver"], [3, "🔥", "Warming up", "bronze"]];
 const ROW_MARKS = ROW_TIERS.map(x => x[0]);
+const ROW_UP = ROW_MARKS.slice().reverse();   // 3, 5, 10 … 30
 let intro = null;    // { title, html, go, goLabel } shown before a quiz or mock starts
 let drill = null;    // "Which service?" round, kept in memory only
 
@@ -1604,18 +1609,32 @@ function learn(q, ok) {
 }
 
 // ---------- quizzes: day, review, warm-up (feedback after every answer) ----------
-// The run of right answers in the quiz's header: it heats up as it grows and breaks on a miss.
-function comboHTML(r) {
-  if (comboFx === "broke") return `<span class="qz-combo broke">💔 Streak lost</span>`;
-  if (r.row < 2) return "";
-  return `<span class="qz-combo h${r.row >= 10 ? 3 : r.row >= 5 ? 2 : 1}${comboFx === "up" ? " up" : ""}" title="Right answers in a row">🔥 ${r.row} in a row</span>`;
+// Where a run of n right answers stands on the way to the next streak badge: to = that mark (the mark itself when
+// n has just reached it), pct = how full the bar between the mark before it and that one is.
+function comboStep(n) {
+  const to = ROW_UP.find(m => m >= n) || ROW_UP[ROW_UP.length - 1], from = [0, ...ROW_UP].filter(m => m < to).pop();
+  return { to, pct: Math.max(0, Math.min(100, (n - from) / (to - from) * 100)) };
 }
-// One square per question: right, wrong, not answered yet. Click one to go there.
+// The combo meter in the quiz's header (not in the mock exam): the run of right answers and a bar that fills towards
+// the next streak badge. It heats up as the run grows (h0–h4), bursts at each mark and drains with a crack on a miss.
+function comboHTML(r) {
+  if (r.ids.length < 3) return "";
+  const n = r.row, { to, pct } = comboStep(n), meter = (w, from) => `<span class="cb-m" aria-hidden="true"><i style="width:${w}%;--from:${from}%"></i></span>`;
+  if (comboFx === "broke") return `<span class="qz-cb broke" title="Right answers in a row">` +
+    `<span class="cb-f" aria-hidden="true">💔</span><span class="cb-n">Streak lost <small>at ${comboWas}</small></span>${meter(0, comboStep(comboWas).pct)}<span class="cb-to">${to}</span></span>`;
+  const h = n >= 20 ? 4 : n >= 10 ? 3 : n >= 5 ? 2 : n >= 3 ? 1 : 0, prev = comboStep(Math.max(0, n - 1));
+  const fx = comboFx === "up" ? (ROW_MARKS.includes(n) ? " boom" : " up") : comboFx === "miss" ? " miss" : "";
+  const from = comboFx === "miss" ? comboStep(comboWas).pct : comboFx === "up" && prev.to === to ? prev.pct : comboFx === "up" ? 0 : pct;
+  return `<span class="qz-cb h${h}${fx}" title="Right answers in a row; the next streak badge at ${to}">` +
+    `<span class="cb-f" aria-hidden="true">🔥</span><span class="cb-n"><b>${n}</b> in a row</span>` +
+    `${meter(pct, from)}<span class="cb-to">${n >= to ? "★" : to}</span></span>`;
+}
+// One square per question: right, wrong, not answered yet. Click one to go there. The one just answered pops.
 function mapHTML(r) {
   if (r.ids.length < 2) return "";
   return `<div class="qz-map">${r.ids.map((k, i) => {
     const a = r.ans[k], st = !a ? "" : QZ.isRight(QBY[k], a) ? "ok" : "bad";
-    return `<button type="button" tabindex="-1" data-go="${i}" class="${st}${i === r.i ? " cur" : ""}" aria-label="Question ${i + 1}${st === "ok" ? ", right" : st ? ", wrong" : ""}"></button>`;
+    return `<button type="button" tabindex="-1" data-go="${i}" class="${st}${i === r.i ? " cur" : ""}${i === r.i && fresh && st ? " just" : ""}" aria-label="Question ${i + 1}${st === "ok" ? ", right" : st ? ", wrong" : ""}"></button>`;
   }).join("")}</div>`;
 }
 // The next question not answered yet after the one on screen, wrapping round; -1 when every one is answered.
@@ -1627,8 +1646,8 @@ function renderQ() {
   const r = S.run, id = r.ids[r.i], q = QBY[id], ord = r.ord[id] || QZ.order(q), ans = r.ans[id], n = r.ids.length, sel = picks[id] || [];
   r.ord[id] = ord;
   const answered = Object.keys(r.ans).filter(k => QBY[k]);
-  const right = answered.filter(k => QZ.isRight(QBY[k], r.ans[k])).length;
-  head(runTitle(r), [`Question ${r.i + 1} of ${n}`, `<span class="ok">✓ ${right}</span>`, `<span class="bad">✗ ${answered.length - right}</span>`, comboHTML(r)], answered.length / n * 100);
+  const right = answered.filter(k => QZ.isRight(QBY[k], r.ans[k])).length, bump = c => fresh && (comboFx === "up") === (c === "ok") ? " bump" : "";
+  head(runTitle(r), [`Question ${r.i + 1} of ${n}`, `<span class="ok${bump("ok")}">✓ ${right}</span>`, `<span class="bad${bump("bad")}">✗ ${answered.length - right}</span>`, comboHTML(r)], answered.length / n * 100);
   // Previous and Next move one question either way and never answer; the main button checks, then goes on to the next open question.
   const prev = n > 1 ? `<button type="button" data-qz="prev"${r.i ? "" : " disabled"}>← Previous</button>` : "";
   const skip = r.i + 1 < n ? `<button type="button" data-qz="skip">Next →</button>` : "";
@@ -1703,21 +1722,22 @@ function check() {
   const record = ok && r.row > best && best >= 3 && !r.rec;   // past your longest run from before this quiz, said once a quiz
   const got = award(r.row);
   fresh = earned ? "xp" : true;
-  comboFx = ok ? (r.row >= 2 ? "up" : "") : was >= 2 ? "broke" : "";
+  comboFx = ok ? "up" : was >= 2 ? "broke" : "miss"; comboWas = was;
   save(); renderQ();
   refocus('[data-qz="next"]');
-  const verdict = qzBody.querySelector(".qz-verdict");
+  const verdict = qzBody.querySelector(".qz-verdict"), meter = document.querySelector("#qz-meta .qz-cb");
   verdict.scrollIntoView({ block: "nearest" });
+  // every answer has a sound (right ones climb with the run) and something to see; the mock exam has none of this
   let rest = got;
-  if (!ok) FX.sound("miss");
+  if (!ok) FX.wrong(was, meter);
   else if (ROW_MARKS.includes(r.row)) {
     // the streak's badge drops in at the top; when it also earns a badge, it says so instead of a second one
     const [, icon, name, tier] = ROW_TIERS.find(x => x[0] === r.row), a = got.find(x => x.row === r.row);
     rest = got.filter(x => x !== a);
-    FX.combo(r.row, verdict);
+    FX.combo(r.row, verdict, meter);
     FX.badge(icon, `${r.row} in a row`, a ? `New badge: ${a.t}, +${a.xp} XP` : name, tier);
   }
-  else { FX.sound("pop"); FX.sparkle(verdict); }
+  else FX.right(r.row, verdict, meter);
   if (record) { r.rec = true; save(); const n = r.row; setTimeout(() => FX.badge("🏅", "New record", `${n} in a row beats your best of ${best}`, "gold"), 450); }
   showGains(rest, 700);
 }
@@ -1852,9 +1872,9 @@ function finishResults() {
   refresh();
   if (r.kind === "day") {
     const d = dayOf(r.day);
-    if (r.cel) celebrate(r.cel, d);
+    const cel = r.cel ? celebrate(r.cel, d) : 0;
     if (r.cel && view.day === d.id) move("done");   // the day's summary, with the button for the next day
-    if (r.mockNew) setTimeout(() => whenFree(promptMock), 3800);
+    if (r.mockNew) setTimeout(() => whenFree(promptMock), (cel || 3200) + 600);   // after the celebration
   }
 }
 
