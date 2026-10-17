@@ -201,19 +201,19 @@ try {
   await openCard(page, HELPDAY, HELP);
   assert.ok(await page.locator("#card .c-key li").count() >= 2, "key points");
   if (await page.evaluate(id => !!window.KEYS[id].why, HELP)) {
-    assert.ok(await page.evaluate(() => { const w = document.querySelector("#card .c-why"), k = document.querySelector("#card .c-key"), where = document.querySelector("#card .c-w"); return !!w && w.compareDocumentPosition(k) & 4 && (!where || w.compareDocumentPosition(where) & 4); }), "why it exists comes before where to do it and before the details");
+    assert.ok(await page.evaluate(() => { const t = document.querySelector("#card .c-t"), where = document.querySelector("#card .c-where"), w = document.querySelector("#card .c-why"), k = document.querySelector("#card .c-key"); return !!w && w.compareDocumentPosition(k) & 4 && (!where || (t.compareDocumentPosition(where) & 4 && where.compareDocumentPosition(w) & 4)); }), "where to do it right after the title, then why it exists, then the details");
     assert.ok(await page.locator("#card .c-key .k-list .k-l").count() >= 2, "labelled points");
   }
   assert.ok(await page.locator("#side-r .c-tags li").count() >= 1, "exam topics in the exam panel");
   const links = await page.$$eval("#side-l .c-docs a", as => as.map(a => [a.href, a.target, a.rel]));
   assert.ok(links.length >= 1 && links.every(([h, t, r]) => /^https:\/\/(docs\.)?aws\.amazon\.com\//.test(h) && t === "_blank" && r.includes("noopener")), "AWS docs open in a new tab");
-  await page.fill(`#side-r [data-inote="${HELP}"]`, "look at this again");
+  await page.fill(`#card [data-inote="${HELP}"]`, "look at this again");
   await page.waitForTimeout(600);
   assert.equal((await state(page)).inotes[HELP], "look at this again");
   assert.ok(await page.evaluate(() => document.querySelector('#side-l details[data-sec="terms"]').open), "terms start open in their panel");
   await page.screenshot({ path: path.join(SHOTS, "02-step-card.png"), fullPage: true });
 
-  log("wide screens: the card in the middle, On the exam under it, Look it up to its right; narrower screens: both under it; only the page scrolls");
+  log("wide screens: the article with the sidebar (On the exam, then Look it up) to its right, centred together; narrower screens: both under it; only the page scrolls");
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.evaluate(() => scrollTo(0, 0));
   await page.waitForTimeout(300);
@@ -222,9 +222,9 @@ try {
   const ownScroll = () => page.evaluate(() => [...document.querySelectorAll("#flow *")].filter(e => /auto|scroll/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1).map(e => e.id || e.className));
   let [pl, pc, pr, ps] = await box3();
   const mid = b => (b.l + b.r) / 2;
-  assert.ok(pc.r <= pl.l && Math.abs(pl.t - pc.t) < 2, `Look it up right of the card, level with its top: ${JSON.stringify([pl, pc])}`);
-  assert.ok(pr.t >= pc.b && Math.abs(pr.l - pc.l) < 2 && Math.abs(pr.r - pc.r) < 2, "On the exam under the card, as wide as it");
-  assert.ok(Math.abs(mid(pc) - 1600 / 2) < 12 && Math.abs(mid(ps) - mid(pc)) < 2, `the card in the middle of the window, the dots in the middle over it: ${JSON.stringify([pc, ps])}`);
+  assert.ok(pc.r <= pr.l && Math.abs(pr.t - pc.t) < 2 && pl.t >= pr.b && Math.abs(pl.l - pr.l) < 2, `the sidebar right of the article, level with its top, Look it up under On the exam: ${JSON.stringify([pc, pr, pl])}`);
+  const vw = await page.evaluate(() => document.documentElement.clientWidth);
+  assert.ok(pc.r - pc.l > 900 && Math.abs(pc.l - (vw - pr.r)) < 12 && Math.abs(mid(ps) - mid(pc)) < 2, `a wide article, centred with its sidebar, the dots over the article: ${JSON.stringify([pc, pr, ps])}`);
   assert.deepEqual(await ownScroll(), [], "nothing scrolls on its own");
   const [bk, bn] = await page.evaluate(id => { const d = window.PLAN.find(x => x.groups && x.groups.some(g => g.items.some(it => it[0] === id))); return [d.groups.findIndex(g => g.items.some(it => it[0] === id)) + 1, d.groups.length]; }, HELP);
   assert.equal(await page.locator("#fl-strip .fl-g.cur").count(), 1, "the block you are in is underlined in the strip");
@@ -241,6 +241,29 @@ try {
   await page.click("#fl-nav [data-next]");
   if (await page.locator('#side-l details[data-sec="terms"]').count())
     assert.ok(!(await page.evaluate(() => document.querySelector('#side-l details[data-sec="terms"]').open)), "a folded helper list stays folded on the next card");
+
+  log("a rewritten card reads like an article: course, headline, where, lessons; a step you carry out lists its actions and how you know it worked");
+  {
+    const rw = await page.evaluate(() => {
+      const ids = Object.keys(window.KEYS).filter(id => window.KEYS[id].head);
+      const day = id => window.PLAN.find(x => x.groups && x.groups.some(g => g.items.some(it => it[0] === id))).id;
+      const lect = ids.find(id => !window.KEYS[id].do && /^<b>[^<]+<\/b>\s*→/.test(window.PLAN.flatMap(x => x.groups || []).flatMap(g => g.items).find(it => it[0] === id)[1]));
+      const act = ids.find(id => window.KEYS[id].do && window.KEYS[id].done);
+      return { lect, lday: lect && day(lect), act, aday: act && day(act), head: lect && window.KEYS[lect].head, n: act && window.KEYS[act].do.length };
+    });
+    if (rw.lect) {
+      await openCard(page, rw.lday, rw.lect);
+      assert.equal(await page.textContent("#card .c-hl"), rw.head, "the card's own headline");
+      assert.ok(await page.evaluate(() => { const k = document.querySelector("#card .c-kick"), t = document.querySelector("#card .c-hl"), w = document.querySelector("#card .c-where"), l = document.querySelector("#card .c-les"), y = document.querySelector("#card .c-why"); return !!(k && w && l && y) && k.compareDocumentPosition(t) & 4 && t.compareDocumentPosition(w) & 4 && w.compareDocumentPosition(l) & 4 && l.compareDocumentPosition(y) & 4; }), "course, headline, where, lessons, then why it exists");
+      assert.ok(await page.locator("#card .c-why p").count() === 2, "the problem, then the idea, in one box");
+    }
+    if (rw.act) {
+      await openCard(page, rw.aday, rw.act);
+      assert.equal(await page.locator("#card .c-do li").count(), rw.n, "the step's numbered actions");
+      assert.match(await page.textContent("#card .c-done"), /^Done when:/);
+    }
+    await openCard(page, HELPDAY, HELP);
+  }
 
   log("step practice: three questions on this step");
   // a tampered GIF pointer in this browser's preferences must not break the results
@@ -836,15 +859,15 @@ try {
   await page.click("#sheet [data-sh-close]");
   assert.ok(await page.locator("#next .hero-t").count() === 1, "page still renders after the import");
   await openCard(page, "d1", "d1a2");
-  assert.equal(await page.inputValue('#side-r [data-inote="d1a2"]'), "<img src=x id=pwn4>", "a step note is shown as text");
+  assert.equal(await page.inputValue('#card [data-inote="d1a2"]'), "<img src=x id=pwn4>", "a step note is shown as text");
   await page.click('#fl-tools [data-sheet="daynotes"]');
   assert.match(await page.textContent("#sh-body .in-note"), /pwn4/);
   assert.equal(await page.locator("#pwn4, #pwn5").count(), 0, "notes are never rendered as markup");
   await page.click("#sheet [data-sh-close]");
   await ctx.close();
 
-  // ---------- reading: display settings, focus view, "Test me", search (browser-only, its own context) ----------
-  log("display settings, focus view, Test me on key points, search over everything");
+  // ---------- reading: display settings, focus view, the card's own question, search (browser-only, its own context) ----------
+  log("display settings, focus view, the one question on a card, search over everything");
   ({ ctx, page } = await newPage({ viewport: { width: 1600, height: 1000 } }));
   await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
   await page.goto(BASE);
@@ -866,17 +889,31 @@ try {
   await page.screenshot({ path: path.join(SHOTS, "21-focus-view-dark-large.png") });
   await page.keyboard.press("f");
   assert.ok(await page.locator("#side-r").isVisible(), "F brings them back");
-  // Test me: labels only, reveal, mark
-  const npts = await page.locator("#card .c-key .k-list li").count();
-  await page.click("#card [data-test]");
-  assert.equal(await page.locator("#card .k-list li.k-hid").count(), npts, "every point is hidden behind its label");
-  await page.click('#card [data-reveal="0"]');
-  await page.click('#card [data-kc="shaky"][data-ki="0"]');
-  assert.equal((await state(page)).kconf[`${HELP}:0`], "shaky", "the mark is kept");
-  for (let i = 1; i < npts; i++) { await page.click(`#card [data-reveal="${i}"]`); await page.click(`#card [data-kc="ok"][data-ki="${i}"]`); }
-  assert.match(await page.textContent("#card .k-sum"), new RegExp(`${npts - 1} of ${npts} got it`));
-  await page.click("#card [data-test-end]");
-  assert.equal(await page.locator("#card .k-list .k-m.pill").count(), 1, "outside Test me the shaky point carries its mark");
+  // the card's own question took the place of Test me: written for the card, asked only there, counted like a quiz answer
+  assert.equal(await page.locator("#card [data-test]").count(), 0, "no Test me any more");
+  const cq = await page.evaluate(() => {
+    const id = Object.keys(window.KEYS).find(k => window.KEYS[k].q && window.KEYS[k].q.a.length === 1);
+    return id && { id, day: window.PLAN.find(x => x.groups && x.groups.some(g => g.items.some(it => it[0] === id))).id, a: window.KEYS[id].q.a[0], inBank: window.QUIZ.some(q => q.id === "card-" + id) };
+  });
+  if (cq) {
+    assert.ok(!cq.inBank, "a card's question is not in the quiz bank, so no quiz draws it");
+    await openCard(page, cq.day, cq.id);
+    assert.ok(await page.evaluate(() => { const q = document.querySelector("#card .c-q"), n = document.querySelector("#card .c-notes"); return !!q && !!(q.compareDocumentPosition(n) & 4); }), "after the reading, before the notes");
+    assert.ok(await page.locator("#card [data-cq-check]").isDisabled(), "Check waits for a pick");
+    await page.click(`#card [data-cq-o]:not([data-cq-o="${cq.a}"])`);
+    await page.click("#card [data-cq-check]");
+    await page.waitForSelector("#card .cq-v.bad");
+    assert.equal(await page.locator("#card .c-q .qz-fb li").count(), 4, "every option explained");
+    let st = await state(page);
+    assert.ok(st.qs[`card-${cq.id}`].seen === 1 && st.qs[`card-${cq.id}`].right === 0 && st.book[`card-${cq.id}`] && st.srs[`card-${cq.id}`], "a miss counts like a quiz miss: stats, notebook, review");
+    await page.click("#card [data-cq-again]");
+    await page.click(`#card [data-cq-o="${cq.a}"]`);
+    await page.click("#card [data-cq-check]");
+    await page.waitForSelector("#card .cq-v.ok");
+    st = await state(page);
+    assert.ok(st.qs[`card-${cq.id}`].right === 1 && st.qs[`card-${cq.id}`].xp === 1 && st.book[`card-${cq.id}`].fixed, "right after the miss: XP, and fixed in the notebook");
+    await openCard(page, HELPDAY, HELP);
+  }
   // search: Ctrl+K, a key point, then a note with markup in it
   const label = await page.evaluate(id => window.KEYS[id].k.find(Array.isArray)[0].replace(/<[^>]+>/g, ""), HELP);
   await page.keyboard.press("Control+k");

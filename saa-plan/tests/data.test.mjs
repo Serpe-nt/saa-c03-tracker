@@ -108,6 +108,45 @@ test("every question is structurally valid", () => {
   assert.deepEqual(problems, []);
 });
 
+test("each card's own question (KEYS[id].q) is valid, and unlike every bank question and every other card's", () => {
+  // written for its card and asked only there: the same shape as a bank question, without id, day and ref
+  const norm = s => s.toLowerCase().replace(/<[^>]+>/g, "").replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  const stems = new Map(Q.map(q => [norm(q.q), q.id]));
+  const closed = /Snowball|Snowcone|Snowmobile|Snow Family|FSx File Gateway|Timestream for LiveAnalytics|OpsWorks|CodeCommit|Cloud9|QLDB|S3 Select|CloudSearch|Data Pipeline|EC2-Classic|Kinesis Data Firehose|Kinesis Data Analytics/i;
+  const problems = [];
+  for (const [id, e] of Object.entries(W.KEYS)) {
+    const q = e.q;
+    if (!q) continue;
+    const bad = m => problems.push(`${id}.q: ${m}`);
+    if (typeof q.q !== "string" || q.q.length < 30) { bad("stem"); continue; }
+    if (!Array.isArray(q.o) || !Array.isArray(q.a) || !Array.isArray(q.x)) { bad("o, a and x must be arrays"); continue; }
+    // a question on exam technique or the plan itself leaves out both: it is about no exam topic and no domain
+    if (("dom" in q) !== ("tags" in q)) bad("dom and tags go together: both, or neither for exam technique");
+    if ("dom" in q && ![1, 2, 3, 4].includes(q.dom)) bad("dom");
+    if ("tags" in q && (!Array.isArray(q.tags) || q.tags.length < 1 || q.tags.length > 2 || q.tags.some(t => !TAGS.has(t)))) bad("tags: 1–2 from QTAGS");
+    const two = /\(Choose two\.\)\s*$/.test(q.q);
+    if (q.o.length !== (two ? 5 : 4)) bad("option count");
+    if (q.a.length !== (two ? 2 : 1)) bad("answer count");
+    if (new Set(q.a).size !== q.a.length || q.a.some(i => !(i >= 0 && i < q.o.length))) bad("answer index");
+    if (new Set(q.o).size !== q.o.length) bad("duplicate option");
+    if (q.x.length !== q.o.length || q.x.some(x => typeof x !== "string" || x.length < 25)) bad("explanations: one per option, 25+ characters");
+    if ("doc" in q && !W.DOCS[q.doc]) bad(`unknown doc ${q.doc}`);
+    const text = [q.q, ...q.o, ...q.x].join(" ");
+    if (/all of the above|none of the above|both [a-e] and|option [a-e]\b/i.test(text)) bad("positional wording (options are shuffled)");
+    const tags = (text.match(/<\/?([a-z]+)/gi) || []).map(t => t.replace(/[</]/g, "").toLowerCase()).filter(t => t !== "code");
+    if (tags.length) bad(`HTML other than <code>: ${tags.join(",")}`);
+    if (q.a.some(i => closed.test(q.o[i] || ""))) bad("the right answer names a closed service");
+    const k = norm(q.q);
+    if (stems.has(k)) bad(`same stem as ${stems.get(k)}`); else stems.set(k, `card ${id}`);
+  }
+  assert.deepEqual(problems, []);
+});
+
+test("every step is a rewritten card: a headline, why it exists, and its own question", () => {
+  const missing = Object.keys(items).filter(id => { const e = W.KEYS[id]; return !e || !e.head || !e.why || !e.q; });
+  assert.deepEqual([...missing], []);
+});
+
 test("no correct answer relies on a retired or closed service", () => {
   const closed = /Snowball|Snowcone|Snowmobile|Snow Family|FSx File Gateway|Timestream for LiveAnalytics|OpsWorks|CodeCommit|Cloud9|QLDB|S3 Select|CloudSearch|Data Pipeline|EC2-Classic|Kinesis Data Firehose|Kinesis Data Analytics/i;
   // spread: arrays made inside the sandbox have their own prototype, which deepEqual rejects
@@ -182,7 +221,14 @@ test("key points are well-formed and filed under their step's id", () => {
       });
       if ("why" in e && (typeof e.why !== "string" || e.why.length < 80 || e.why.length > 420)) bad(`why length ${String(e.why).length}`);
       if ("trap" in e && (typeof e.trap !== "string" || e.trap.length < 40 || e.trap.length > 280)) bad(`trap length ${String(e.trap).length}`);
-      const text = [e.why || "", ...k.flat(), e.trap || ""].join(" ");
+      // the article fields of a rewritten card: a plain headline, the idea that answers the why, and for a step you
+      // carry out its numbered actions and how you know it worked
+      if ("head" in e && (typeof e.head !== "string" || e.head.length < 8 || e.head.length > 80 || /[<>]|[.:]$/.test(e.head))) bad(`head "${e.head}" (8–80 characters, plain text, no closing full stop or colon)`);
+      if ("idea" in e && (typeof e.idea !== "string" || e.idea.length < 40 || e.idea.length > 300)) bad(`idea length ${String(e.idea).length}`);
+      if (("idea" in e || "do" in e) && !("head" in e)) bad("idea and do belong to a rewritten card, which has a head");
+      if ("do" in e && (!Array.isArray(e.do) || e.do.length < 1 || e.do.length > 8 || e.do.some(s => typeof s !== "string" || s.length < 10 || s.length > 240))) bad("do must be 1–8 actions of 10–240 characters");
+      if ("done" in e && (!("do" in e) || typeof e.done !== "string" || e.done.length < 20 || e.done.length > 260)) bad(`done (20–260 characters, only with do)`);
+      const text = [e.why || "", e.idea || "", ...(e.do || []), e.done || "", ...k.flat(), e.trap || ""].join(" ");
       const tags = (text.match(/<\/?([a-z]+)/gi) || []).map(t => t.replace(/[</]/g, "").toLowerCase()).filter(t => t !== "code" && t !== "b");
       if (tags.length) bad(`HTML other than <b> and <code>: ${tags.join(",")}`);
       const docs = e.docs || [];
@@ -213,7 +259,7 @@ test("key points don't send the learner to a retired or closed service without s
   const closed = /Snowball|Snowcone|Snowmobile|Snow Family|FSx File Gateway|Timestream for LiveAnalytics|OpsWorks|CodeCommit|Cloud9|QLDB|S3 Select|CloudSearch|Data Pipeline|EC2-Classic|Kinesis Data Firehose|Kinesis Data Analytics/i;
   const status = /closed|no longer|end of support|ends|retired|formerly|legacy|older|not available|instead/i;
   const hits = [];
-  for (const [id, e] of Object.entries(W.KEYS)) for (const s of [e.why || "", ...(e.k || []).map(p => (Array.isArray(p) ? p.join(": ") : p)), e.trap || ""]) if (closed.test(s) && !status.test(s)) hits.push(`${id}: ${s}`);
+  for (const [id, e] of Object.entries(W.KEYS)) for (const s of [e.head || "", e.why || "", e.idea || "", ...(e.do || []), e.done || "", ...(e.k || []).map(p => (Array.isArray(p) ? p.join(": ") : p)), e.trap || ""]) if (closed.test(s) && !status.test(s)) hits.push(`${id}: ${s}`);
   assert.deepEqual(hits, []);
 });
 
