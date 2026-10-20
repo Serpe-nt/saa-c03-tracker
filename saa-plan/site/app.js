@@ -130,6 +130,8 @@ function clean(s) {
   for (const r of Object.values(s.quiz)) {
     r.best = num0(r.best); r.passed = isDay(r.passed) ? r.passed : "";
     r.tries = r.tries.filter(isObj).map(t => ({ at: str0(t.at), score: num0(t.score), n: num0(t.n) }));
+    // a try that meets today's pass mark counts, also one from before the mark went down from 90% to 80%
+    if (!r.passed) { const t = r.tries.find(t => isDay(t.at) && t.n && QZ.passed(t.score, t.n)); if (t) r.passed = t.at; }
   }
   keep(s.qs, isObj);
   for (const k in s.qs) {
@@ -1329,7 +1331,7 @@ const pctU = (v, ax) => `${Math.round(v)}%`;
 const minU = (v, ax) => (v >= 60 || ax ? `${Math.round(v / 6) / 10} h` : `${Math.round(v)} min`);   // axis ticks fall on whole or half hours (per: 60)
 const xpU = v => `${Math.round(v)}`;
 const TRENDS = [
-  { id: "acc", t: "Answers right, per day", val: d => (d.a ? Math.round(d.r / d.a * 100) : null), o: { kind: "line", max: 100, ref: 90, refLabel: "90% pass mark", unit: pctU },
+  { id: "acc", t: "Answers right, per day", val: d => (d.a ? Math.round(d.r / d.a * 100) : null), o: { kind: "line", max: 100, ref: Math.round(QZ.PASS * 100), refLabel: `${Math.round(QZ.PASS * 100)}% pass mark`, unit: pctU },
     tip: d => (d.a ? [`${Math.round(d.r / d.a * 100)}%`, `${d.r} of ${d.a} right${d.old ? " (day quizzes and mocks)" : ""}`] : ["–", "no answers"]) },
   { id: "focus", t: "Focus time, per day", val: d => d.f, o: { kind: "col", unit: minU, per: 60 }, tip: d => [d.f ? fmtH(d.f) : "–", "focus logged"] },
   { id: "xp", t: "XP, per day", val: d => d.x || 0, o: { kind: "col", ref: 0, refLabel: "", unit: xpU }, tip: d => [d.x == null ? "–" : `${d.x} XP`, d.x == null ? "app not opened" : d.x >= S.settings.goal ? "goal reached" : `goal ${S.settings.goal}`] }
