@@ -1,6 +1,6 @@
 # Question bank: authoring, checking, status
 
-The quizzes exist to turn "I watched it" into "I can answer a scenario question about it". The learner must score 27/30 to complete a day, reads an explanation after every answer, and is sent back to a specific plan step when wrong. A wrong key or explanation teaches something false, so content quality matters more than quantity.
+The quizzes exist to turn "I watched it" into "I can answer a scenario question about it". The learner must score 24/30 to complete a day, reads an explanation after every answer, and is sent back to a specific plan step when wrong. A wrong key or explanation teaches something false, so content quality matters more than quantity.
 
 ## What is in the bank
 

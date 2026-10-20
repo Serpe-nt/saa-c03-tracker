@@ -1,6 +1,6 @@
 # SAA-C03 three-week plan
 
-Study tracker for the AWS Certified Solutions Architect – Associate exam: a 22-day plan you work through one step at a time, a quiz at the end of a day that you must pass at 90%, spaced review of what you missed, and a full mock exam. Static HTML/CSS/JS (no frameworks) served by a small Go server that also keeps your progress in SQLite.
+Study tracker for the AWS Certified Solutions Architect – Associate exam: a 22-day plan you work through one step at a time, a quiz at the end of a day that you must pass at 80%, spaced review of what you missed, and a full mock exam. Static HTML/CSS/JS (no frameworks) served by a small Go server that also keeps your progress in SQLite.
 
 The plan follows two learning plans on AWS Skill Builder: the **AWS Solutions Architect Learning Plan (Includes Labs)** on Days 2–17 (each lecture course, then its labs) and the **Exam Prep Plan** for SAA-C03 on Days 8 and 18–21. It starts from zero: Days 1 and 2 open with the free course **AWS Technical Essentials**, which every course of the first plan lists as recommended previous knowledge. Day 1 tells you what to enroll in. One month of the Skill Builder subscription is needed from Day 1: most of the courses and labs are behind it. A few builds in your own AWS account (a VPC, IAM roles and policies, one Terraform project) stay in the plan; that account is on the Paid plan, because the subscription is billed to it, so Day 1 also sets up budgets.
 
@@ -51,7 +51,7 @@ Open http://localhost:8080
 
 ## How the quizzes work
 
-- **End of the day:** when every step of a day is complete, its 30-question quiz unlocks. After each answer you see why every option is right or wrong, plus the plan steps that teach that topic (lecture first, then lab), with their Open links. A day counts as complete only at 27 of 30 (90%).
+- **End of the day:** when every step of a day is complete, its 30-question quiz unlocks. After each answer you see why every option is right or wrong, plus the plan steps that teach that topic (lecture first, then lab), with their Open links. A day counts as complete only at 24 of 30 (80%).
 - **The quiz follows what the day taught.** Each step names the exam topics it teaches; a day's quiz draws on the topics of its steps and never asks about a topic that comes later in the plan. New questions come first, so a retake draws different ones as long as the day's topics have any left. Option order is shuffled every time.
 - **Days 8, 13 and 17** review everything taught so far. **Days 18 and 19** take the exam domains two at a time. **Day 20** is built from your weakest topics and past misses. **Day 21** mixes all four domains, weighted like the exam.
 - **Missed questions come back** after 1, 2 and 4 days, as a morning warm-up or a review. Each one also goes into the **wrong-answer notebook**, with a line for why you missed it. You can export the notebook as Markdown.

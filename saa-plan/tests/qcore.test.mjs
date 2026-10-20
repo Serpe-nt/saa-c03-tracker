@@ -30,10 +30,10 @@ const STEP_TAGS = { s1: ["A"], s2: ["B"], s3: ["C"], s4: ["D", "E"] };
 const TP = QZ.topics(PLAN, STEP_TAGS);
 const D = n => PLAN.find(d => d.day === n);
 
-test("pass mark is 27 of 30", () => {
-  assert.equal(QZ.needed(30), 27);
-  assert.ok(QZ.passed(27, 30));
-  assert.ok(!QZ.passed(26, 30));
+test("pass mark is 24 of 30", () => {
+  assert.equal(QZ.needed(30), 24);
+  assert.ok(QZ.passed(24, 30));
+  assert.ok(!QZ.passed(23, 30));
 });
 
 test("each day knows its own topics and everything taught up to it", () => {

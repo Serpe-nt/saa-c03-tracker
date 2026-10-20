@@ -2,7 +2,7 @@
 // Loaded by the page (window.QZ) and by the Node tests (tests/*.test.mjs).
 window.QZ = (() => {
   const DAILY = 30;                       // questions per end-of-day quiz
-  const PASS = 0.9;                       // share needed to complete the day
+  const PASS = 0.8;                       // share needed to complete the day
   const MOCK = { n: 65, minutes: 130, split: [20, 17, 15, 13] };   // exam guide weights 30/26/24/20 %
   const MIX = [9, 8, 7, 6];               // the same weights for a 30-question mix
   const SRS_DAYS = [1, 2, 4];             // a missed question comes back after 1, 2, then 4 days

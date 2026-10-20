@@ -431,7 +431,7 @@ try {
   assert.match(await page.textContent("#next"), new RegExp(`Start Day ${QB.day}`));
 
   // ---------- the next day: fail, then retake shows new questions ----------
-  log(`Day ${QB.day}: miss 4 → fail at 26/30, notebook + review queue filled; every answer has its effect, a miss breaks the run`);
+  log(`Day ${QB.day}: miss 7 → fail at 23/30, notebook + review queue filled; every answer has its effect, a miss breaks the run`);
   await tickDays(page, [QB.day]);
   await page.reload();
   assert.equal(await page.getAttribute(`[data-day="${QB.id}"]`, "data-quiz"), "1", "day shows quiz pending");
@@ -443,7 +443,7 @@ try {
   const first = (await state(page)).run.ids.slice();
   assert.equal(first.length, 30);
   assert.equal(new Set(first).size, 30);
-  const MISS = [0, 1, 2, 6];                               // the last one ends a run of three
+  const MISS = [0, 1, 2, 6, 7, 8, 9];                      // 6 ends a run of three
   for (let i = 0; i < 30; i++) {
     const ok = !MISS.includes(i);
     const { q } = await answer(page, ok);
@@ -461,21 +461,21 @@ try {
   }
   {
     const calls = await page.evaluate(() => window.__ans);
-    assert.equal(calls.filter(c => c[0] === "wrong").length, 4, "a wrong answer's effect on every miss");
+    assert.equal(calls.filter(c => c[0] === "wrong").length, 7, "a wrong answer's effect on every miss");
     assert.equal(calls.length, 30, "one effect per answer");
     assert.deepEqual(calls.filter(c => c[0] === "combo").map(c => c[1]), [3, 3, 5, 10, 15, 20], "the streak marks burst");
-    assert.deepEqual(calls.filter(c => c[0] === "wrong").map(c => c[1]), [0, 0, 0, 3], "the wrong effect knows the run it ended");
+    assert.deepEqual(calls.filter(c => c[0] === "wrong").map(c => c[1]), [0, 0, 0, 3, 0, 0, 0], "the wrong effect knows the run it ended");
   }
   await page.waitForSelector("#qz-body .qz-res.bad");
-  assert.match(await page.textContent("#qz-body .qz-score"), /26/);
+  assert.match(await page.textContent("#qz-body .qz-score"), /23/);
   assert.equal((await gifOn(page) || {}).o, "fail", "a failed quiz gets a GIF from the fail list");
   assert.equal(await page.locator("#qz-body .stars span.on").count(), 0);
-  assert.ok(await page.locator("#qz-body .qz-missed > li").count() === 4);
+  assert.ok(await page.locator("#qz-body .qz-missed > li").count() === 7);
   await page.screenshot({ path: path.join(SHOTS, "08-result-fail.png") });
   s = await state(page);
-  assert.equal(Object.keys(s.book).length, 4);
+  assert.equal(Object.keys(s.book).length, 7);
   assert.equal(s.book[first[0]].note, "mixed up stateful and stateless");
-  assert.equal(Object.keys(s.srs).length, 4);
+  assert.equal(Object.keys(s.srs).length, 7);
   assert.ok(!s.quiz[QB.id].passed);
 
   log("retake draws the unseen questions");
@@ -523,7 +523,7 @@ try {
   await page.click('#pr-grid [data-sheet="notebook"]');
   await page.waitForSelector("#sheet[open]");
   await page.click('#sh-body [data-nb="all"]');
-  assert.equal(await page.locator("#sh-body .nb > li").count(), 4, "all four misses are in the notebook");
+  assert.equal(await page.locator("#sh-body .nb > li").count(), 7, "all seven misses are in the notebook");
   await page.screenshot({ path: path.join(SHOTS, "09-notebook.png") });
   const dl = page.waitForEvent("download");
   await page.click("#sh-body [data-nb-export]");
@@ -549,13 +549,13 @@ try {
   await page.reload();
   assert.ok(await page.locator("#next .nx-warm").count() === 1, "warm-up strip shown");
   await page.click('#next [data-warm="start"]');
-  const wn = (await state(page)).run.ids.length;
+  const wids = (await state(page)).run.ids.slice(), wn = wids.length;
   assert.ok(wn >= 1 && wn <= 5);
   for (let i = 0; i < wn; i++) { await answer(page, true); await page.click('#qz-body [data-qz="check"]'); await page.click('#qz-body [data-qz="next"]'); }
   await page.click('#qz-body [data-qz="finish"]');
   s = await state(page);
   assert.ok(Object.values(s.warm).includes("done"));
-  assert.ok(Object.values(s.srs).every(x => x.step === 1), "on-time right answers move reviews to the next step");
+  assert.ok(wids.every(id => s.srs[id].step === 1), "on-time right answers move reviews to the next step");
 
   // ---------- slip guard ----------
   log("slip guard moves the remaining days");
