@@ -30,7 +30,7 @@ Read before changing things:
 - `tests/` – `qcore.test.mjs`, `data.test.mjs` (node --test, no deps), `e2e.mjs` (Playwright run of the real page), `load.mjs` (vm loader for the browser scripts)
 - `tools/` – `diagram-preview.mjs` (renders one course diagram to a PNG, Playwright), `qstats.mjs` (per-pool stats for authors), `similar.mjs` (near-duplicate finder across pools), `links.mjs` (checks that every AWS link on the site answers a plain 200; needs network)
 - `docs/` – `architecture.md`, `questions.md`, `keypoints.md`, `diagrams.md`
-- `Dockerfile` (golang build stage → distroless static nonroot, port 8080), `compose.yaml` (one file for PC and server: builds locally, image `ghcr.io/serpe-nt/saa-plan`; `BIND`/`ALLOWED_HOSTS`/`TAG` from `.env`, default 127.0.0.1:8080; `saa-data` volume at /data, read-only, cap_drop ALL, restart unless-stopped). `../.github/workflows/ghcr.yml` pushes the image to GHCR (amd64 + arm64) on pushes to main; server setup and moving the volume are in README "Run on a server"
+- `Dockerfile` (golang build stage → distroless static nonroot, port 8080), `compose.yaml` (one file for PC and server: builds locally, image `ghcr.io/serpe-nt/saa-plan`; `BIND`/`PORT`/`ALLOWED_HOSTS`/`TAG` from `.env`, default 127.0.0.1:8080; `saa-data` volume at /data, read-only, cap_drop ALL, restart unless-stopped). `../.github/workflows/ghcr.yml` pushes the image to GHCR (amd64 + arm64) on pushes to main; server setup and moving the volume are in README "Run on a server"
 
 ## Run
 

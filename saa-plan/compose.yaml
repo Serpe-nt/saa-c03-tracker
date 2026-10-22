@@ -8,8 +8,9 @@ services:
     image: ghcr.io/serpe-nt/saa-plan:${TAG:-latest}
     container_name: saa-plan
     ports:
-      # Default: only reachable from this machine. BIND=0.0.0.0 opens it to the network.
-      - "${BIND:-127.0.0.1}:8080:8080"
+      # Default: only reachable from this machine on port 8080. BIND=0.0.0.0 opens it to the network;
+      # PORT picks the port on the host (the app inside always listens on 8080).
+      - "${BIND:-127.0.0.1}:${PORT:-8080}:8080"
     environment:
       # Host names the server answers to (blocks DNS-rebinding attacks from other websites).
       # Opening it to your LAN or a domain? Add that address or name, e.g. "localhost,127.0.0.1,::1,192.168.1.20".
