@@ -30,7 +30,7 @@ compose.yaml
 docker compose up -d --build
 ```
 
-Open http://localhost:8080
+Open http://localhost:8080 (or the `PORT` set in `.env`, see "Security defaults").
 
 ## How a day works
 
@@ -103,6 +103,7 @@ On the server, put `compose.yaml` in a folder named `saa-plan` (the folder name 
 ```
 # .env (all optional)
 BIND=127.0.0.1                                  # 0.0.0.0 opens the port to the network
+PORT=8080                                       # port on the host
 ALLOWED_HOSTS=localhost,127.0.0.1,::1           # add the name or IP you open it on
 TAG=latest                                      # or sha-abc1234 to pin / roll back
 ```
@@ -170,7 +171,13 @@ Or use ⚙ Settings → Export / Import (JSON).
 
 - **Network:** the port is bound to `127.0.0.1` only. The server answers only to the host names in `ALLOWED_HOSTS`, which blocks DNS rebinding. It refuses cross-site writes (CSRF) and sends a strict Content-Security-Policy.
 - **Container:** distroless image, non-root user, read-only root filesystem, all capabilities dropped, `no-new-privileges`.
-- **Opening it to your LAN:** set `BIND=0.0.0.0` and add the PC's LAN address to `ALLOWED_HOSTS` in a `.env` next to `compose.yaml`. There is no login, so anyone on that network can then change your progress.
+- **Opening it to your LAN:** in a `.env` next to `compose.yaml`, set `BIND=0.0.0.0` and add the PC's LAN address to `ALLOWED_HOSTS` (and `PORT` for another port than 8080), e.g.:
+  ```
+  BIND=0.0.0.0
+  PORT=8181
+  ALLOWED_HOSTS=localhost,127.0.0.1,::1,192.168.1.20
+  ```
+  There is no login, so anyone on that network can then change your progress.
 
 ## Tests
 
