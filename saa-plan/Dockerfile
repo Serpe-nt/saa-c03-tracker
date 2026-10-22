@@ -1,10 +1,12 @@
 # Build: static Go binary (pure-Go SQLite driver, so no cgo and no libc needed at runtime).
-FROM golang:1.27-alpine AS build
+# Runs on the builder's own platform and cross-compiles, so an arm64 image builds without emulation.
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+ARG TARGETOS TARGETARCH
 WORKDIR /src
 COPY server/go.mod server/go.sum ./
 RUN go mod download
 COPY server/ ./
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/saa-plan . \
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/saa-plan . \
  && mkdir -p /out/data
 
 # Run: distroless (no shell, no package manager), non-root user 65532.

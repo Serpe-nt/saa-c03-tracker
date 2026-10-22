@@ -88,6 +88,56 @@ sudo systemctl enable --now docker
 docker compose up -d --build
 ```
 
+## Run on a server
+
+Every push to `main` that touches `saa-plan/` builds the image and pushes it to GHCR (`.github/workflows/ghcr.yml`): `ghcr.io/serpe-nt/saa-plan:latest` plus a `sha-<commit>` tag, for amd64 and arm64. The server uses the same `compose.yaml`, pulling instead of building.
+
+The package is private at first. Either make it public (GitHub → Packages → saa-plan → Package settings), or log in on the server once with a classic PAT that has only `read:packages`:
+
+```
+docker login ghcr.io -u Serpe-nt
+```
+
+On the server, put `compose.yaml` in a folder named `saa-plan` (the folder name prefixes the volume: `saa-plan_saa-data`), with a `.env` next to it for what differs from the PC:
+
+```
+# .env (all optional)
+BIND=127.0.0.1                                  # 0.0.0.0 opens the port to the network
+ALLOWED_HOSTS=localhost,127.0.0.1,::1           # add the name or IP you open it on
+TAG=latest                                      # or sha-abc1234 to pin / roll back
+```
+
+There is no login: keep `BIND=127.0.0.1` and reach it through `ssh -L 8080:localhost:8080 user@server`, or put a reverse proxy with authentication in front.
+
+### Move your progress from the PC
+
+The database runs in WAL mode, so stop the app before copying: the volume is then one consistent set of files.
+
+On the PC (the image has no shell, so a throwaway Alpine container reads the volume):
+
+```
+docker compose stop
+docker run --rm -v saa-plan_saa-data:/data -v "${PWD}:/backup" alpine tar -czf /backup/saa-data.tgz -C /data .
+scp saa-data.tgz user@server:~/saa-plan/
+```
+
+On the server, in `~/saa-plan`. `create` makes the volume and container without starting the app, so it can't open an empty database first; untarring as root keeps the files owned by the app's user (65532):
+
+```
+docker compose pull
+docker compose create
+docker run --rm -v saa-plan_saa-data:/data -v "$PWD:/backup" alpine sh -c "tar -xzf /backup/saa-data.tgz -C /data --numeric-owner && ls -ln /data"
+docker compose up -d
+```
+
+From then on, use one copy: the PC and the server don't sync with each other. Leave the PC's stopped, or `docker compose down` it.
+
+### Update the server
+
+```
+docker compose pull && docker compose up -d
+```
+
 ## Where progress is stored
 
 - **On the server:** a SQLite file in the `saa-data` Docker volume (`/data/saa.db` in the container). Rebuilding or recreating the container keeps it. Every browser that opens the site gets the same progress. If two browsers edit at once, the newer save wins.
@@ -105,7 +155,7 @@ Or use ⚙ Settings → Export / Import (JSON).
 
 - **Network:** the port is bound to `127.0.0.1` only. The server answers only to the host names in `ALLOWED_HOSTS`, which blocks DNS rebinding. It refuses cross-site writes (CSRF) and sends a strict Content-Security-Policy.
 - **Container:** distroless image, non-root user, read-only root filesystem, all capabilities dropped, `no-new-privileges`.
-- **Opening it to your LAN:** change the port to `"8080:8080"` and add the PC's LAN address to `ALLOWED_HOSTS` in `compose.yaml`. There is no login, so anyone on that network can then change your progress.
+- **Opening it to your LAN:** set `BIND=0.0.0.0` and add the PC's LAN address to `ALLOWED_HOSTS` in a `.env` next to `compose.yaml`. There is no login, so anyone on that network can then change your progress.
 
 ## Tests
 
