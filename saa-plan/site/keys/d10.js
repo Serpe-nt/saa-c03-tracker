@@ -109,7 +109,7 @@ Object.assign(window.KEYS, {
       ["Aurora endpoints route the load", "The cluster endpoint goes to the writer. The reader endpoint balances connections across Aurora Replicas. A custom endpoint targets a chosen subset, such as large replicas kept for reporting."],
       ["Load nobody can predict", "Aurora serverless (the docs' current name for Aurora Serverless v2) scales in steps as small as 0.5 ACU without disruption. DynamoDB on-demand needs no capacity planning and instantly absorbs up to double the previous peak."],
       ["DynamoDB indexes", "A global secondary index has its own partition and sort key and can be added to an existing table. A local secondary index keeps the table's partition key and is created with the table. A Scan reads every item, so query on keys."],
-      ["Which cache engine", "The caching strategies are on Day 10. Valkey and Redis OSS offer sorted sets, replication and automatic failover, and Memcached offers none of them. ElastiCache Serverless when nobody should size cache nodes."],
+      ["Which cache engine", "The caching strategies are on Day 9. Valkey and Redis OSS offer sorted sets, replication and automatic failover, and Memcached offers none of them. ElastiCache Serverless when nobody should size cache nodes."],
       ["Purpose-built databases", "Neptune for multi-hop relationship queries (graph). OpenSearch Service for search over a catalog, fed from DynamoDB by a zero-ETL integration."]
     ],
     trap: "RDS Proxy pools connections. It adds no read capacity and caches nothing. A Multi-AZ standby cannot serve reads. DAX works only in front of DynamoDB. Match the fix to the symptom the stem names.",

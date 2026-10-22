@@ -30,7 +30,7 @@ window.LINKS = {
 
 // The plan follows two Skill Builder learning plans, as listed there on 2026-10-12:
 // "AWS Solutions Architect Learning Plan (Includes Labs)" (Days 2–17: each lecture course, then its labs) and
-// "Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)" (Days 8 and 18–21). Days 1 and 2 open with the free course "AWS Technical Essentials",
+// "Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)" (Days 10 and 18–21). Days 1 and 2 open with the free course "AWS Technical Essentials",
 // which every course of the first plan lists as recommended previous knowledge.
 // Day fields: quiz = "tags" (the topics of the day's steps), "review" (everything taught so far), "dom:1,2" (exam domains),
 // "weak" (your weakest topics), "exam" (weighted like the exam); no quiz field = no quiz that day.
@@ -61,7 +61,7 @@ window.PLAN = [
   ["d8s1","<b>Buy one month</b> of the Individual subscription (top menu → Subscriptions).","It is billed to ③ your AWS account, which must be on the Paid plan. 27 of the 36 trainings in the Solutions Architect plan need it, and so do Domain Practice and the Official Practice Exam. It renews every month until you cancel: Day 21 has the step for that."],
   ["s0b","Enroll in the course <a href=\"https://skillbuilder.aws/learn/K8C2FNZM6X/aws-technical-essentials/N7Q3SXQCDY\" target=\"_blank\" rel=\"noopener\"><b>AWS Technical Essentials</b></a>.","Free, 4 hours, beginner level. Every course of the Solutions Architect plan lists it as recommended previous knowledge, and it needs no AWS experience."],
   ["s0a","Enroll in the learning plan <a href=\"https://skillbuilder.aws/learning-plan/EB6SVX4CTK/aws-solutions-architect-learning-plan-includes-labs/SAJSTUCC44\" target=\"_blank\" rel=\"noopener\"><b>AWS Solutions Architect Learning Plan (Includes Labs)</b></a>.","36 trainings, 66 h 45 min: eight lecture courses, each followed by its labs. This is the backbone of Days 2–17."],
-  ["d1e3","Enroll in the learning plan <a href=\"https://skillbuilder.aws/learning-plan/UYRXS2DF85/exam-prep-plan-aws-certified-solutions-architect--associate-saac03--english/U991QUF9C3\" target=\"_blank\" rel=\"noopener\"><b>Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)</b></a>.","18 trainings. Days 8 and 18–21 use it: overviews, the Official Practice Question Set, a review, practice questions and a lab per exam domain, and the Official Practice Exam."]]},
+  ["d1e3","Enroll in the learning plan <a href=\"https://skillbuilder.aws/learning-plan/UYRXS2DF85/exam-prep-plan-aws-certified-solutions-architect--associate-saac03--english/U991QUF9C3\" target=\"_blank\" rel=\"noopener\"><b>Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)</b></a>.","18 trainings. Days 10 and 18–21 use it: overviews, the Official Practice Question Set, a review, practice questions and a lab per exam domain, and the Official Practice Exam."]]},
  {t:"watch", label:"Lecture: AWS Technical Essentials", where:"① Skill Builder → My training → AWS Technical Essentials", link:"te", min:120, items:[
   ["t1a","<b>AWS Technical Essentials</b> → Part 1, Module 1: Introduction to Amazon Web Services","Lessons: What Is AWS?, AWS Global Infrastructure, Interacting with AWS, Security and the AWS Shared Responsibility Model, Protecting the AWS Root User, AWS Identity and Access Management, and a demonstration of IAM. You did some of this by hand an hour ago. Free; it needs no AWS experience."],
   ["t1b","<b>AWS Technical Essentials</b> → Part 1, Module 2: AWS Compute","Lessons: Compute as a Service, Getting Started with Amazon EC2, Amazon EC2 Instance Lifecycle, Container Services, Introduction to Serverless, Serverless with AWS Fargate, Serverless with AWS Lambda, Choosing the Right Compute Service."],
@@ -174,24 +174,9 @@ window.PLAN = [
   ["d3c1","EBS (gp3/io2/st1/sc1) vs EFS vs FSx vs S3 — when each."]]}
 ]},
 
-{id:"d8", day:8, title:"First exam questions, and catch-up", quiz:"review",
- goal:"First contact with real exam-style questions. A low score is expected and fine. The rest of the day is for anything left open from Days 1–7.",
- notesHint:"Your 3 weakest topics from the question set…",
- groups:[
- {t:"prep", label:"Exam Prep Plan, the free start", where:"① Skill Builder → My training → Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)", link:"epp", min:100, items:[
-  ["d7e1","<b>Exam Prep Plan Overview</b>","15 minutes: the four steps of the plan and how much time to spend on each."],
-  ["d7e2","<b>Exam Prep Overview</b>","20 minutes: the scope of the exam, its audience and its topics."],
-  ["d7e3","Read the <a href=\"https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html\" target=\"_blank\" rel=\"noopener\"><b>SAA-C03 exam guide</b></a> on docs.aws.amazon.com.","Read it fully, including the list of in-scope services. It is a document, not one of the plan's trainings."],
-  ["d7e4","<b>Official Practice Question Set</b>","20 questions, free. Read every explanation, right or wrong. Enter your score below."],
-  ["d7e6","Write down your 3 weakest topics in 📝 Day notes."]]},
- {t:"setup", label:"Housekeeping", min:30, items:[
-  ["d7h2","In ③ your AWS account: <b>Billing and Cost Management</b> → <b>Bills</b> and <b>Credits</b> — confirm nothing unexpected is running.","Also check EC2, VPC (NAT gateways) and RDS in eu-west-1."],
-  ["d7h3","Go to <b>aws.training</b> → <b>Certification</b> → AWS Certification Account → <b>Schedule New Exam</b> → SAA-C03 → <b>Schedule at Pearson VUE</b>. Look at dates around Day 22, then close without paying.","Online from home or at a test centre. Just checking availability today."]]}
-]},
-
 {week: "Week 2 — Containers, security, hybrid and serverless"},
 
-{id:"d9", day:9, title:"Containers and object storage", quiz:"tags",
+{id:"d8", day:8, title:"Containers and object storage", quiz:"tags",
  goal:"First half of the longest course: containers, then S3 access control and data protection.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Designing a Containerized Architecture", link:"c4", min:180, items:[
@@ -206,7 +191,7 @@ window.PLAN = [
   ["d11c1","S3 Intelligent-Tiering; Glacier Instant / Flexible / Deep Archive."]]}
 ]},
 
-{id:"d10", day:10, title:"The edge and multi-Region databases", quiz:"tags",
+{id:"d9", day:9, title:"The edge and multi-Region databases", quiz:"tags",
  goal:"Second half of the course: CloudFront, Route 53, Global Accelerator, then Aurora and ElastiCache.",
  groups:[
  {t:"watch", label:"Lecture", where:"① Skill Builder → My training → AWS Solutions Architect Learning Plan (Includes Labs) → AWS Solutions Architect - Designing a Containerized Architecture", link:"c4", min:210, items:[
@@ -221,6 +206,21 @@ window.PLAN = [
   ["d10c1","CloudFront vs Global Accelerator."],
   ["d9c4","Aurora Global Database, DynamoDB global tables."],
   ["d3c4","DynamoDB + DAX vs RDS + ElastiCache."]]}
+]},
+
+{id:"d10", day:10, title:"First exam questions, and catch-up", quiz:"review",
+ goal:"First contact with real exam-style questions. A low score is expected and fine. The rest of the day is for anything left open from Days 1–9.",
+ notesHint:"Your 3 weakest topics from the question set…",
+ groups:[
+ {t:"prep", label:"Exam Prep Plan, the free start", where:"① Skill Builder → My training → Exam Prep Plan: AWS Certified Solutions Architect - Associate (SAA-C03 - English)", link:"epp", min:100, items:[
+  ["d7e1","<b>Exam Prep Plan Overview</b>","15 minutes: the four steps of the plan and how much time to spend on each."],
+  ["d7e2","<b>Exam Prep Overview</b>","20 minutes: the scope of the exam, its audience and its topics."],
+  ["d7e3","Read the <a href=\"https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html\" target=\"_blank\" rel=\"noopener\"><b>SAA-C03 exam guide</b></a> on docs.aws.amazon.com.","Read it fully, including the list of in-scope services. It is a document, not one of the plan's trainings."],
+  ["d7e4","<b>Official Practice Question Set</b>","20 questions, free. Read every explanation, right or wrong. Enter your score below."],
+  ["d7e6","Write down your 3 weakest topics in 📝 Day notes."]]},
+ {t:"setup", label:"Housekeeping", min:30, items:[
+  ["d7h2","In ③ your AWS account: <b>Billing and Cost Management</b> → <b>Bills</b> and <b>Credits</b> — confirm nothing unexpected is running.","Also check EC2, VPC (NAT gateways) and RDS in eu-west-1."],
+  ["d7h3","Go to <b>aws.training</b> → <b>Certification</b> → AWS Certification Account → <b>Schedule New Exam</b> → SAA-C03 → <b>Schedule at Pearson VUE</b>. Look at dates around Day 22, then close without paying.","Online from home or at a test centre. Just checking availability today."]]}
 ]},
 
 {id:"d11", day:11, title:"Compliant, secure and governed", quiz:"tags",

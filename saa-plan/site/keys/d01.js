@@ -607,7 +607,7 @@ Object.assign(window.KEYS, {
   d1e3: {
     head: "Enroll in the Exam Prep Plan now, for later",
     why: "You can finish every course and still meet the exam cold: you have never seen how its questions are worded, or how long 65 of them take. Exam practice needs a plan of its own, ready for the days you need it.",
-    idea: "AWS's Exam Prep Plan for SAA-C03 is that plan. Enrolling today puts it under My training next to the Solutions Architect plan, so Day 8 starts it with one click.",
+    idea: "AWS's Exam Prep Plan for SAA-C03 is that plan. Enrolling today puts it under My training next to the Solutions Architect plan, so Day 10 starts it with one click.",
     k: [
       ["The exam itself is separate", "The Individual subscription covers self-paced digital training, exam prep included. The certification exam is not part of it: you book and pay for it separately."]
     ],

@@ -145,10 +145,10 @@ Object.assign(window.KEYS, {
       ["Who may use a key, and where", "Cross-account use needs the key policy and the caller's IAM policy. <code>kms:ViaService</code> ties a key to one service. A multi-Region key decrypts in its replica Regions."],
       ["What KMS options do and don't", "KMS encrypts at most 4 KB, so bigger data uses envelope encryption (<code>GenerateDataKey</code>). S3 Bucket Keys only cut KMS request cost. Key rotation re-encrypts nothing. Single-tenant HSMs or the PKCS#11 interface mean CloudHSM."],
       ["Settings cover new data only", "Default bucket encryption and EBS encryption by default (set per Region) leave existing objects and volumes untouched. S3 Batch Operations converts existing objects. SSE-S3 to SSE-KMS now works in place, with no copy."],
-      ["Records nobody may delete", "Object Lock in compliance mode, from Day 9, cannot be bypassed by anyone, root included. Governance mode can, with <code>s3:BypassGovernanceRetention</code>. A legal hold has no end date. AWS Backup Vault Lock offers the same two modes for recovery points."],
+      ["Records nobody may delete", "Object Lock in compliance mode, from Day 8, cannot be bypassed by anyone, root included. Governance mode can, with <code>s3:BypassGovernanceRetention</code>. A legal hold has no end date. AWS Backup Vault Lock offers the same two modes for recovery points."],
       ["TLS on every hop", "An HTTPS listener plus an HTTPS target group. A bucket policy deny when <code>aws:SecureTransport</code> is false. <code>rds.force_ssl</code> on RDS for PostgreSQL (the default from version 15). ACM renews only certificates it issued."]
     ],
-    trap: "Bucket Keys, key rotation and default encryption never fix an access error. And S3 replication, from Day 9, skips SSE-KMS objects until the replication rule opts in to them.",
+    trap: "Bucket Keys, key rotation and default encryption never fix an access error. And S3 replication, from Day 8, skips SSE-KMS objects until the replication rule opts in to them.",
     q: {
       q: "A team turns on default SSE-KMS encryption for a bucket that already holds two million unencrypted objects. A week later an audit still finds most of them unencrypted. Why?",
       o: [
