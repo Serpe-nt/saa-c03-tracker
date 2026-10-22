@@ -6,6 +6,9 @@
 //	PUT  /api/state  ← {"rev": n, "doc": {...}}   200 {"rev": n+1} or 409 with the current state
 //	GET  /healthz    → 200 "ok" when the database answers
 //	GET  /*          → files from SITE_DIR
+//
+// With BASE_PATH=/h1 everything but /healthz moves under /h1/ (for a reverse proxy that passes
+// the full path through); the site only uses relative URLs, so it needs no change.
 package main
 
 import (
@@ -34,6 +37,7 @@ type config struct {
 	addr  string
 	site  string
 	db    string
+	base  string          // URL prefix without trailing slash, "" to serve from the root
 	hosts map[string]bool // host names (no port) the server answers to
 }
 
@@ -42,6 +46,7 @@ func loadConfig() config {
 		addr:  env("ADDR", ":8080"),
 		site:  env("SITE_DIR", "../site"),
 		db:    env("DB_PATH", "data/saa.db"),
+		base:  strings.TrimRight("/"+strings.Trim(env("BASE_PATH", ""), "/"), "/"),
 		hosts: map[string]bool{},
 	}
 	for _, h := range strings.Split(env("ALLOWED_HOSTS", "localhost,127.0.0.1,::1"), ",") {
@@ -67,6 +72,11 @@ func main() {
 
 	if *healthcheck {
 		os.Exit(probe(cfg.addr))
+	}
+
+	if !validBase(cfg.base) {
+		log.Error("BASE_PATH may only hold letters, digits and - . _ ~ / (e.g. /h1)", "got", cfg.base)
+		os.Exit(1)
 	}
 
 	st, err := openStore(cfg.db)
@@ -97,7 +107,7 @@ func main() {
 		srv.Shutdown(shut)
 	}()
 
-	log.Info("listening", "addr", cfg.addr, "site", cfg.site, "db", cfg.db)
+	log.Info("listening", "addr", cfg.addr, "base", cfg.base+"/", "site", cfg.site, "db", cfg.db)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Error("serve", "err", err)
 		os.Exit(1)
@@ -182,7 +192,38 @@ func newHandler(cfg config, st *store, log *slog.Logger) http.Handler {
 	})
 
 	mux.Handle("GET /", static(cfg.site))
-	return guard(cfg, mux)
+	return guard(cfg, under(cfg.base, mux))
+}
+
+// validBase keeps BASE_PATH to plain path segments, so it can't break the mux patterns below
+// (a space would read as "METHOD path", braces as wildcards).
+func validBase(b string) bool {
+	for _, c := range b {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("-._~/", c)) {
+			return false
+		}
+	}
+	return !strings.Contains(b, "//") && !strings.Contains(b, "/./") && !strings.Contains(b, "/../") &&
+		!strings.HasSuffix(b, "/.") && !strings.HasSuffix(b, "/..")
+}
+
+// under mounts h at base+"/"; /healthz stays at the root for the Docker health check.
+// base itself redirects to base+"/" so the site's relative URLs resolve under the prefix.
+func under(base string, h http.Handler) http.Handler {
+	if base == "" {
+		return h
+	}
+	root := http.NewServeMux()
+	root.Handle("/healthz", h)
+	root.Handle(base+"/", http.StripPrefix(base, h))
+	root.HandleFunc(base, func(w http.ResponseWriter, r *http.Request) {
+		u := base + "/"
+		if r.URL.RawQuery != "" {
+			u += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, u, http.StatusMovedPermanently)
+	})
+	return root
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
