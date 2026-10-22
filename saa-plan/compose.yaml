@@ -1,14 +1,19 @@
+# One file for the PC and the server.
+#   PC (builds from this folder):  docker compose up -d --build
+#   Server (pulls from GHCR):      docker compose pull && docker compose up -d
+# Server-only settings go in a .env file next to this one (see README, "Run on a server").
 services:
   saa-plan:
     build: .
-    image: saa-plan:latest
+    image: ghcr.io/serpe-nt/saa-plan:${TAG:-latest}
     container_name: saa-plan
     ports:
-      - "127.0.0.1:8080:8080"   # only reachable from this PC; use "8080:8080" to open it to your LAN
+      # Default: only reachable from this machine. BIND=0.0.0.0 opens it to the network.
+      - "${BIND:-127.0.0.1}:8080:8080"
     environment:
       # Host names the server answers to (blocks DNS-rebinding attacks from other websites).
-      # Opening it to your LAN? Add this PC's LAN IP or hostname, e.g. "localhost,127.0.0.1,::1,192.168.1.20".
-      ALLOWED_HOSTS: "localhost,127.0.0.1,::1"
+      # Opening it to your LAN or a domain? Add that address or name, e.g. "localhost,127.0.0.1,::1,192.168.1.20".
+      ALLOWED_HOSTS: "${ALLOWED_HOSTS:-localhost,127.0.0.1,::1}"
     volumes:
       - saa-data:/data          # SQLite database with your progress; survives rebuilds and reboots
     restart: unless-stopped     # comes back after reboot as long as the Docker service starts at boot
