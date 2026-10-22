@@ -133,6 +133,21 @@ docker compose up -d
 
 From then on, use one copy: the PC and the server don't sync with each other. Leave the PC's stopped, or `docker compose down` it.
 
+### Behind the Gate at /h1/
+
+The Gate (study.built2spark.com) logs you in, then nginx passes `/h1/...` through unchanged to `127.0.0.1:8091`. The site uses only relative URLs, so the server just needs the prefix. `.env` on the server:
+
+```
+BIND=127.0.0.1
+PORT=8091
+BASE_PATH=/h1
+ALLOWED_HOSTS=study.built2spark.com
+```
+
+With `BASE_PATH` set, everything moves under `/h1/` (`/h1` redirects there) and other paths return 404, except `/healthz` for the Docker health check. The Gate's nginx keeps `proxy_pass http://127.0.0.1:8091;` with no trailing slash. Leave `BASE_PATH` empty to serve from `/`, as on the PC.
+
+The helpers share one origin, so the other helpers' pages can read this app's localStorage and call `/h1/api/state`. Only put helpers you trust behind the same Gate.
+
 ### Update the server
 
 ```

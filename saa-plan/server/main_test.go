@@ -193,3 +193,57 @@ func TestProbeFailsWithoutServer(t *testing.T) {
 		t.Fatal("probe should fail when nothing listens")
 	}
 }
+
+func TestBasePath(t *testing.T) {
+	t.Setenv("BASE_PATH", "h1/") // normalised to /h1
+	h, _ := setup(t)
+	if w := do(h, "GET", "/h1/", ""); w.Code != 200 || !strings.Contains(w.Body.String(), "<title>t</title>") {
+		t.Fatalf("index under prefix = %d %q", w.Code, w.Body)
+	}
+	if w := do(h, "GET", "/h1/quiz/d01.js", ""); w.Code != 200 {
+		t.Errorf("file under prefix = %d", w.Code)
+	}
+	w := do(h, "PUT", "/h1/api/state", `{"rev":0,"doc":{"a":1}}`)
+	if w.Code != 200 {
+		t.Fatalf("PUT under prefix = %d %q", w.Code, w.Body)
+	}
+	if s := decode(t, do(h, "GET", "/h1/api/state", "")); s.Rev != 1 {
+		t.Errorf("GET under prefix rev = %d, want 1", s.Rev)
+	}
+	if w := do(h, "GET", "/h1?x=1", ""); w.Code != http.StatusMovedPermanently || w.Header().Get("Location") != "/h1/?x=1" {
+		t.Errorf("bare prefix = %d %q, want 301 /h1/?x=1", w.Code, w.Header().Get("Location"))
+	}
+	for _, p := range []string{"/", "/api/state", "/quiz/d01.js", "/h10/", "/h1x"} {
+		if w := do(h, "GET", p, ""); w.Code != http.StatusNotFound {
+			t.Errorf("GET %s outside prefix = %d, want 404", p, w.Code)
+		}
+	}
+	if w := do(h, "GET", "/healthz", ""); w.Code != 200 {
+		t.Errorf("healthz at root = %d", w.Code)
+	}
+	if w := do(h, "PUT", "/h1/api/state", `{"rev":1,"doc":{}}`, "Origin", "https://evil.example"); w.Code != http.StatusForbidden {
+		t.Errorf("cross-origin PUT under prefix = %d, want 403", w.Code)
+	}
+}
+
+func TestBasePathRoot(t *testing.T) {
+	for _, v := range []string{"", "/", "//"} {
+		t.Setenv("BASE_PATH", v)
+		if b := loadConfig().base; b != "" {
+			t.Errorf("BASE_PATH=%q → %q, want root", v, b)
+		}
+	}
+}
+
+func TestValidBase(t *testing.T) {
+	for _, b := range []string{"", "/h1", "/study/h1", "/a-b_c.d~e"} {
+		if !validBase(b) {
+			t.Errorf("validBase(%q) = false", b)
+		}
+	}
+	for _, b := range []string{"/C:/Program Files/Git/h1", "/h{x}", "/a//b", "/a/../b", "/..", "/h1?x"} {
+		if validBase(b) {
+			t.Errorf("validBase(%q) = true", b)
+		}
+	}
+}
