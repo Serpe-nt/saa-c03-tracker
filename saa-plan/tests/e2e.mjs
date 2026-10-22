@@ -805,7 +805,7 @@ try {
   assert.equal(await page.getAttribute(`[data-day="${QA.id}"]`, "data-quiz"), "1", "its steps are still done, the quiz is open again");
   await page.click("#b-snd");                          // any change saves the migrated copy
   const mig = await state(page);
-  assert.deepEqual([mig.planV, Object.keys(mig.quiz).length, mig.qs["q01-001"].seen, mig.inotes.d1a1, !!mig.ticks[QA.ids[0]]], [3, 0, 2, "kept", true]);
+  assert.deepEqual([mig.planV, Object.keys(mig.quiz).length, mig.qs["q01-001"].seen, mig.inotes.d1a1, !!mig.ticks[QA.ids[0]]], [4, 0, 2, "kept", true]);
 
   log("progress saved under the 21-day plan: a day was put in front, so what was saved for a day moves down with it");
   const wasDay = "d" + (QA.day - 1);                    // where this day sat in the 21-day plan
@@ -822,7 +822,33 @@ try {
   assert.equal(await page.getAttribute(`[data-day="${QA.id}"]`, "data-done"), "1", "the passed quiz went along with its day");
   await page.click("#b-snd");
   const sh = await state(page);
-  assert.deepEqual([sh.planV, sh.quiz[QA.id].best, sh.notes[QA.id], sh.notes.d1, sh.log[QA.id], wasDay in sh.quiz], [3, 29, "a note on the day that moved", "a note on Day 1", 42, false]);
+  assert.deepEqual([sh.planV, sh.quiz[QA.id].best, sh.notes[QA.id], sh.notes.d1, sh.log[QA.id], wasDay in sh.quiz], [4, 29, "a note on the day that moved", "a note on Day 1", 42, false]);
+
+  log("progress saved under plan 3: Days 9 and 10 moved in front of Day 8, and what was saved for each day moved with it");
+  await page.evaluate(k => {
+    const st = JSON.parse(localStorage.getItem(k)), q = n => ({ best: n, passed: "", tries: [{ at: "2026-10-14", score: n, n: 30 }] });
+    st.planV = 3;
+    st.quiz = { d8: q(18), d9: q(19), d10: q(20) };
+    st.notes = { d8: "exam questions", d9: "containers", d10: "the edge", d1: "Day 1" };
+    st.log = { d8: 8, d9: 9, d10: 10 };
+    st.slips = [{ from: 9, n: 1 }, { from: 12, n: 1 }];
+    st.timer = { ...st.timer, day: "d10" };
+    st.cost = { ...st.cost, items: [{ id: "swap-test", k: Object.keys(window.BILLABLE.kinds)[0], label: "", day: "d9", at: Date.now(), gone: 0 }] };
+    localStorage.setItem(k, JSON.stringify(st));
+  }, KEY);
+  await page.reload();
+  await page.click("#b-snd");
+  {
+    const sw = await state(page);
+    assert.deepEqual([sw.planV, sw.quiz.d8.best, sw.quiz.d9.best, sw.quiz.d10.best], [4, 19, 20, 18], "quiz results follow their days");
+    assert.deepEqual([sw.notes.d8, sw.notes.d9, sw.notes.d10, sw.notes.d1], ["containers", "the edge", "exam questions", "Day 1"], "day notes follow their days");
+    assert.deepEqual([sw.log.d8, sw.log.d9, sw.log.d10], [9, 10, 8], "focus time follows its day");
+    assert.deepEqual(sw.slips.map(x => x.from), [8, 12], "a slip from Day 9 now starts at Day 8");
+    assert.equal(sw.timer.day, "d9", "the timer credits the day that moved");
+    assert.equal(sw.cost.items.find(x => x.id === "swap-test").day, "d8", "a cost guard item keeps its day");
+    assert.match(await page.textContent(`[data-day="d8"]`), /Containers/, "Day 8 is the containers day");
+  }
+
 
   log("hostile import is sanitized; invalid import changes nothing");
   await openPanel(page, "practice");

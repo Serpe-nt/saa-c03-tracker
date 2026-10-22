@@ -222,7 +222,7 @@ Object.assign(window.KEYS, {
       ["S3 from on premises", "A partner arriving over Site-to-Site VPN cannot use an S3 gateway endpoint, because endpoint connections cannot be extended out of a VPC. An S3 interface endpoint is reachable from on premises over VPN and Direct Connect."],
       ["Inbound Resolver endpoint", "It allows DNS queries to your VPC from an on-premises network. Names that resolve only inside the VPC can then be resolved from outside AWS."],
       ["Outbound Resolver endpoint", "The opposite direction, used with forwarding rules. There is one rule per domain name. It forwards queries for that domain from the VPC to an on-premises DNS resolver."],
-      ["Private hosted zone from outside", "It answers DNS queries for a domain only within the VPCs you associate with it (Day 10). A client outside those VPCs, such as on premises, gets the answer only through an inbound Resolver endpoint."]
+      ["Private hosted zone from outside", "It answers DNS queries for a domain only within the VPCs you associate with it (Day 9). A client outside those VPCs, such as on premises, gets the answer only through an inbound Resolver endpoint."]
     ],
     trap: "For private access to S3 from outside the VPC, the gateway endpoint is the cheap but wrong answer. It has no additional charge, yet it serves only resources inside the VPC. The interface endpoint is the one with private addresses to connect to.",
     q: {

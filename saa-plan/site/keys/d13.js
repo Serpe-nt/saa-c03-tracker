@@ -33,7 +33,7 @@ Object.assign(window.KEYS, {
 
   d13e2: {
     head: "Retake the Official Practice Question Set",
-    why: "On Day 8 this set showed where you stood before any exam preparation. A retake shows whether those gaps are closed. But the 20 questions are the same, so a better score partly measures memory. What counts is whether you can now explain every option.",
+    why: "On Day 10 this set showed where you stood before any exam preparation. A retake shows whether those gaps are closed. But the 20 questions are the same, so a better score partly measures memory. What counts is whether you can now explain every option.",
     idea: "Retake the 20 questions, aim for 85% or more, and count an answer as known only when you can say why each other option is wrong.",
     do: [
       "Skill Builder → <b>Official Practice Question Set</b> again. The same 20 questions come in a different order.",
@@ -44,7 +44,7 @@ Object.assign(window.KEYS, {
       ["Memory inflates the score", "A higher score on a set you have seen before partly reflects memory of the questions."]
     ],
     q: {
-      q: "On the retake you score 18 of 20, against 11 on Day 8. For 5 of the 18 you remembered the answer but cannot say why the other options are wrong. How many answers count as known?",
+      q: "On the retake you score 18 of 20, against 11 on Day 10. For 5 of the 18 you remembered the answer but cannot say why the other options are wrong. How many answers count as known?",
       o: [
         "13",
         "18",
@@ -56,7 +56,7 @@ Object.assign(window.KEYS, {
         "Right. Only the 13 you can defend count as known. The other 5 show memory of the questions, not of the topic.",
         "18 includes 5 answers you only remembered. A higher score on a set you have seen before partly reflects memory.",
         "Only 18 were right, and 5 of those you cannot explain.",
-        "Day 8's score is the starting point. Today's known answers are the ones you can defend now."
+        "Day 10's score is the starting point. Today's known answers are the ones you can defend now."
       ]
     }
   },
@@ -66,7 +66,7 @@ Object.assign(window.KEYS, {
     why: "By now you have studied what the courses offered, and that is not exactly what the exam guide lists. A topic the courses skipped can still be on the exam. Reading the guide line by line, out loud, is the last check that nothing in scope was missed.",
     idea: "Each task statement lists \"Knowledge of\" and \"Skills in\" items. Tick an item only when you can explain it out loud with one concrete AWS example.",
     do: [
-      "Open the SAA-C03 exam guide from Day 8 and go through each task statement's \"Knowledge of\" and \"Skills in\" items.",
+      "Open the SAA-C03 exam guide from Day 10 and go through each task statement's \"Knowledge of\" and \"Skills in\" items.",
       "Say each item out loud with one concrete AWS example. Tick only the ones you can explain.",
       "Then read the list of in-scope services. For every one you cannot describe in one sentence, look up what it is for and stop there."
     ],

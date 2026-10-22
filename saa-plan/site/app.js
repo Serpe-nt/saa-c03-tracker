@@ -10,7 +10,7 @@ const KEY = "saa-plan-v2";
 // Bumped when the plan's days change meaning: entries keyed by a day (quiz results, completion dates) then start again.
 // 2 = the 21-day plan on the Solutions Architect learning plan.
 // 3 = 22 days: AWS Technical Essentials in front, a new Day 2, every later day one further down.
-const PLAN_V = 3;
+const PLAN_V = 4;
 const DEF = {
   ticks: {}, notes: {}, scores: {}, dayDone: {},
   planV: 0,    // the plan these entries were saved under (see PLAN_V)
@@ -103,18 +103,26 @@ const int0 = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(num0(v))));
 const num0 = (v, d = 0) => (typeof v === "number" && isFinite(v) ? v : d);
 const str0 = v => (typeof v === "string" ? v : "");
 const ints = v => Array.isArray(v) && v.every(Number.isInteger);
-// A day was inserted in front of Day `from`: what was saved for Day n (n ≥ from) belongs to Day n + 1 now.
-function shiftDays(s, from) {
-  const up = k => { const m = /^d(\d+)$/.exec(k); return m && +m[1] >= from ? "d" + (+m[1] + 1) : k; };
+// Days changed places: what was saved for Day n belongs to Day to(n) now. A slip names the first day it
+// pushes back, so it has its own map (slipTo).
+function moveDays(s, to, slipTo = to) {
+  const up = k => { const m = /^d(\d+)$/.exec(k); return m ? "d" + to(+m[1]) : k; };
   for (const f of ["quiz", "dayDone", "notes", "log"]) if (isObj(s[f])) s[f] = Object.fromEntries(Object.entries(s[f]).map(([k, v]) => [up(k), v]));
-  if (Array.isArray(s.slips)) s.slips.forEach(x => { if (isObj(x) && Number.isInteger(x.from) && x.from >= from) x.from++; });
-  if (isObj(s.run) && typeof s.run.day === "string") s.run.day = up(s.run.day);
+  if (Array.isArray(s.slips)) s.slips.forEach(x => { if (isObj(x) && Number.isInteger(x.from)) x.from = slipTo(x.from); });
+  for (const o of [s.run, s.timer]) if (isObj(o) && typeof o.day === "string") o.day = up(o.day);
+  if (isObj(s.cost) && Array.isArray(s.cost.items)) s.cost.items.forEach(x => { if (isObj(x) && typeof x.day === "string") x.day = up(x.day); });
 }
+// A day was inserted in front of Day `from`: Day n (n ≥ from) is Day n + 1 now.
+const shiftDays = (s, from) => moveDays(s, n => (n >= from ? n + 1 : n));
+// Plan 4 put Days 9 and 10 (containers, the edge) in front of Day 8 (first exam questions): 9 → 8, 10 → 9, 8 → 10.
+// A slip from Day 9 or 10 now starts one day earlier; one from Day 8 still pushes all three.
+const swapDays4 = s => moveDays(s, n => ({ 8: 10, 9: 8, 10: 9 })[n] || n, n => (n === 9 || n === 10 ? n - 1 : n));
 function clean(s) {
   const keep = (m, ok) => { for (const k of Object.keys(m)) if (!ok(m[k])) delete m[k]; };
   // Saved under an earlier plan: steps keep their ids, so ticks, step notes and answers carry over,
   // but "Day 5" is now a different day, so its quiz result and completion date do not.
   if (s.planV === 2) { shiftDays(s, 2); s.planV = 3; }   // same days, one place further down: nothing is lost
+  if (s.planV === 3) { swapDays4(s); s.planV = 4; }      // same days in a new order: nothing is lost
   if (s.planV !== PLAN_V) {
     s.quiz = {}; s.dayDone = {};
     if (isObj(s.run) && s.run.kind === "day") s.run = null;
