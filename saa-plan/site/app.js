@@ -20,6 +20,7 @@ const DEF = {
   srs: {},     // question id → { step, due }: missed questions waiting for review
   book: {},    // question id → { at, misses, note, fixed }: wrong-answer notebook
   run: null,   // quiz or mock exam in progress; survives a reload
+  runOff: 0,   // when the last run that was closed or dropped began (its t0): no other device's copy brings it back
   mocks: [],   // finished mock exams
   conf: {},    // self-check id → "ok" | "shaky"
   kconf: {},   // "<step id>:<point index>" → "ok" | "shaky": key points recalled with "Test me"
@@ -41,8 +42,9 @@ const DEF = {
   // Focus (mode "focus") counts down: endAt, left, from. The break (mode "rest") has no set length and counts up:
   // at = when it last started running, up = seconds banked before a pause.
   // ts = when the timer last changed (merges keep the later one), day = the day a focus block credits, ask = the "done" prompt waits.
-  // away = when you left during a running focus block (no input for 5 minutes, the screen locked, or the PC slept); 0 = here.
-  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, at: 0, up: 0, ts: 0, day: "", ask: false, away: 0, min: matchMedia("(max-width:640px)").matches },
+  // away = when you left during a running focus block (no input for 5 minutes, the screen locked, or the device slept); 0 = here.
+  // dev = the device the block runs on (the last one used while it ran): only its idle state and clock can say you left.
+  timer: { mode: "focus", running: false, endAt: 0, left: 50 * 60, from: 0, at: 0, up: 0, ts: 0, day: "", ask: false, away: 0, dev: "", min: matchMedia("(max-width:640px)").matches },
   savedAt: 0
 };
 const FOCUS = 50 * 60;      // a focus block, in seconds
@@ -204,6 +206,7 @@ function clean(s) {
   t.up = Math.min(86400, Math.max(0, num0(t.up)));
   t.ts = num0(t.ts);
   t.away = Math.min(num0(t.away), Date.now());
+  if (!/^[a-z0-9]{1,12}$/.test(t.dev)) t.dev = "";
   if (!PLAN.some(d => d.id === t.day)) t.day = "";
   if (t.ask && (t.mode !== "rest" || t.running)) t.ask = false;   // the prompt only waits on a break not yet started
   if (!(t.mode === "focus" && t.running) || t.away < 0) t.away = 0;
@@ -211,7 +214,9 @@ function clean(s) {
   const now = Date.now();
   if (t.running && !(t.mode === "rest" ? t.at > now - 864e5 && t.at < now + 6e4 : t.endAt > 0 && t.endAt < now + FOCUS * 1000 + 6e4)) t.running = false;
   s.savedAt = num0(s.savedAt);
+  s.runOff = Math.min(num0(s.runOff), Date.now() + 864e5);
   s.run = cleanRun(s.run);
+  if (s.run && s.runOff && s.run.t0 <= s.runOff) s.run = null;   // closed or dropped on some device already
   return s;
 }
 function cleanRun(r) {
@@ -252,10 +257,12 @@ try { Object.assign(sync, JSON.parse(localStorage.getItem(SYNC_KEY)) || {}, { on
 // Progress saved before the server existed must be merged into the server copy, not replaced by it.
 if (firstSync && (Object.keys(S.ticks).length || Object.keys(S.notes).length || Object.keys(S.qs).length)) sync.dirty = true;
 const syncMeta = () => { try { localStorage.setItem(SYNC_KEY, JSON.stringify({ rev: sync.rev, dirty: sync.dirty })); } catch (e) {} };
+let lastSaved = "";   // what this tab last wrote to localStorage (leaving() sends only when nobody wrote since)
+const writeLocal = () => { try { lastSaved = JSON.stringify(S); localStorage.setItem(KEY, lastSaved); } catch (e) {} };
 function save() {
   S.savedAt = Date.now();
   sync.n++;
-  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  writeLocal();
   syncLater();
 }
 
@@ -1478,6 +1485,9 @@ function renderPractice() {
 const qzDlg = document.getElementById("quiz"), qzBody = document.getElementById("qz-body");
 // The card's height lets the study panel beside it line up with its top edge (style.css, .qz-side).
 new ResizeObserver(() => qzDlg.style.setProperty("--qzdh", qzDlg.offsetHeight + "px")).observe(qzDlg);
+// The progress bar sticks under the header, which wraps to more lines on a phone (style.css, .qz-bar).
+const qzHead = qzDlg.querySelector(".qz-h");
+new ResizeObserver(() => qzDlg.style.setProperty("--qzh", qzHead.offsetHeight + "px")).observe(qzHead);
 let picks = {};      // question id → options picked, not yet checked (memory only; kept while you move between questions)
 let fresh = false;   // the answer on screen was checked just now: animate it (going back to it later does not); "xp" when it earned XP
 let comboFx = "";    // the answer just checked, for the combo meter: "up" (right), "broke" (a miss ended a run of 2 or more), "miss"
@@ -1522,12 +1532,15 @@ function renderQuiz() {
   const r = S.run;
   if (!r) { if (qzDlg.open) qzDlg.close(); return; }
   pruneRun(r);
-  if (!r.ids.length) { S.run = null; save(); if (qzDlg.open) qzDlg.close(); return; }
+  if (!r.ids.length) { dropRun(); save(); if (qzDlg.open) qzDlg.close(); return; }
   if (r.i >= r.ids.length) r.i = r.ids.length - 1;
   if (r.done) return r.kind === "mock" ? renderMockResult() : renderResult();
   if (r.kind === "mock") return r.view === "grid" ? renderGrid() : renderMockQ();
   renderQ();
 }
+// The run on screen is over (closed, dropped or replaced): remember when it began, so a copy from another device that
+// still has it doesn't bring it back (runOff, mergeRun).
+function dropRun() { if (S.run) S.runOff = Math.max(S.runOff, S.run.t0); S.run = null; }
 // of = the day id for a day quiz, the step id for step practice
 function startRun(kind, of) {
   intro = null;
@@ -1545,7 +1558,8 @@ function startRun(kind, of) {
   if (!qs.length) { if (qzDlg.open) qzDlg.close(); FX.banner("No questions available yet", "", "info"); return; }
   const ord = {};
   qs.forEach(q => { ord[q.id] = QZ.order(q); });
-  const now = Date.now();
+  dropRun();
+  const now = Math.max(Date.now(), S.runOff + 1);
   S.run = { kind, day: kind === "day" ? of : "", item: kind === "step" ? of : "", ids: qs.map(q => q.id), ord, ans: {}, flag: {}, x: {}, hl: {}, i: 0, t0: now, end: kind === "mock" ? now + QZ.MOCK.minutes * 60000 : 0, done: false, view: "",
     row: 0, rowMax: 0, best0: S.rowBest, xp0: xpTotal(), rec: false };
   picks = {};
@@ -1675,7 +1689,7 @@ function renderQ() {
   if (!ans) {
     const multi = q.a.length > 1;
     qzBody.innerHTML = mapHTML(r) + `<div class="qz-q">${q.q}</div>${optsHTML(q, ord, sel)}` +
-      `<p class="qz-hint muted">${multi ? "Pick two, then check." : "Pick one, then check."} Keys A–${LETTERS[ord.length - 1]} and Enter work too, ← and → move between questions.</p>` +
+      `<p class="qz-hint muted">${multi ? "Pick two, then check." : "Pick one, then check."}<span class="kbd"> Keys A–${LETTERS[ord.length - 1]} and Enter work too, ← and → move between questions.</span></p>` +
       `<div class="qz-a qz-nav">${prev}${skip}<button type="button" class="primary" data-qz="check"${sel.length === q.a.length ? "" : " disabled"}>Check answer</button></div>`;
   } else {
     const ok = QZ.isRight(q, ans), to = nextOpen(r);
@@ -1887,7 +1901,7 @@ function renderResult() {
 function finishResults() {
   const r = S.run;
   if (!r || !r.done) return;
-  S.run = null;
+  dropRun();
   save();
   if (qzDlg.open) qzDlg.close();
   refresh();
@@ -1910,7 +1924,7 @@ function renderMockQ() {
   head("Mock exam", [`Question ${r.i + 1} of ${r.ids.length}`, mkClock(r), `${answered} answered`], answered / r.ids.length * 100);
   const last = r.i + 1 >= r.ids.length, multi = q.a.length > 1;
   qzBody.innerHTML = `<div class="mk-tools"><button type="button" data-qz="flag" class="flagb" aria-pressed="${!!r.flag[id]}">${r.flag[id] ? "⚑ Flagged for review" : "⚐ Flag for review"}</button>` +
-    `<span class="muted mk-hint">🖍 Click or drag over words to highlight them. Shift + 1–${ord.length} or ⊘ strikes an option out.</span></div>` +
+    `<span class="muted mk-hint"><span class="kbd">🖍 Click or drag over words to highlight them. Shift + 1–${ord.length} or ⊘ strikes an option out.</span><span class="touch">🖍 Tap a word to highlight it. ⊘ strikes an option out.</span></span></div>` +
     `<div class="qz-q mk-q">${q.q}</div>` +
     `<div class="qz-opts mk-opts${multi ? " multi" : ""}">${ord.map((oi, k) => `<div class="mk-row${xs.includes(oi) ? " x" : ""}">` +
       `<button type="button" class="qz-o${mine.includes(oi) ? " on" : ""}" data-o="${oi}" aria-pressed="${mine.includes(oi)}"><span class="qz-l">${LETTERS[k]}</span><span class="qz-t">${q.o[oi]}</span></button>` +
@@ -2126,7 +2140,7 @@ function renderDrill() {
     const meta = drill.end ? [`<span id="dr-time">${Math.ceil((drill.end - Date.now()) / 1000)} s</span>`] : drill.mode === "lives" ? [`<span id="dr-lives" class="dr-lives">${livesHTML()}</span>`] : [`${drill.n + 1} of ${drill.items.length}`];
     head(title, [...meta, `<span id="dr-score">Score ${drill.score}</span>`], drill.end ? 100 - (drill.end - Date.now()) / 600 : drill.mode === "day" ? drill.n / drill.items.length * 100 : 0);
     qzBody.innerHTML = `<div class="dr-req${rev ? " dr-svc" : ""}">${rev ? `<span class="muted">What is this one for?</span>` : ""}${esc(rev ? it[1] : it[0])}</div>` +
-      `<div class="qz-opts dr-opts${rev ? " dr-long" : ""}">${drill.opts.map((o, k) => `<button type="button" class="qz-o" data-dr="${k}"><span class="qz-l">${k + 1}</span><span class="qz-t">${esc(o)}</span></button>`).join("")}</div><p class="muted">Keys 1–4 work too.</p>`;
+      `<div class="qz-opts dr-opts${rev ? " dr-long" : ""}">${drill.opts.map((o, k) => `<button type="button" class="qz-o" data-dr="${k}"><span class="qz-l">${k + 1}</span><span class="qz-t">${esc(o)}</span></button>`).join("")}</div><p class="muted kbd">Keys 1–4 work too.</p>`;
     return;
   }
   const best = drill.mode === "day" ? "" : drill.best ? "New personal best. 🎉" : `Your best: ${S.drill[{ go: "best", rev: "rev", lives: "lives" }[drill.mode]]}.`;
@@ -2161,7 +2175,7 @@ qzDlg.addEventListener("click", e => {
   else if (a === "check") check();
   else if (a === "next") nextQ();
   else if (a === "finish") finishResults();
-  else if (a === "retake") { const day = r.day; S.run = null; startRun("day", day); }
+  else if (a === "retake") { const day = r.day; dropRun(); startRun("day", day); }
   else if (a === "prev") { if (r.kind === "mock") { r.i = Math.max(0, r.i - 1); save(); renderMockQ(); mockFocus(a); } else goQ(r.i - 1); }
   else if (a === "skip") goQ(r.i + 1);
   else if (a === "mnext") { r.i = Math.min(r.ids.length - 1, r.i + 1); save(); renderMockQ(); qzDlg.scrollTop = 0; mockFocus(a); }
@@ -2222,8 +2236,8 @@ qzDlg.addEventListener("close", () => {
   runPending();
 });
 let mkWarned = "";
-// mock exam clock: tick the display, submit when time is up (even with the dialog closed)
-setInterval(() => {
+// mock exam clock: tick the display, submit when time is up (even with the dialog closed); called by the timer's ticker
+function mockTick() {
   const r = S.run;
   if (!r || r.kind !== "mock" || r.done) return;
   if (Date.now() >= r.end) return finishMock(true);
@@ -2231,7 +2245,7 @@ setInterval(() => {
   if (el && qzDlg.open) { el.textContent = `⏱ ${clock(left)}`; el.classList.toggle("low", left < 600000); }
   // like the exam, a word when 10 minutes and 1 minute are left (once each, in this tab)
   for (const m of [10, 1]) if (left < m * 60000 && left > m * 60000 - 5000 && mkWarned !== `${r.t0}:${m}`) { mkWarned = `${r.t0}:${m}`; FX.toast(`⏱ <b>${m === 1 ? "1 minute" : "10 minutes"} left</b> in the mock exam`, "warn"); }
-}, 1000);
+}
 
 // ---------- notebook, weak spots, cheat sheet, day notes ----------
 const shDlg = document.getElementById("sheet"), shBody = document.getElementById("sh-body");
@@ -2486,6 +2500,8 @@ function cuesHTML() {
     CUES.map(c => `<tr><td><b>${esc(c[0])}</b></td><td>${esc(c[1])}</td><td class="muted">${esc(c[2])}</td></tr>`).join("") + `</tbody></table>`;
 }
 shDlg.addEventListener("click", e => {
+  const g = e.target.closest(".g");   // a term in the larger diagram: a tap shows its definition
+  if (g) { g.classList.toggle("show"); return; }
   const f = e.target.closest("[data-nb]");
   if (f) { nbFilter = f.dataset.nb; renderSheet(); return; }
   if (e.target.closest("[data-nb-export]")) { exportNotebook(); return; }
@@ -2505,7 +2521,7 @@ document.addEventListener("input", e => {
   if (!id || !S.book[id]) return;
   S.book[id].note = e.target.value.slice(0, 300);
   clearTimeout(noteT);
-  noteT = setTimeout(save, 400);
+  noteT = setTimeout(() => { noteT = 0; save(); }, 400);
 });
 
 // ---------- cost guard: what is still running in your own AWS account ----------
@@ -2616,6 +2632,7 @@ costDlg.addEventListener("close", () => {
   runPending();
 });
 setInterval(() => {
+  if (pulling || Date.now() - lastTick > 3000) return;   // just woke up: the list may have changed on another device
   if (costDlg.open) { if (!costRunning().length && !costDlg.querySelector(".cl-ok")) renderCostNag(); else if (!costDue() && costRunning().length) costDlg.close(); return; }   // answered in another tab
   if (costDue() && !document.querySelector("dialog[open]") && !inTimed()) openCostNag();
 }, 15000);
@@ -2704,6 +2721,7 @@ document.addEventListener("input", e => {
   if (ds.notes) S.notes[id] = e.target.value; else S.inotes[id] = e.target.value.slice(0, NOTE_MAX);
   clearTimeout(noteTimers[id]);
   noteTimers[id] = setTimeout(() => {
+    noteTimers[id] = 0;
     save();
     const s = document.querySelector(`[data-saved="${id}"]`);
     if (s) { s.classList.add("show"); setTimeout(() => s.classList.remove("show"), 1200); }
@@ -2741,6 +2759,7 @@ document.addEventListener("click", e => {
 });
 const trEl = document.getElementById("trends");
 trEl.addEventListener("pointermove", e => { const h = e.target.closest(".hit"); if (h) trendShow(h.closest(".tr-fig"), +h.dataset.i); });
+trEl.addEventListener("click", e => { const h = e.target.closest(".hit"); if (h) trendShow(h.closest(".tr-fig"), +h.dataset.i); });   // a tap on a touch screen
 trEl.addEventListener("pointerout", e => { const f = e.target.closest(".tr-fig"); if (f && !f.contains(e.relatedTarget) && document.activeElement !== f) trendHide(f); });
 trEl.addEventListener("focusin", e => { const f = e.target.closest(".tr-fig"); if (f) trendShow(f, f.dataset.i ? +f.dataset.i : trendCache.length - 1); });
 trEl.addEventListener("focusout", e => { const f = e.target.closest(".tr-fig"); if (f) trendHide(f); });
@@ -2797,9 +2816,9 @@ function renderSettingsInfo() {
   const moved = S.slips.reduce((a, s) => a + s.n, 0);
   sl.hidden = !moved;
   document.getElementById("s-slips-t").textContent = moved ? `The schedule has been moved ${plural(moved, "day")} later in total. Day ${LAST} is ${fmtD(dayDate(LAST))}.` : "";
-  document.getElementById("s-sync").textContent = sync.on
-    ? `Progress is saved on the server (SQLite, revision ${sync.rev}) and cached in this browser.`
-    : "Progress lives in this browser for this address (e.g. localhost:8080). When the site runs from the Docker image it is also saved on the server.";
+  document.getElementById("s-sync").textContent = net && (sync.on || sync.rev > 0) ? NET[net][1]
+    : sync.on ? `Progress is saved on the server (revision ${sync.rev}) and kept in this browser too. Your other devices pick up changes within half a minute, or as soon as you go back to them.`
+    : "Progress lives in this browser only: no server answers at this address. Served by the app's Go server (Docker), it is saved there too and shared by all your devices.";
 }
 document.getElementById("b-set").onclick = () => {
   document.getElementById("s-start").value = S.settings.start;
@@ -2881,6 +2900,8 @@ let overHeld = false;   // a "Break is over" pop-up is waiting for the mock exam
 // Every change to the timer carries its own time, so a merge keeps the timer that changed last (not whichever copy saved last).
 function tmSave() { S.timer.ts = Date.now(); save(); tmRender(); }
 // Credit focused time to the day the block was started on (or, for a block from before that was kept, the day you're on).
+// Every open device may see a block end, and the max-per-day merge counts it once in the log; the per-device counts for the
+// trends add up across devices, so only the device the block runs on adds it there.
 function logFocus() {
   const t = S.timer;
   if (t.mode !== "focus" || !t.running) return;
@@ -2888,9 +2909,12 @@ function logFocus() {
   const d = dayOf(t.day) || workDay();
   if (sec < 30 || !d) return;
   S.log[d.id] = (S.log[d.id] || 0) + sec / 60;
+  if (!holds()) return;
   const dl = dailyNow();
   dl.f = Math.min(24 * 60, dl.f + sec / 60);
 }
+// The device the block runs on: the one that started it or was used last while it ran (a block from before has none).
+const holds = () => !S.timer.dev || S.timer.dev === DEV;
 function tmRender() {
   const t = S.timer, rest = t.mode === "rest", s = rest ? restUp() : tmLeft(), over = rest && t.running && s >= REST_NAG, away = !rest && t.running && t.away > 0;
   tm.classList.toggle("running", t.running);
@@ -2914,8 +2938,8 @@ function tmRender() {
   if (up) up.textContent = mmss(restUp());
 }
 function tmSet(mode) { Object.assign(S.timer, { mode, running: false, left: FOCUS, up: 0, at: 0, ask: false }); tmSave(); }
-const startFocus = () => { logFocus(); Object.assign(S.timer, { mode: "focus", running: true, left: FOCUS, from: FOCUS, endAt: Date.now() + FOCUS * 1000, up: 0, at: 0, ask: false, day: (workDay() || {}).id || "" }); };
-const startRest = () => { logFocus(); Object.assign(S.timer, { mode: "rest", running: true, up: 0, at: Date.now(), ask: false }); };
+const startFocus = () => { logFocus(); Object.assign(S.timer, { mode: "focus", running: true, left: FOCUS, from: FOCUS, endAt: Date.now() + FOCUS * 1000, up: 0, at: 0, ask: false, day: (workDay() || {}).id || "", dev: DEV }); };
+const startRest = () => { logFocus(); Object.assign(S.timer, { mode: "rest", running: true, up: 0, at: Date.now(), ask: false, dev: DEV }); };
 const pauseRest = () => { Object.assign(S.timer, { up: restUp(), running: false }); };
 tm.addEventListener("click", e => {
   const b = e.target.closest("[data-tm]");
@@ -2929,7 +2953,7 @@ tm.addEventListener("click", e => {
       FX.unlock();
       if (rest) { t.at = Date.now(); t.ask = false; }
       else { if (t.left <= 0) t.left = FOCUS; t.from = t.left; t.endAt = Date.now() + t.left * 1000; t.day = (workDay() || {}).id || ""; }   // paused at 00:00: a new block
-      t.running = true;
+      t.running = true; t.dev = DEV;
     }
   } else if (a === "reset" || a === "switch") { logFocus(); tmSet(a === "reset" ? t.mode : rest ? "focus" : "rest"); tmMenu(false); refresh(); showGains(award()); return; }
   tmSave(); refresh(); showGains(award());
@@ -2947,7 +2971,7 @@ function autoFocus() {
   if (t.running || (t.mode === "rest" && (t.up > 0 || t.ask))) return;   // a block runs already, or you are on a break (paused too)
   FX.unlock();
   if (t.mode === "rest" || t.left <= 0 || t.left > FOCUS) t.left = FOCUS;
-  Object.assign(t, { mode: "focus", from: t.left, endAt: Date.now() + t.left * 1000, running: true, day: (workDay() || {}).id || "" });
+  Object.assign(t, { mode: "focus", from: t.left, endAt: Date.now() + t.left * 1000, running: true, day: (workDay() || {}).id || "", dev: DEV });
   tmSave();
   FX.toast(`🎯 <b>Focus on</b>, ${Math.round(t.left / 60)} minutes`);
 }
@@ -2955,15 +2979,28 @@ document.addEventListener("click", e => { if (e.target.closest("[data-start-day]
 
 // Away: two monitors with a full-screen window each keep the page "visible" while you work in the other one, so the
 // page can't tell from that. It uses the PC's own idle state (Edge's idle detection, once you allow it: no mouse or
-// keyboard for 5 minutes, when your screen turns off, or the screen locked) and a jump in its clock (the PC slept).
-// While you're away the block can't end; when you're back, a pop-up asks whether that time counts.
+// keyboard for 5 minutes, when your screen turns off, or the screen locked) and a jump in its clock (the PC slept; on a
+// phone or tablet, the screen was off or the browser in the background). Only the device the block runs on can say so
+// (holds(): the PC's idle state means nothing while you read on the tablet), and the first touch or key on another
+// device takes the block over. While you're away the block can't end; when you're back, a pop-up asks whether that time counts.
 const AWAY = 5 * 60000;
-let idleDet = null, idlePerm = "", lastTick = Date.now();
+let idleDet = null, idlePerm = "", lastTick = Date.now(), lastInput = 0;
 function goneSince(at) {
   const t = S.timer;
-  if (t.mode !== "focus" || !t.running || t.away) return;
+  if (t.mode !== "focus" || !t.running || t.away || !holds()) return;
   t.away = Math.max(at, t.endAt - FOCUS * 1000);
   tmSave();
+}
+for (const ev of ["pointerdown", "keydown", "wheel"]) addEventListener(ev, () => {
+  lastInput = Date.now();
+  const t = S.timer;
+  // not on a copy that may be behind; and not with a newer time stamp, so it never outweighs a change made elsewhere
+  if (t.mode === "focus" && t.running && !t.away && !holds() && !pulling) { t.dev = DEV; save(); }
+}, { capture: true, passive: true });
+// Another device marked you away, but this one was in use since that moment: you never left.
+function stillHere() {
+  const t = S.timer;
+  if (t.away && !holds() && lastInput >= t.away) { t.away = 0; t.dev = DEV; tmSave(); }
 }
 async function startIdle() {
   if (idleDet || !("IdleDetector" in window)) return;
@@ -2977,14 +3014,16 @@ async function startIdle() {
 }
 const here = () => !idleDet || (idleDet.userState === "active" && idleDet.screenState !== "locked");
 if ("IdleDetector" in window && navigator.permissions) navigator.permissions.query({ name: "idle-detection" }).then(p => { idlePerm = p.state; if (p.state === "granted") startIdle(); }).catch(() => {});
-// Windows notifications, so a prompt on one monitor is seen from the other.
+// Desktop notifications, so a prompt on one monitor is seen from the other. A phone or tablet stops the page as soon
+// as it is out of view, so nothing could notify from there: the button isn't offered on touch screens.
 const notifyOK = () => "Notification" in window && Notification.permission === "granted";
 function notify(title, body) {
   if (!notifyOK() || document.hasFocus()) return;
-  try { const n = new Notification(title, { body, tag: "saa-timer", renotify: true }); n.onclick = () => { focus(); n.close(); }; } catch (e) {}
+  try { const n = new Notification(title, { body, tag: "saa-timer", renotify: true }); n.onclick = () => { focus(); n.close(); }; } catch (e) {}   // Android: only through a service worker
 }
-const permAsk = () => ("Notification" in window && Notification.permission === "default") || ("IdleDetector" in window && !idleDet && idlePerm !== "denied");
-const permText = () => { const on = [notifyOK() && "Windows notifications", idleDet && "away detection"].filter(Boolean); return on.length ? `On: ${on.join(" and ")}.` : ""; };
+const touchOnly = matchMedia("(hover: none) and (pointer: coarse)");
+const permAsk = () => !touchOnly.matches && (("Notification" in window && Notification.permission === "default") || ("IdleDetector" in window && !idleDet && idlePerm !== "denied"));
+const permText = () => { const on = [notifyOK() && "notifications", idleDet && "away detection"].filter(Boolean); return on.length ? `On: ${on.join(" and ")}.` : ""; };
 async function askPerms() {
   try { if ("IdleDetector" in window && !idleDet) { idlePerm = await IdleDetector.requestPermission(); if (idlePerm === "granted") await startIdle(); } } catch (e) {}
   try { if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); } catch (e) {}
@@ -2996,7 +3035,7 @@ async function askPerms() {
 function brkOpen(kind) {
   brkDlg.dataset.kind = kind;
   brkBody.innerHTML = kind === "away"
-    ? `<h2 id="brk-t" tabindex="-1">Welcome back 👋</h2><p>You were away for <b>${Math.max(1, Math.round((Date.now() - S.timer.away) / 60000))} minutes</b> during this focus block: no mouse or keyboard${idleDet ? "" : " (or the PC slept)"}. Count that time as focus?</p>` +
+    ? `<h2 id="brk-t" tabindex="-1">Welcome back 👋</h2><p>You were away for <b>${Math.max(1, Math.round((Date.now() - S.timer.away) / 60000))} minutes</b> during this focus block (no input, the screen off or the device asleep). Count that time as focus?</p>` +
       `<p class="muted">Not counting it picks the block up where you left it.</p>` +
       `<div class="row end"><button type="button" data-brk="skip-away">Don't count it</button><button type="button" class="primary" data-brk="keep-away">Count it</button></div>`
     : kind === "done"
@@ -3018,6 +3057,7 @@ brkDlg.addEventListener("click", e => {
   if (a === "later") return;
   FX.unlock();
   const t = S.timer;
+  t.dev = DEV;   // answered here: the block runs on this device now
   if (a === "keep-away") t.away = 0;
   else if (a === "skip-away") { const left = Math.max(0, t.endAt - t.away); Object.assign(t, { endAt: Date.now() + left, away: 0 }); }   // the block resumes where you left it
   else if (a === "rest") startRest(); else if (a === "pause") pauseRest(); else startFocus();
@@ -3032,10 +3072,19 @@ brkDlg.addEventListener("close", () => {
   if (brkGains.length) showGains(brkGains.splice(0), 300);
   runPending();
 });
+// The 1-second ticker of the focus timer and the mock exam's clock. It never acts on a copy that may be behind: not while
+// news from the server is on its way, and after a gap (the device slept, a phone's browser was in the background) it asks
+// for news first, so a phone that wakes up can't end, or mark away, a block that another device already moved on.
 setInterval(() => {
-  const t = S.timer, now = Date.now();
-  if (now - lastTick > AWAY) goneSince(lastTick);   // the clock jumped: the PC slept or hibernated
-  lastTick = now;
+  if (pulling) return;   // lastTick stays: a jump is still seen once the news is in
+  const was = lastTick;
+  lastTick = Date.now();
+  if (lastTick - was > 15000 && sync.on && lastTick - pulledAt > 3000) pull().then(() => { timerTick(was); mockTick(); });
+  else { timerTick(was); mockTick(); }
+}, 1000);
+function timerTick(was) {
+  const t = S.timer;
+  if (Date.now() - was > AWAY) goneSince(was);   // the clock jumped on the device the block runs on: it slept, or its screen was off
   if (t.away && here() && !brkDlg.open && !inTimed()) brkOpen("away");
   if (t.running && t.mode === "focus" && !t.away && tmLeft() <= 0) {
     logFocus();
@@ -3063,9 +3112,10 @@ setInterval(() => {
   const k = brkDlg.dataset.kind;
   if (brkDlg.open && (k === "over" ? !(t.mode === "rest" && t.running && restUp() >= REST_NAG) : k === "away" ? !t.away : !t.ask)) brkDlg.close();
   if (t.running) tmRender();
-}, 1000);
-// Browsers keep sound off after a reload until the first click or key: take the first one anywhere, so reminders can be heard.
-for (const ev of ["pointerdown", "keydown"]) addEventListener(ev, () => FX.unlock(), { capture: true, passive: true });
+}
+// Browsers keep sound off after a reload until the first click, tap or key: take the first one anywhere, so reminders can
+// be heard. A touch only counts once the finger lifts (pointerup), a mouse and a key at once.
+for (const ev of ["pointerdown", "pointerup", "keydown"]) addEventListener(ev, () => FX.unlock(), { capture: true, passive: true });
 
 // ---------- server sync (only when served by the Go backend; otherwise browser-only) ----------
 // localStorage stays the working copy. The server keeps one revisioned document. If this copy is
@@ -3128,17 +3178,36 @@ function mergeDocs(local, remote) {
     for (const dev in older.daily[k]) { const o = older.daily[k][dev]; if (!n[dev] || o.a + o.f > n[dev].a + n[dev].f) n[dev] = o; }
   }
   if (older.timer.ts > newer.timer.ts) m.timer = clone(older.timer);   // the timer that changed last, not the copy that saved last
-  m.run = local.run || remote.run;      // the run on this screen stays
+  m.runOff = Math.max(local.runOff, remote.runOff);
+  m.run = mergeRun(local.run, remote.run, m.runOff);
   m.savedAt = Date.now();
   return m;
+}
+// A quiz in progress on two devices. The same run (same start) keeps every answer either one checked, from the copy that
+// answered more, and this screen's question; a finished copy wins. Of two different runs the later one stands (starting
+// one drops the last), and one closed or dropped anywhere (off) stays gone.
+function mergeRun(mine, theirs, off) {
+  let r = mine || theirs;
+  if (mine && theirs && mine.t0 !== theirs.t0) r = mine.t0 > theirs.t0 ? mine : theirs;
+  else if (mine && theirs && theirs.done && !mine.done) r = clone(theirs);
+  else if (mine && theirs && !mine.done) {
+    const n = x => Object.keys(x.ans).length, [a, b] = n(theirs) > n(mine) ? [theirs, mine] : [mine, theirs];
+    r = clone(a);
+    for (const id in b.ans) if (!r.ans[id]) r.ans[id] = b.ans[id];
+    Object.assign(r, { i: mine.i, view: mine.view, rowMax: Math.max(a.rowMax, b.rowMax), rec: a.rec || b.rec });
+  }
+  return r && !(off && r.t0 <= off) ? r : null;
 }
 // Re-render after the state was replaced from outside (server or another tab).
 function applyState() {
   DAYS.forEach(markDayDone);
   award();
+  stillHere();
   rebuild(); restoreScores(); tmRender();
-  if (qzDlg.open && !drill && !intro && S.run) renderQuiz();
-  if (shDlg.open && shDlg.dataset.kind !== "daynotes") renderSheet();   // never redraw a notes box under the cursor
+  // never redraw a field under the cursor (a notebook note, the note under a missed answer, the day notes)
+  const typing = d => d.contains(document.activeElement) && document.activeElement.matches("input,textarea");
+  if (qzDlg.open && !drill && !intro && !typing(qzDlg)) renderQuiz();   // a run finished or dropped elsewhere closes it
+  if (shDlg.open && shDlg.dataset.kind !== "daynotes" && !typing(shDlg)) renderSheet();
 }
 // The server holds a revision we haven't seen. Returns true when the result still needs pushing.
 function absorb(cur) {
@@ -3147,33 +3216,68 @@ function absorb(cur) {
   S = both ? mergeDocs(S, remote) : remote;
   sync.rev = cur.rev;
   if (!both) sync.dirty = false;
-  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  writeLocal();
   syncMeta();
   applyState();
   return both;
 }
-async function push() {
+// What the last request to the server got: "" an answer, "off" no network, "auth" the sign-in in front of the app answered
+// instead (signed out), "err" no answer or an error. The timer strip says so (#sync-st), so changes that stay on this device
+// are never a surprise. A browser that never reached a server (a static preview) shows nothing.
+let net = "", netN = 0;
+const isJSON = r => (r.headers.get("Content-Type") || "").includes("application/json");
+const netWhy = r => !r ? (navigator.onLine === false ? "off" : "err") : r.type === "opaqueredirect" || r.status === 401 || (r.ok && !isJSON(r)) ? "auth" : "err";
+const NET = {
+  off: ["Offline", "Offline: your changes stay on this device and go to the server when the network is back."],
+  auth: ["Signed out", "Not saved to the server: the sign-in has run out. Tap here to sign in again; nothing on this device is lost."],
+  err: ["Not synced", "The server isn't answering: your changes stay on this device and go to it once it answers. Tap here to try now."]
+};
+function netSaw(kind) {
+  net = kind; netN = kind ? netN + 1 : 0;
+  const el = document.getElementById("sync-st"), show = !!kind && (sync.on || sync.rev > 0) && (kind === "auth" || netN >= 2 || sync.dirty);
+  el.hidden = !show;
+  if (!show) return;
+  el.dataset.k = kind;
+  el.querySelector(".ss-s").textContent = NET[kind][0];
+  el.querySelector(".ss-l").textContent = NET[kind][1];
+  el.title = NET[kind][1];
+}
+document.getElementById("sync-st").onclick = () => { if (net === "auth") location.reload(); else pull(); };
+// keepalive: leaving the page (a phone switching apps), the save may finish after the page is frozen; browsers allow 64 KB that way
+async function push(keepalive = false) {
   if (sync.busy) { sync.again = true; return; }
   sync.busy = true;
   const n = sync.n;   // only call it clean if nothing was saved while the request was in flight
   try {
-    const r = await fetch("api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rev: sync.rev, doc: S }) });
-    if (r.ok) { sync.rev = (await r.json()).rev; if (sync.n === n) sync.dirty = false; syncMeta(); }
-    else if (r.status === 409) { if (absorb(await r.json())) sync.again = true; }
-  } catch (e) { /* offline: stays dirty, retried on the next save or focus */ }
+    const body = JSON.stringify({ rev: sync.rev, doc: S });
+    const r = await fetch("api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body, redirect: "manual", keepalive: keepalive && new Blob([body]).size < 64000 });
+    if (r.ok && isJSON(r)) { sync.rev = (await r.json()).rev; if (sync.n === n) sync.dirty = false; syncMeta(); netSaw(""); }
+    else if (r.status === 409 && isJSON(r)) { netSaw(""); if (absorb(await r.json())) sync.again = true; }
+    else netSaw(netWhy(r));
+  } catch (e) { netSaw(netWhy(null)); }   // stays dirty: tried again on the next save, the next ask for news, or back on the page
   sync.busy = false;
   if (sync.again) { sync.again = false; push(); }
 }
 // The first try (answered or not) makes the day's and the week's starting points safe to stamp.
 function markReady() { if (ready) return; ready = true; if (stamp()) save(); refresh(); showGains([], 600); }
-async function pull() {
-  let cur;
+// Ask the server for news, one ask at a time; the promise settles when it is in (or there is none).
+let pulling = null, pulledAt = 0;
+function pull() {
+  return pulling || (pulling = pullNow().finally(() => { pulling = null; pulledAt = Date.now(); }));
+}
+async function pullNow() {
+  flushEdits();
+  let cur = null;
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 15000);   // a phone on a bad network: don't wait for minutes
   try {
-    const r = await fetch("api/state", { cache: "no-store" });
-    if (!r.ok || !(r.headers.get("Content-Type") || "").includes("application/json")) return markReady();
-    cur = await r.json();
-  } catch (e) { return markReady(); }
-  try { await pullApply(cur); } finally { markReady(); }
+    // With the revision this copy has, the server answers 304 and no document unless another device saved since.
+    const r = await fetch("api/state", { cache: "no-store", headers: { "If-None-Match": `"${sync.rev}"` }, redirect: "manual", signal: ctl.signal });
+    if (r.status === 304) { netSaw(""); sync.on = true; if (sync.dirty) push(); }
+    else if (!r.ok || !isJSON(r)) netSaw(netWhy(r));
+    else { cur = await r.json(); netSaw(""); }
+  } catch (e) { netSaw(netWhy(null)); }
+  clearTimeout(to);
+  try { if (cur) await pullApply(cur); } finally { markReady(); }
 }
 async function pullApply(cur) {
   sync.on = true;
@@ -3181,7 +3285,29 @@ async function pullApply(cur) {
   if (!isObj(cur.doc)) { sync.rev = cur.rev; push(); return; }   // empty server: upload this copy
   if (absorb(cur)) push();
 }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pull(); });
+// Notes save 0.4 s after the last key: what was typed just before news arrives goes into this copy first, so it wins the merge.
+function flushEdits() {
+  let n = 0;
+  for (const id in noteTimers) if (noteTimers[id]) { clearTimeout(noteTimers[id]); noteTimers[id] = 0; n++; }
+  if (noteT) { clearTimeout(noteT); noteT = 0; n++; }
+  if (n) save();
+}
+// News from the other devices: every 30 seconds while this page is in view, and at once when it comes back into view, gets
+// the focus (a click on its monitor) or the network returns. Out of view (another app, the screen off, the tab closed),
+// what is unsaved goes to the server right away: a phone may freeze the page next.
+setInterval(() => { if (document.visibilityState === "visible" && (sync.on || sync.rev > 0) && !sync.busy) pull(); }, 30000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pull(); else leaving(); });
+addEventListener("pagehide", leaving);
+addEventListener("focus", () => { if (sync.on) pull(); });
+addEventListener("online", () => pull());
+function leaving() {
+  flushEdits();
+  if (!sync.dirty || !sync.on) return;
+  // only while localStorage still holds this tab's last save: a copy written behind its back (another tab, by hand) is never replaced from memory
+  let mine = false;
+  try { mine = !!lastSaved && localStorage.getItem(KEY) === lastSaved; } catch (e) {}
+  if (mine) { clearTimeout(pushT); push(true); }
+}
 // Another tab of this site saved: take its copy, so this tab never writes back stale data.
 addEventListener("storage", e => {
   if (e.key === SYNC_KEY && e.newValue) {
@@ -3210,7 +3336,9 @@ restoreScores();
 rebuild();
 route();
 tmRender();
-pull();
-if (S.run && S.run.kind === "mock" && !S.run.done && Date.now() >= S.run.end) finishMock(true);
-else if (S.run && S.run.done) whenFree(openQuiz);   // results left open before a reload
+// The news first: the server may already have this mock submitted or these results closed on another device.
+pull().then(() => {
+  if (S.run && S.run.kind === "mock" && !S.run.done && Date.now() >= S.run.end) finishMock(true);
+  else if (S.run && S.run.done) whenFree(openQuiz);   // results left open before a reload
+});
 })();

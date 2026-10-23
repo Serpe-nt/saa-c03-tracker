@@ -208,7 +208,7 @@ window.FX = (() => {
       out.threshold.value = -8; out.knee.value = 4; out.ratio.value = 12; out.attack.value = 0.003; out.release.value = 0.2;
       out.connect(actx.destination);
     }
-    if (actx.state === "suspended") actx.resume();
+    if (actx.state !== "running") Promise.resolve(actx.resume()).catch(() => {});   // iOS also says "interrupted" after a call or the app in the background
     return actx;
   }
   function tone(f, t, d, { type = "sine", vol = 0.1, to = null } = {}) {

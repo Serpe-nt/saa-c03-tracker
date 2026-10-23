@@ -2,7 +2,7 @@
 //
 // Endpoints:
 //
-//	GET  /api/state  → {"rev": n, "doc": {...} | null, "savedAt": "..."}
+//	GET  /api/state  → {"rev": n, "doc": {...} | null, "savedAt": "..."}, ETag "n"; 304 for If-None-Match: "n"
 //	PUT  /api/state  ← {"rev": n, "doc": {...}}   200 {"rev": n+1} or 409 with the current state
 //	GET  /healthz    → 200 "ok" when the database answers
 //	GET  /*          → files from SITE_DIR
@@ -13,11 +13,13 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"mime"
@@ -26,7 +28,9 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -143,13 +147,30 @@ func newHandler(cfg config, st *store, log *slog.Logger) http.Handler {
 		fmt.Fprintln(w, "ok")
 	})
 
+	// The revision is the ETag: a browser that already has it gets 304 without the document, so every
+	// open device can ask for news every few seconds for a few bytes (If-None-Match: "<rev>").
 	mux.HandleFunc("GET /api/state", func(w http.ResponseWriter, r *http.Request) {
+		if inm := r.Header.Get("If-None-Match"); inm != "" {
+			rev, err := st.rev(r.Context())
+			if err != nil {
+				log.Error("get rev", "err", err)
+				http.Error(w, "storage error", http.StatusInternalServerError)
+				return
+			}
+			if etagMatch(inm, revTag(rev)) {
+				w.Header().Set("ETag", revTag(rev))
+				w.Header().Set("Cache-Control", "no-store")
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
 		s, err := st.get(r.Context())
 		if err != nil {
 			log.Error("get state", "err", err)
 			http.Error(w, "storage error", http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("ETag", revTag(s.Rev))
 		writeJSON(w, http.StatusOK, s)
 	})
 
@@ -192,7 +213,21 @@ func newHandler(cfg config, st *store, log *slog.Logger) http.Handler {
 	})
 
 	mux.Handle("GET /", static(cfg.site))
-	return guard(cfg, under(cfg.base, mux))
+	return guard(cfg, under(cfg.base, gzipped(mux)))
+}
+
+func revTag(rev int64) string { return `"` + strconv.FormatInt(rev, 10) + `"` }
+
+// etagMatch reports whether an If-None-Match header names tag. A proxy that compresses the answer
+// may have turned the tag weak (W/"5"); for this check that is the same revision.
+func etagMatch(header, tag string) bool {
+	for _, t := range strings.Split(header, ",") {
+		t = strings.TrimPrefix(strings.TrimSpace(t), "W/")
+		if t == "*" || t == tag {
+			return true
+		}
+	}
+	return false
 }
 
 // validBase keeps BASE_PATH to plain path segments, so it can't break the mux patterns below
@@ -283,6 +318,83 @@ func static(dir string) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		files.ServeHTTP(w, r)
 	})
+}
+
+// gzipped compresses text answers for browsers that accept it: the site is about 2.6 MB of scripts and
+// styles and a quarter of that compressed, which a phone on mobile data notices. Range requests and
+// answers without a body (304, 204) pass through untouched.
+func gzipped(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet || r.Header.Get("Range") != "" || !acceptsGzip(r.Header.Get("Accept-Encoding")) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		gw := &gzipWriter{ResponseWriter: w}
+		defer gw.close()
+		next.ServeHTTP(gw, r)
+	})
+}
+
+func acceptsGzip(ae string) bool {
+	for _, p := range strings.Split(ae, ",") {
+		name, q, _ := strings.Cut(strings.TrimSpace(p), ";")
+		if strings.EqualFold(strings.TrimSpace(name), "gzip") {
+			return strings.ReplaceAll(strings.TrimSpace(q), " ", "") != "q=0"
+		}
+	}
+	return false
+}
+
+func compressible(ct string) bool {
+	mt, _, _ := mime.ParseMediaType(ct)
+	return strings.HasPrefix(mt, "text/") || mt == "application/json" || mt == "application/javascript" || mt == "image/svg+xml"
+}
+
+var gzPool = sync.Pool{New: func() any { return gzip.NewWriter(io.Discard) }}
+
+type gzipWriter struct {
+	http.ResponseWriter
+	zw      *gzip.Writer
+	decided bool
+}
+
+func (g *gzipWriter) WriteHeader(code int) {
+	if !g.decided {
+		g.decided = true
+		h := g.Header()
+		if code >= 200 && code != http.StatusNoContent && code != http.StatusNotModified && code != http.StatusPartialContent &&
+			h.Get("Content-Encoding") == "" && compressible(h.Get("Content-Type")) {
+			h.Del("Content-Length")
+			h.Del("Accept-Ranges")
+			h.Set("Content-Encoding", "gzip")
+			g.zw = gzPool.Get().(*gzip.Writer)
+			g.zw.Reset(g.ResponseWriter)
+		}
+	}
+	g.ResponseWriter.WriteHeader(code)
+}
+
+func (g *gzipWriter) Write(b []byte) (int, error) {
+	if !g.decided {
+		if g.Header().Get("Content-Type") == "" {
+			g.Header().Set("Content-Type", http.DetectContentType(b))
+		}
+		g.WriteHeader(http.StatusOK)
+	}
+	if g.zw != nil {
+		return g.zw.Write(b)
+	}
+	return g.ResponseWriter.Write(b)
+}
+
+func (g *gzipWriter) Unwrap() http.ResponseWriter { return g.ResponseWriter }
+
+func (g *gzipWriter) close() {
+	if g.zw != nil {
+		g.zw.Close()
+		gzPool.Put(g.zw)
+	}
 }
 
 type noListing struct{ fs.FS }
