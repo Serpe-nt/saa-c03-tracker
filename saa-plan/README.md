@@ -64,13 +64,19 @@ Open http://localhost:8080 (or the `PORT` set in `.env`, see "Security defaults"
 
 The questions are original practice questions in the exam's style, not official AWS questions.
 
+## On a phone or tablet
+
+Everything works by touch. Tap a dotted term for its definition, a day on a chart for its values, a word of a mock exam question to highlight it (dragging scrolls); Back, Mark complete and Next replace the arrow keys and Enter. Theme and text size are per device (⚙ Settings). Notifications and away detection are for the PC; the focus timer still runs and syncs, and the block moves to whichever device you touch (see "Focus timer").
+
 ## Focus timer
 
 50 minutes of focus count down and are logged to the day you started them on. When they end, a pop-up offers a break (in every open tab, and again after a reload until you answer). The break has no set length: the clock counts up, and after 10 minutes it reminds you every minute to start the next block (a sound each minute; the pop-up only if it isn't already open). "Pause the break" in the pop-up, or Pause on the timer, stops the reminders. During the mock exam and the drill the pop-ups wait until you close them; the sound still reminds you.
 
 The timer is the strip along the top: the bar fills as the block runs; click the time for Reset, Break now/Focus now and the minutes logged today. A block starts by itself when you start a day or mark a step complete, unless one is already running or you're on a break.
 
-Away: in the timer's menu, "Turn on Windows notifications and away detection" lets Edge tell the page when the PC has had no mouse or keyboard for 5 minutes (when your screen goes off). The block then waits, and when you're back a pop-up asks whether that time counts. A PC that sleeps counts as away too. Notifications show the block's end and the break reminders on the other monitor, only when this window isn't the one you're using.
+Away: in the timer's menu, "Turn on notifications and away detection" lets Edge tell the page when the PC has had no mouse or keyboard for 5 minutes (when your screen goes off). The block then waits, and when you're back a pop-up asks whether that time counts. A PC that sleeps counts as away too, and so does a phone or tablet whose screen was off (or whose browser was in the background) for 5 minutes while the block ran on it. Notifications show the block's end and the break reminders on the other monitor, only when this window isn't the one you're using; phones and tablets aren't offered them, because they stop the page as soon as it is out of view.
+
+Several devices: the block runs on the device you use. It starts there, and the first tap, click or key on another device moves it over, so only that device's idle state and sleep count: a phone waking up in your pocket doesn't stop the block on the PC, and the PC's idle detection doesn't while you read on the tablet. A device that was asleep asks the server for news before it ends a block, marks you away or submits a mock exam, so it never acts on what it knew an hour ago.
 
 After updating the site (`docker compose up -d --build`), reload every open tab and device: a tab still running the old page doesn't know the open-ended break and can reset it.
 
@@ -146,6 +152,8 @@ ALLOWED_HOSTS=study.built2spark.com
 
 With `BASE_PATH` set, everything moves under `/h1/` (`/h1` redirects there) and other paths return 404, except `/healthz` for the Docker health check. The Gate's nginx keeps `proxy_pass http://127.0.0.1:8091;` with no trailing slash. Leave `BASE_PATH` empty to serve from `/`, as on the PC.
 
+The app compresses its own answers (gzip), so the proxy needs no `gzip` settings for it. When the Gate's sign-in runs out, the app's requests get the sign-in instead of an answer: the page says "Signed out" on the timer strip, keeps every change on the device, and a tap on the notice reloads through the sign-in.
+
 The helpers share one origin, so the other helpers' pages can read this app's localStorage and call `/h1/api/state`. Only put helpers you trust behind the same Gate.
 
 ### Update the server
@@ -156,8 +164,8 @@ docker compose pull && docker compose up -d
 
 ## Where progress is stored
 
-- **On the server:** a SQLite file in the `saa-data` Docker volume (`/data/saa.db` in the container). Rebuilding or recreating the container keeps it. Every browser that opens the site gets the same progress. If two browsers edit at once, the newer save wins.
-- **In the browser:** localStorage keeps a working copy, so the page also works without the server. For example, you can run `python3 -m http.server -d site` for a quick preview; that mode saves to the browser only.
+- **On the server:** a SQLite file in the `saa-data` Docker volume (`/data/saa.db` in the container). Rebuilding or recreating the container keeps it. Every browser that opens the site gets the same progress: an open page asks for news every 30 seconds and at once when you switch to it (a 304 of a few bytes when nothing changed), and sends its own changes within a second, or right away when you leave it. Edits made on two devices at once are merged: every tick and answer stays, and a quiz half done on the PC can be finished on the phone (see "Sync protocol" in `docs/architecture.md`).
+- **In the browser:** localStorage keeps a working copy, so the page also works without the server. When the server can't be reached, a notice on the timer strip says so (Offline, Signed out, Not synced; a tap tries again or signs in) and changes wait on the device until it answers. You can also run `python3 -m http.server -d site` for a quick preview; that mode saves to the browser only.
 
 Back up the database file:
 

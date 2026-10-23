@@ -67,6 +67,17 @@ func (s *store) get(ctx context.Context) (state, error) {
 	return st, nil
 }
 
+// rev returns the current revision without reading the document (0 when nothing is saved yet),
+// so a browser asking "anything new?" every few seconds costs one tiny query.
+func (s *store) rev(ctx context.Context) (int64, error) {
+	var rev int64
+	err := s.db.QueryRowContext(ctx, `SELECT rev FROM state WHERE id = 1`).Scan(&rev)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return rev, err
+}
+
 // put stores doc if rev matches the current revision. On a mismatch it returns the current
 // state and ok=false, so the caller can answer 409 with what the other browser saved.
 func (s *store) put(ctx context.Context, rev int64, doc []byte) (st state, ok bool, err error) {

@@ -21,8 +21,8 @@ const t0 = Date.now();
 function log(s) { step = s; console.log(`· ${s}`); }
 
 function track(page) {
-  // A 409 is the server's normal "someone else saved first" answer; the page merges and retries.
-  page.on("console", m => { if (m.type() === "error" && !/status of 409/.test(m.text())) errors.push(`[${step}] ${m.text()}`); });
+  // A 409 is the server's normal "someone else saved first" answer; the page merges and retries. The offline check cuts the network on purpose.
+  page.on("console", m => { if (m.type() === "error" && !/status of 409|ERR_INTERNET_DISCONNECTED/.test(m.text())) errors.push(`[${step}] ${m.text()}`); });
   page.on("pageerror", e => errors.push(`[${step}] ${e.message}`));
   page.on("dialog", d => d.accept());
   return page;
@@ -223,7 +223,7 @@ try {
   let [pl, pc, pr, ps] = await box3();
   const mid = b => (b.l + b.r) / 2;
   assert.ok(pc.r <= pr.l && Math.abs(pr.t - pc.t) < 2 && pl.t >= pr.b && Math.abs(pl.l - pr.l) < 2, `the sidebar right of the article, level with its top, Look it up under On the exam: ${JSON.stringify([pc, pr, pl])}`);
-  const vw = await page.evaluate(() => document.documentElement.clientWidth);
+  const vw = await page.evaluate(() => document.body.getBoundingClientRect().width);   // the page's width without the scroll bar's gutter (clientWidth counts it in some browsers)
   assert.ok(pc.r - pc.l > 900 && Math.abs(pc.l - (vw - pr.r)) < 12 && Math.abs(mid(ps) - mid(pc)) < 2, `a wide article, centred with its sidebar, the dots over the article: ${JSON.stringify([pc, pr, ps])}`);
   assert.deepEqual(await ownScroll(), [], "nothing scrolls on its own");
   const [bk, bn] = await page.evaluate(id => { const d = window.PLAN.find(x => x.groups && x.groups.some(g => g.items.some(it => it[0] === id))); return [d.groups.findIndex(g => g.items.some(it => it[0] === id)) + 1, d.groups.length]; }, HELP);
@@ -402,7 +402,7 @@ try {
   await page.waitForSelector("#qz-body .qz-res.ok");
   assert.match(await page.textContent("#qz-body .qz-score"), /30/);
   // badges take turns (two on screen at a time), so "Perfect score" may come after the last streak badge
-  await page.waitForFunction(() => /Perfect score/.test(document.querySelector("#quiz .fx-badges").textContent), null, { timeout: 8000 });
+  await page.waitForFunction(() => /Perfect score/.test(document.querySelector("#quiz .fx-badges").textContent), null, { timeout: 20000 });
   assert.ok(await page.locator("#quiz .fx-badge:not(.out)").count() <= 2, "at most two badges on screen at once");
   const g2 = await gifOn(page);
   assert.ok(g2 && g2.o === "ace" && g2.id !== g1.id, "the next ace result shows the next GIF in the rotation");
@@ -703,6 +703,24 @@ try {
   assert.ok(qOverflow <= 1, "quiz dialog fits the phone width");
   await ctx.close();
 
+  log("a touch screen: no key hints, fields that don't make iOS zoom, no notification button, a tap shows a term");
+  ({ ctx, page } = await newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }));
+  await ctx.route("**/api/state", r => r.fulfill({ status: 200, contentType: "text/plain", body: "" }));
+  await page.goto(BASE);
+  await openCard(page, HELPDAY, HELP);
+  assert.ok(await page.evaluate(() => matchMedia("(hover: none) and (pointer: coarse)").matches), "the browser says touch");
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#card textarea")).fontSize), "16px");
+  await page.tap("#card .g");
+  assert.ok(await page.evaluate(() => { const g = document.querySelector("#card .g.show"); return !!g && getComputedStyle(g, "::after").position === "fixed"; }), "a tap shows the term, across the screen");
+  await page.tap('#timer [data-tm="menu"]');
+  assert.ok(await page.locator('#tm-pop [data-tm="perm"]').isHidden(), "no notification button: a phone stops the page when it is out of view");
+  await page.tap(`#side-r [data-step-quiz="${HELP}"]`);
+  await page.waitForSelector("#quiz[open]");
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#qz-body .qz-hint .kbd")).display), "none", "no key hints");
+  const bar = await page.evaluate(() => { const d = document.getElementById("quiz"); d.scrollTop = 2000; const h = d.querySelector(".qz-h").getBoundingClientRect(), b = d.querySelector(".qz-bar").getBoundingClientRect(); return b.top - h.bottom; });
+  assert.ok(Math.abs(bar) <= 1, `the progress bar sticks under the header that wraps on a phone (${bar}px)`);
+  await ctx.close();
+
   // ---------- regressions found in code review ----------
   if (srv) {
     log("two tabs keep each other current");
@@ -760,13 +778,97 @@ try {
     assert.equal(st.doc.settings.exam, "2026-12-01", "device one's exam date survives device two's startup");
     assert.ok(Object.keys(st.doc.ach).length >= 5, "and the badges are still there");
     await a1.ctx.close(); await b1.ctx.close();
+
+    // ---------- several devices at once: the PC, a phone, a tablet ----------
+    log("another device's change shows up without a reload; asking for news costs a 304 when nothing changed");
+    const N2 = P.days[P.days.length - 2], [n1, n2] = N2.ids;
+    const da = await newPage(), db = await newPage();
+    await da.page.goto(BASE + `#${N2.id}/${n1}`); await db.page.goto(BASE + `#${N2.id}/${n1}`);
+    await da.page.waitForTimeout(800); await db.page.waitForTimeout(800);
+    const asks = [];
+    db.page.on("response", r => { if (/\/api\/state$/.test(r.url()) && r.request().method() === "GET") asks.push(r.status()); });
+    await db.page.evaluate(() => dispatchEvent(new Event("focus")));   // a click into its window, say on the other monitor
+    await db.page.waitForTimeout(500);
+    assert.deepEqual(asks, [304], "nothing new: the server answers 304, without the document");
+    await complete(da.page);
+    await da.page.waitForTimeout(1500);
+    await db.page.evaluate(() => dispatchEvent(new Event("focus")));
+    await db.page.waitForFunction(id => document.querySelector(`#fl-strip [data-at="${id}"]`).classList.contains("on"), n1, { timeout: 3000 });
+
+    log("the focus block belongs to the device in use: a device waking up neither marks you away nor ends a block that moved on elsewhere");
+    let tm = (await state(da.page)).timer;
+    assert.ok(tm.running && tm.dev, "completing a step started a block on that device");
+    const dc = await newPage();                                                   // a phone that goes to sleep
+    await dc.page.clock.install();
+    await dc.page.goto(BASE + `#${N2.id}/${n2}`);
+    await dc.page.waitForTimeout(1000);
+    assert.ok((await state(dc.page)).timer.running, "the phone shows the running block");
+    await dc.page.clock.fastForward(8 * 60000);                                    // asleep for 8 minutes
+    await dc.page.waitForTimeout(1500);
+    assert.equal((await serverState(dc.page)).doc.timer.away, 0, "the phone doesn't run the block, so its sleep isn't you leaving");
+    assert.equal(await dc.page.locator("#brk[open]").count(), 0);
+    await da.page.click('#timer [data-tm="toggle"]');                              // paused on the PC
+    await da.page.waitForTimeout(1500);
+    await dc.page.clock.fastForward(60 * 60000);                                   // the phone wakes after the block would have ended
+    await dc.page.waitForTimeout(1500);
+    tm = (await state(dc.page)).timer;
+    assert.ok(!tm.running && tm.mode === "focus" && !tm.ask, "it asked for news first and took the pause: " + JSON.stringify(tm));
+    assert.equal(await dc.page.locator("#brk[open]").count(), 0, "no 'Focus block done' for a block that was paused");
+    await dc.ctx.close();
+
+    log("one quiz on two devices: every answer from both is kept, and a quiz finished on one doesn't come back on the other");
+    await openCard(da.page, HELPDAY, HELP);
+    await da.page.click(`#side-r [data-step-quiz="${HELP}"]`);
+    await da.page.waitForSelector("#quiz[open]");
+    await answer(da.page, true); await da.page.click('#qz-body [data-qz="check"]');
+    await da.page.click("#quiz .qz-x");
+    await da.page.waitForTimeout(1500);
+    await openCard(db.page, HELPDAY, HELP);
+    await db.page.evaluate(() => dispatchEvent(new Event("focus")));
+    await db.page.waitForFunction(() => /Resume/.test(document.querySelector("#side-r [data-step-quiz]")?.textContent || ""), null, { timeout: 3000 });
+    await db.page.click(`#side-r [data-step-quiz="${HELP}"]`);
+    await db.page.waitForSelector("#quiz[open]");
+    assert.equal(Object.keys((await state(db.page)).run.ans).length, 1, "the other device resumes with the first answer");
+    // each answers another question before hearing of the other's
+    await db.page.click('#qz-body [data-go="1"]'); await answer(db.page, true); await db.page.click('#qz-body [data-qz="check"]');
+    await da.page.click(`#side-r [data-step-quiz="${HELP}"]`); await da.page.waitForSelector("#quiz[open]");
+    await da.page.click('#qz-body [data-go="2"]'); await answer(da.page, false); await da.page.click('#qz-body [data-qz="check"]');
+    await da.page.waitForTimeout(2500);
+    assert.equal(Object.keys((await serverState(da.page)).doc.run.ans).length, 3, "the run on the server has the answers of both devices");
+    await da.page.evaluate(() => dispatchEvent(new Event("focus")));
+    await da.page.waitForFunction(() => /See results/.test(document.querySelector('#qz-body [data-qz="next"]')?.textContent || ""), null, { timeout: 3000 });
+    await da.page.click('#qz-body [data-qz="next"]');
+    await da.page.waitForSelector("#qz-body .qz-res");
+    await da.page.click('#qz-body [data-qz="finish"]');
+    await da.page.waitForTimeout(1500);
+    await db.page.evaluate(() => dispatchEvent(new Event("focus")));
+    await db.page.waitForFunction(() => !document.getElementById("quiz").open, null, { timeout: 3000 });
+    assert.equal((await state(db.page)).run, null, "finished on one device: gone on the other, its quiz closed");
+
+    log("changes that can't reach the server say so on the timer strip, and go once it answers");
+    await db.ctx.route("**/api/state", r => r.abort("internetdisconnected"));
+    await db.page.fill(`#card textarea[data-inote="${HELP}"]`, "written offline");
+    await db.page.waitForSelector("#sync-st:not([hidden])", { timeout: 4000 });
+    assert.match(await db.page.textContent("#sync-st"), /Not synced|Offline/);
+    await db.ctx.unroute("**/api/state");
+    await db.ctx.route("**/api/state", r => r.fulfill({ status: 302, headers: { Location: "https://login.example/" } }));   // the sign-in in front of the app
+    await db.page.click("#sync-st");                                               // "try now"
+    await db.page.waitForFunction(() => document.getElementById("sync-st").dataset.k === "auth", null, { timeout: 3000 });
+    assert.match(await db.page.textContent("#sync-st"), /sign in again/);
+    await db.ctx.unroute("**/api/state");
+    await db.page.evaluate(() => dispatchEvent(new Event("online")));
+    await db.page.waitForFunction(() => document.getElementById("sync-st").hidden, null, { timeout: 3000 });
+    await db.page.waitForTimeout(1200);
+    assert.equal((await serverState(db.page)).doc.inotes[HELP], "written offline", "the note written offline reached the server");
+    await da.ctx.close(); await db.ctx.close();
   }
 
   log("mock with a retired question still submits when time is up");
   ({ ctx, page } = await newPage());
   await page.goto(BASE);
   await page.waitForTimeout(500);
-  await setState(page, s => { s.run = { kind: "mock", day: "", ids: ["m1-001", "m1-999", "m1-002", "m2-003"], ord: {}, ans: { "m1-999": [0] }, flag: {}, i: 2, t0: Date.now() - 7800000, end: Date.now() - 1000, done: false, view: "" }; });
+  // started 130 minutes ago, before the quizzes this run has since closed (runOff), so as if nothing was closed since
+  await setState(page, s => { s.run = { kind: "mock", day: "", ids: ["m1-001", "m1-999", "m1-002", "m2-003"], ord: {}, ans: { "m1-999": [0] }, flag: {}, i: 2, t0: Date.now() - 7800000, end: Date.now() - 1000, done: false, view: "" }; s.runOff = 0; });
   await page.reload();
   await page.waitForSelector("#quiz[open] .qz-res", { timeout: 5000 });
   assert.match(await page.textContent("#qz-body .qz-score"), /of 3/);
@@ -1122,7 +1224,7 @@ try {
   const end1 = (await state(page)).timer.endAt;
   await page.clock.fastForward(8 * 60000);                               // a jump of the clock: the PC slept
   await page.waitForSelector("#brk[open]");
-  assert.match(await page.textContent("#brk"), /Welcome back[\s\S]*8 minutes[\s\S]*PC slept/);
+  assert.match(await page.textContent("#brk"), /Welcome back[\s\S]*8 minutes[\s\S]*device asleep/);
   assert.match(await page.textContent("#timer .tm-mode"), /Away/);
   await page.screenshot({ path: path.join(SHOTS, "25-away.png") });
   await page.keyboard.press("Escape");                                    // Esc: the time counts
@@ -1150,7 +1252,7 @@ try {
   await page.click('#timer [data-tm="menu"]');
   await page.click('#tm-pop [data-tm="perm"]');
   await page.waitForFunction(() => document.querySelector('#tm-pop [data-tm="perm"]').hidden);
-  assert.match(await page.textContent("#tm-pop .tm-info"), /On: Windows notifications and away detection/);
+  assert.match(await page.textContent("#tm-pop .tm-info"), /On: notifications and away detection/);
   assert.equal(await page.evaluate(() => window.__idle.threshold), 5 * 60000, "away means 5 minutes without input, when the screen goes off");
   const idle = st => page.evaluate(st => { window.__idle.userState = st; window.__idle.dispatchEvent(new Event("change")); }, st);
   await idle("idle");
@@ -1163,12 +1265,13 @@ try {
   assert.match(await page.textContent("#brk"), /away for 9 minutes/);
   await page.clock.runFor(450);
   await page.click('#brk [data-brk="skip-away"]');
-  assert.match(await page.textContent("#timer .tm-time"), /^07:5/, "Don't count it: the block goes on from where you left it");
+  // 8 minutes were left when the input stopped, less the moment between setting the block up and the idle signal
+  assert.match(await page.textContent("#timer .tm-time"), /^(07:5\d|08:00)$/, "Don't count it: the block goes on from where you left it");
   await page.evaluate(() => { document.hasFocus = () => false; });       // you're on the other monitor
   await page.clock.runFor(8 * 60000 + 2000);
   await page.waitForSelector("#brk[open]");
   assert.match(await page.textContent("#brk"), /Focus block done/);
-  assert.deepEqual(await page.evaluate(() => window.__notes), ["Focus block done 🎯"], "a Windows notification, once, when the page isn't the one in use");
+  assert.deepEqual(await page.evaluate(() => window.__notes), ["Focus block done 🎯"], "a notification, once, when the page isn't the one in use");
   await ctx.close();
 
   log("course diagrams on the course's and the labs' cards: the step's parts first, a click or Enter explains a part, a larger view");

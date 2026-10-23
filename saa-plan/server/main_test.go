@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -94,6 +95,61 @@ func TestStateRoundTripAndConflict(t *testing.T) {
 	w = do(h, "PUT", "/api/state", `{"rev":1,"doc":{"ticks":{}}}`)
 	if w.Code != 200 || decode(t, w).Rev != 2 {
 		t.Fatalf("second PUT = %d %s", w.Code, w.Body)
+	}
+}
+
+// A device that already has the newest revision gets 304 and no document; a newer revision comes in full.
+func TestStateNotModified(t *testing.T) {
+	h, _ := setup(t)
+	if w := do(h, "GET", "/api/state", "", "If-None-Match", `"0"`); w.Code != http.StatusNotModified || w.Body.Len() != 0 {
+		t.Fatalf("empty store, rev 0 known = %d %q", w.Code, w.Body)
+	}
+	do(h, "PUT", "/api/state", `{"rev":0,"doc":{"a":1}}`)
+	w := do(h, "GET", "/api/state", "")
+	if w.Code != 200 || w.Header().Get("ETag") != `"1"` {
+		t.Fatalf("GET = %d, ETag %q", w.Code, w.Header().Get("ETag"))
+	}
+	if w := do(h, "GET", "/api/state", "", "If-None-Match", `"0"`); w.Code != 200 || decode(t, w).Rev != 1 {
+		t.Fatalf("stale rev = %d, want the document", w.Code)
+	}
+	for _, inm := range []string{`"1"`, `W/"1"`, `"7", "1"`} {
+		w := do(h, "GET", "/api/state", "", "If-None-Match", inm)
+		if w.Code != http.StatusNotModified || w.Header().Get("ETag") != `"1"` || w.Header().Get("Cache-Control") != "no-store" {
+			t.Errorf("If-None-Match %s = %d %v", inm, w.Code, w.Header())
+		}
+	}
+}
+
+// Text answers are compressed for a browser that asks; a 304, a Range request and other browsers get them as they are.
+func TestGzip(t *testing.T) {
+	h, _ := setup(t)
+	do(h, "PUT", "/api/state", `{"rev":0,"doc":{"notes":{"d1":"`+strings.Repeat("compress me ", 200)+`"}}}`)
+	for _, p := range []string{"/", "/quiz/d01.js", "/api/state"} {
+		w := do(h, "GET", p, "", "Accept-Encoding", "br, gzip;q=0.8")
+		if w.Code != 200 || w.Header().Get("Content-Encoding") != "gzip" || w.Header().Get("Content-Length") != "" || !strings.Contains(w.Header().Get("Vary"), "Accept-Encoding") {
+			t.Fatalf("GET %s = %d %v", p, w.Code, w.Header())
+		}
+		zr, err := gzip.NewReader(w.Body)
+		if err != nil {
+			t.Fatalf("GET %s: %v", p, err)
+		}
+		b, _ := io.ReadAll(zr)
+		if p == "/" && !strings.Contains(string(b), "<title>t</title>") || p == "/api/state" && !strings.Contains(string(b), "compress me") {
+			t.Errorf("GET %s decompressed to %q", p, b)
+		}
+	}
+	if w := do(h, "GET", "/", ""); w.Header().Get("Content-Encoding") != "" {
+		t.Errorf("no Accept-Encoding, still compressed")
+	}
+	if w := do(h, "GET", "/", "", "Accept-Encoding", "gzip;q=0"); w.Header().Get("Content-Encoding") != "" {
+		t.Errorf("gzip;q=0, still compressed")
+	}
+	if w := do(h, "GET", "/", "", "Accept-Encoding", "gzip", "Range", "bytes=0-4"); w.Code != http.StatusPartialContent || w.Header().Get("Content-Encoding") != "" {
+		t.Errorf("Range = %d %v", w.Code, w.Header())
+	}
+	lm := do(h, "GET", "/", "").Header().Get("Last-Modified")
+	if w := do(h, "GET", "/", "", "Accept-Encoding", "gzip", "If-Modified-Since", lm); w.Code != http.StatusNotModified || w.Body.Len() != 0 {
+		t.Errorf("revalidation = %d, %d bytes", w.Code, w.Body.Len())
 	}
 }
 
